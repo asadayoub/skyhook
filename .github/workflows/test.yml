@@ -12,5 +12,5 @@ jobs:
       - run: node skyhook/cli/skyhook.js version
       - run: |
           mkdir -p /tmp/test-project && cd /tmp/test-project
-          node ../skyhook-repo/skyhook/cli/skyhook.js init --profile=web-app
-          echo '{"command":"listCurrentFeatures","args":{}}' | node ../skyhook-repo/skyhook/commands/index.js
+          node ${{ github.workspace }}/skyhook/cli/skyhook.js init --profile=web-app
+          echo '{"command":"listCurrentFeatures","args":{}}' | node ${{ github.workspace }}/skyhook/skill/commands/index.js
