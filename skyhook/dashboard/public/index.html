@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Skyhook Dashboard</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0d1117; --bg-elevated: #161b22; --border: #30363d;
+      --text: #e6edf3; --text-muted: #8b949e; --accent: #58a6ff;
+      --accent-hover: #79b8ff; --success: #3fb950; --warning: #d29922;
+      --danger: #f85149; --card-bg: #161b22;
+    }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); line-height: 1.5; min-height: 100vh; }
+    .header { background: var(--bg-elevated); border-bottom: 1px solid var(--border); padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 10; }
+    .header h1 { font-size: 1.25rem; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+    .header .status { display: flex; align-items: center; gap: 12px; font-size: 0.875rem; color: var(--text-muted); }
+    .status-indicator { width: 8px; height: 8px; border-radius: 50%; background: var(--danger); }
+    .status-indicator.connected { background: var(--success); }
+    .container { max-width: 1400px; margin: 0 auto; padding: 24px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
+    .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
+    .card h2 { font-size: 0.875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; }
+    .badge { font-size: 0.75rem; padding: 2px 8px; border-radius: 12px; font-weight: 600; }
+    .badge-done { background: rgba(63, 185, 80, 0.2); color: var(--success); }
+    .badge-in-progress { background: rgba(88, 166, 255, 0.2); color: var(--accent); }
+    .badge-ready { background: rgba(210, 153, 34, 0.2); color: var(--warning); }
+    .badge-blocked { background: rgba(248, 81, 73, 0.2); color: var(--danger); }
+    .badge-backlog { background: rgba(139, 148, 158, 0.2); color: var(--text-muted); }
+    .feature-list { display: flex; flex-direction: column; gap: 8px; }
+    .feature-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: var(--bg); border-radius: 6px; border: 1px solid var(--border); }
+    .feature-info { flex: 1; min-width: 0; }
+    .feature-title { font-weight: 500; font-size: 0.875rem; }
+    .feature-meta { font-size: 0.75rem; color: var(--text-muted); margin-top: 2px; }
+    .story-list { display: flex; flex-direction: column; gap: 6px; }
+    .story-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; background: var(--bg); border-radius: 6px; border: 1px solid var(--border); font-size: 0.8125rem; }
+    .story-item .story-title { flex: 1; min-width: 0; }
+    .story-item .story-title.truncated { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .requirements-list { display: flex; flex-direction: column; gap: 6px; }
+    .req-item { padding: 8px 10px; background: var(--bg); border-radius: 6px; border: 1px solid var(--border); font-size: 0.8125rem; }
+    .req-title { font-weight: 500; }
+    .req-meta { font-size: 0.75rem; color: var(--text-muted); margin-top: 2px; }
+    .decisions-list { display: flex; flex-direction: column; gap: 6px; }
+    .decision-item { padding: 8px 10px; background: var(--bg); border-radius: 6px; border: 1px solid var(--border); font-size: 0.8125rem; }
+    .decision-title { font-weight: 500; }
+    .decision-meta { font-size: 0.75rem; color: var(--text-muted); margin-top: 2px; }
+    .tech-list { display: flex; flex-direction: column; gap: 6px; }
+    .tech-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; background: var(--bg); border-radius: 6px; border: 1px solid var(--border); font-size: 0.8125rem; }
+    .tech-name { font-weight: 500; }
+    .tech-category { font-size: 0.75rem; color: var(--text-muted); background: var(--border); padding: 2px 8px; border-radius: 4px; }
+    .empty-state { text-align: center; padding: 32px 16px; color: var(--text-muted); font-size: 0.875rem; }
+    .loading { text-align: center; padding: 32px; color: var(--text-muted); }
+    .error-state { text-align: center; padding: 32px; color: var(--danger); }
+    .project-selector { padding: 8px 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 0.875rem; min-width: 280px; }
+    @media (max-width: 768px) {
+      .header { flex-direction: column; gap: 12px; align-items: flex-start; }
+      .container { padding: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <h1>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+      Skyhook Dashboard
+    </h1>
+    <div class="status">
+      <select id="projectSelect" class="project-selector" aria-label="Select project"></select>
+      <span id="connectionStatus" class="status-indicator" aria-hidden="true"></span>
+      <span id="statusText">Disconnected</span>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="grid">
+      <section class="card">
+        <h2>Features <span id="featureCount" class="badge badge-backlog">0</span></h2>
+        <div id="featuresList" class="feature-list"><div class="loading">Loading...</div></div>
+      </section>
+
+      <section class="card">
+        <h2>Next Task <span id="nextTaskCount" class="badge badge-backlog">—</span></h2>
+        <div id="nextTask" class="feature-list"><div class="loading">Loading...</div></div>
+      </section>
+
+      <section class="card">
+        <h2>Blockers <span id="blockerCount" class="badge badge-danger">0</span></h2>
+        <div id="blockersList" class="story-list"><div class="loading">Loading...</div></div>
+      </section>
+
+      <section class="card">
+        <h2>Requirements <span id="reqCount" class="badge badge-backlog">0</span></h2>
+        <div id="requirementsList" class="requirements-list"><div class="loading">Loading...</div></div>
+      </section>
+
+      <section class="card">
+        <h2>Decisions <span id="decisionCount" class="badge badge-backlog">0</span></h2>
+        <div id="decisionsList" class="decisions-list"><div class="loading">Loading...</div></div>
+      </section>
+
+      <section class="card">
+        <h2>Tech Stack <span id="techCount" class="badge badge-backlog">0</span></h2>
+        <div id="techList" class="tech-list"><div class="loading">Loading...</div></div>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    const API_BASE = '/api';
+    let currentProject = null;
+    let projects = [];
+
+    async function fetchAPI(path) {
+      const res = await fetch(API_BASE + path);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.json();
+    }
+
+    function setStatus(connected, text = connected ? 'Connected' : 'Disconnected') {
+      const indicator = document.getElementById('connectionStatus');
+      const statusText = document.getElementById('statusText');
+      indicator.classList.toggle('connected', connected);
+      statusText.textContent = text;
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    function formatDate(iso) {
+      if (!iso) return '';
+      const d = new Date(iso);
+      return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    }
+
+    function getStatusBadge(status) {
+      const badges = {
+        done: 'badge-done',
+        'in-progress': 'badge-in-progress',
+        ready: 'badge-ready',
+        blocked: 'badge-blocked',
+        backlog: 'badge-backlog',
+        cancelled: 'badge-backlog'
+      };
+      return `<span class="badge ${badges[status] || 'badge-backlog'}">${escapeHtml(status)}</span>`;
+    }
+
+    function renderFeatures(features) {
+      const container = document.getElementById('featuresList');
+      const countEl = document.getElementById('featureCount');
+      countEl.textContent = features.length;
+      countEl.className = `badge badge-${features.length ? 'in-progress' : 'backlog'}`;
+
+      if (!features.length) {
+        container.innerHTML = '<div class="empty-state">No features yet. Run <code>skyhook discover</code> or add features via CLI.</div>';
+        return;
+      }
+
+      container.innerHTML = features.map(f => `
+        <div class="feature-item">
+          <div class="feature-info">
+            <div class="feature-title">${escapeHtml(f.title)} ${getStatusBadge(f.status)}</div>
+            <div class="feature-meta">${f.storyCount} stories • ${f.completedStories} done • ${f.blockers.length} blockers</div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderNextTask(task) {
+      const container = document.getElementById('nextTask');
+      if (!task || task.message) {
+        container.innerHTML = '<div class="empty-state">No ready tasks. Check backlog or blockers.</div>';
+        return;
+      }
+      container.innerHTML = `
+        <div class="feature-item">
+          <div class="feature-info">
+            <div class="feature-title">${escapeHtml(task.title)}</div>
+            <div class="feature-meta">Epic: ${escapeHtml(task.epic || '—')} • Priority: ${task.priority || '—'}</div>
+            ${task.acceptanceCriteria?.length ? `<div class="feature-meta" style="margin-top:8px;">${task.acceptanceCriteria.map(c => `✓ ${escapeHtml(c)}`).join('<br>')}</div>` : ''}
+          </div>
+        </div>
+      `;
+    }
+
+    function renderBlockers(blockers) {
+      const container = document.getElementById('blockersList');
+      const countEl = document.getElementById('blockerCount');
+      countEl.textContent = blockers.count || 0;
+      countEl.className = `badge ${blockers.count ? 'badge-blocked' : 'badge-done'}`;
+
+      if (!blockers.blockers?.length) {
+        container.innerHTML = '<div class="empty-state">No blockers 🎉</div>';
+        return;
+      }
+
+      container.innerHTML = blockers.blockers.map(b => `
+        <div class="story-item">
+          <span class="story-title truncated">${escapeHtml(b.story?.title || 'Unknown')}</span>
+          <span class="badge badge-blocked">${escapeHtml(b.reason || 'No reason')}</span>
+        </div>
+      `).join('');
+    }
+
+    function renderRequirements(reqs) {
+      const container = document.getElementById('requirementsList');
+      const countEl = document.getElementById('reqCount');
+      const all = [...(reqs.functional || []), ...(reqs.nonFunctional || [])];
+      countEl.textContent = all.length;
+      countEl.className = `badge badge-${all.length ? 'in-progress' : 'backlog'}`;
+
+      if (!all.length) {
+        container.innerHTML = '<div class="empty-state">No requirements. Run <code>skyhook discover</code>.</div>';
+        return;
+      }
+
+      container.innerHTML = all.map(r => `
+        <div class="req-item">
+          <div class="req-title">${escapeHtml(r.title)} ${getStatusBadge(r.status)}</div>
+          <div class="req-meta">${escapeHtml(r.category || '—')} • ${escapeHtml(r.priority || '—')} priority</div>
+        </div>
+      `).join('');
+    }
+
+    function renderDecisions(decisions) {
+      const container = document.getElementById('decisionsList');
+      const countEl = document.getElementById('decisionCount');
+      countEl.textContent = decisions.length;
+      countEl.className = `badge badge-${decisions.length ? 'in-progress' : 'backlog'}`;
+
+      if (!decisions.length) {
+        container.innerHTML = '<div class="empty-state">No decisions recorded.</div>';
+        return;
+      }
+
+      container.innerHTML = decisions.map(d => `
+        <div class="decision-item">
+          <div class="decision-title">${escapeHtml(d.title)} ${getStatusBadge(d.status)}</div>
+          <div class="decision-meta">${escapeHtml(d.category || '—')} • ${formatDate(d.createdAt)}</div>
+        </div>
+      `).join('');
+    }
+
+    function renderTechStack(tech) {
+      const container = document.getElementById('techList');
+      const countEl = document.getElementById('techCount');
+      countEl.textContent = tech.length;
+      countEl.className = `badge badge-${tech.length ? 'in-progress' : 'backlog'}`;
+
+      if (!tech.length) {
+        container.innerHTML = '<div class="empty-state">No tech stack configured.</div>';
+        return;
+      }
+
+      container.innerHTML = tech.map(t => `
+        <div class="tech-item">
+          <span class="tech-name">${escapeHtml(t.name)}</span>
+          <span class="tech-category">${escapeHtml(t.category || 'general')}</span>
+        </div>
+      `).join('');
+    }
+
+    function populateProjectSelect(projects) {
+      const select = document.getElementById('projectSelect');
+      select.innerHTML = projects.map(p => `<option value="${escapeHtml(p.path)}">${escapeHtml(p.name || p.path)}</option>`).join('');
+      if (projects.length) {
+        select.value = projects[0].path;
+        currentProject = projects[0].path;
+      }
+    }
+
+    async function loadProjectList() {
+      try {
+        projects = await fetchAPI('/projects');
+        populateProjectSelect(projects);
+        loadData();
+      } catch (e) {
+        console.error('Failed to load projects:', e);
+        setStatus(false, 'Failed to load projects');
+      }
+    }
+
+    async function loadData() {
+      if (!currentProject) return;
+      setStatus(true, `Loading ${currentProject}...`);
+      try {
+        const data = await fetchAPI(`/data?project=${encodeURIComponent(currentProject)}`);
+        renderFeatures(data.backlog?.epics || []);
+        renderNextTask(data.nextTask);
+        renderBlockers(data.blockers || { blockers: [] });
+        renderRequirements(data.requirements || {});
+        renderDecisions(data.decisions || []);
+        renderTechStack(data.techStack || []);
+        setStatus(true, `Connected: ${currentProject}`);
+      } catch (e) {
+        console.error('Failed to load data:', e);
+        setStatus(false, 'Failed to load project data');
+      }
+    }
+
+    document.getElementById('projectSelect').addEventListener('change', (e) => {
+      currentProject = e.target.value;
+      loadData();
+    });
+
+    // Initial load
+    loadProjectList();
+
+    // Auto-refresh every 30 seconds
+    setInterval(loadData, 30000);
+  </script>
+</body>
+</html>

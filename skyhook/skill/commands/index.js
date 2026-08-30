@@ -572,6 +572,171 @@ async function cmdDashboard(ctx, args) {
 let dashboardServer = null;
 const DASHBOARD_PORT = 4343;
 
+// Cache for discovered projects
+let projectsCache = null;
+let projectsCacheTime = 0;
+const PROJECTS_CACHE_TTL = 5000; // 5 seconds
+
+/**
+ * Discover all Skyhook projects by searching for .skyhook directories
+ */
+async function discoverProjects() {
+  const now = Date.now();
+  if (projectsCache && (now - projectsCacheTime) < PROJECTS_CACHE_TTL) {
+    return projectsCache;
+  }
+
+  const projects = [];
+  // Only search specific known locations, not entire filesystem
+  const searchRoots = [
+    process.cwd(),
+    process.env.HOME ? path.join(process.env.HOME, 'Documents') : null,
+    process.env.HOME ? path.join(process.env.HOME, 'Projects') : null,
+    process.env.HOME ? path.join(process.env.HOME, 'Code') : null,
+    process.env.HOME ? path.join(process.env.HOME, 'Workspace') : null,
+    process.env.HOME ? path.join(process.env.HOME, 'Dev') : null,
+    process.env.HOME ? path.join(process.env.HOME, 'Repos') : null,
+    '/workspace',
+    '/projects',
+  ].filter(Boolean);
+
+  // Also check current directory and parent directories
+  let dir = process.cwd();
+  while (dir !== path.parse(dir).root) {
+    searchRoots.unshift(dir);
+    dir = path.dirname(dir);
+  }
+
+  const seen = new Set();
+
+  async function scanDir(root, depth = 0) {
+    if (depth > 3) return; // Limit recursion depth
+    try {
+      const entries = fs.readdirSync(root, { withFileTypes: true });
+      for (const entry of entries) {
+        const fullPath = path.join(root, entry.name);
+        
+        // Skip hidden dirs, node_modules, etc.
+        if (entry.name.startsWith('.') || entry.name === 'node_modules' || entry.name === 'dist' || entry.name === 'build') {
+          continue;
+        }
+
+        if (entry.isDirectory()) {
+          // Check if this dir has .skyhook
+          const skyhookPath = path.join(fullPath, '.skyhook');
+          if (fs.existsSync(skyhookPath) && fs.existsSync(path.join(skyhookPath, 'project.yaml'))) {
+            const projectYaml = readYaml(path.join(skyhookPath, 'project.yaml')) || {};
+            if (!seen.has(fullPath)) {
+              seen.add(fullPath);
+              projects.push({
+                path: fullPath,
+                name: projectYaml.name || path.basename(fullPath),
+                type: projectYaml.type || 'unknown',
+                profile: projectYaml.profile || 'unknown',
+                skyhookDir: skyhookPath
+              });
+            }
+          } else if (entry.name !== '.git') {
+            // Recurse but limit depth
+            try { await scanDir(fullPath, depth + 1); } catch {}
+          }
+        }
+      }
+    } catch (e) {
+      // Ignore permission errors
+    }
+  }
+
+  for (const root of searchRoots) {
+    if (fs.existsSync(root)) {
+      await scanDir(root);
+    }
+  }
+
+  projectsCache = projects;
+  projectsCacheTime = now;
+  return projects;
+}
+
+/**
+ * Get project data for a specific project path
+ */
+function getProjectData(projectPath) {
+  const skyhookDir = path.join(projectPath, '.skyhook');
+  if (!fs.existsSync(skyhookDir)) {
+    return { error: 'No Skyhook project found at path' };
+  }
+
+  const projectYaml = readYaml(path.join(skyhookDir, 'project.yaml')) || {};
+  const backlog = readYaml(path.join(skyhookDir, 'backlog', 'epics.yaml')) || { epics: [], stories: [] };
+  const functionalReqs = readYaml(path.join(skyhookDir, 'requirements', 'functional.yaml')) || { requirements: [] };
+  const nonFunctionalReqs = readYaml(path.join(skyhookDir, 'requirements', 'non-functional.yaml')) || { requirements: [] };
+  const decisions = readYaml(path.join(skyhookDir, 'decisions', 'index.yaml')) || { decisions: [] };
+  const techStack = readYaml(path.join(skyhookDir, 'tech-stack.yaml')) || { technologies: [] };
+
+  // Calculate next task
+  let nextTask = { message: 'No ready tasks available' };
+  if (backlog.stories && Array.isArray(backlog.stories)) {
+    const readyStories = backlog.stories.filter(s => {
+      if (s.status !== 'ready' && s.status !== 'backlog') return false;
+      if (s.dependencies) {
+        return s.dependencies.every(depId => {
+          const dep = backlog.stories.find(s => s.id === depId) || backlog.tasks?.find(t => t.id === depId);
+          return dep && dep.status === 'done';
+        });
+      }
+      return true;
+    });
+    readyStories.sort((a, b) => (b.priority || 0) - (a.priority || 0));
+    if (readyStories.length > 0) {
+      const story = readyStories[0];
+      const epic = backlog.epics.find(e => e.id === story.epicId);
+      const requirements = [
+        ...functionalReqs.requirements,
+        ...nonFunctionalReqs.requirements
+      ].filter(r => story.relatedRequirements?.includes(r.id));
+      nextTask = {
+        id: story.id,
+        title: story.title,
+        description: story.description,
+        userStory: story.userStory,
+        acceptanceCriteria: story.acceptanceCriteria,
+        priority: story.priority,
+        definitionOfDone: story.definitionOfDone,
+        epic: epic?.title,
+        requirements: requirements.map(r => ({ id: r.id, title: r.title, category: r.category }))
+      };
+    }
+  }
+
+  // Calculate blockers
+  let blockers = { blockers: [], count: 0 };
+  if (backlog.stories && Array.isArray(backlog.stories)) {
+    const blocked = backlog.stories.filter(s => s.status === 'blocked');
+    blockers = {
+      blockers: blocked.map(story => ({
+        story: { id: story.id, title: story.title, epicId: story.epicId },
+        reason: story.blockerReason || 'No reason recorded',
+        dependencies: story.dependencies || []
+      })),
+      count: blocked.length
+    };
+  }
+
+  return {
+    project: projectYaml,
+    backlog,
+    requirements: {
+      functional: functionalReqs.requirements,
+      nonFunctional: nonFunctionalReqs.requirements
+    },
+    decisions: decisions.decisions,
+    techStack: techStack.technologies,
+    nextTask,
+    blockers
+  };
+}
+
 function startDashboard() {
   if (dashboardServer) {
     return { message: `Dashboard already running at http://localhost:${DASHBOARD_PORT}`, port: DASHBOARD_PORT };
@@ -601,35 +766,44 @@ function startDashboard() {
       }
       
       // API endpoints
+      if (url.pathname === '/api/projects') {
+        try {
+          const projects = await discoverProjects();
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ projects }));
+        } catch (e) {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: e.message }));
+        }
+        return;
+      }
+      
       if (url.pathname === '/api/data') {
-        const projectDir = process.cwd();
-        const skyhookDir = findSkyhookDir(projectDir);
-        
-        if (!skyhookDir) {
-          res.writeHead(404, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'No Skyhook project found' }));
+        const projectPath = url.searchParams.get('project');
+        if (!projectPath) {
+          // Default to current working directory
+          const projectDir = process.cwd();
+          const skyhookDir = findSkyhookDir(projectDir);
+          if (!skyhookDir) {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'No Skyhook project found. Use ?project=<path> parameter.' }));
+            return;
+          }
+          const data = getProjectData(path.dirname(skyhookDir));
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(data));
           return;
         }
         
-        // Collect all data
-        const projectYaml = readYaml(path.join(skyhookDir, 'project.yaml')) || {};
-        const backlog = readYaml(path.join(skyhookDir, 'backlog', 'epics.yaml')) || { epics: [], stories: [] };
-        const functionalReqs = readYaml(path.join(skyhookDir, 'requirements', 'functional.yaml')) || { requirements: [] };
-        const nonFunctionalReqs = readYaml(path.join(skyhookDir, 'requirements', 'non-functional.yaml')) || { requirements: [] };
-        const decisions = readYaml(path.join(skyhookDir, 'decisions', 'index.yaml')) || { decisions: [] };
-        const techStack = readYaml(path.join(skyhookDir, 'tech-stack.yaml')) || { technologies: [] };
+        const data = getProjectData(projectPath);
+        if (data.error) {
+          res.writeHead(404, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(data));
+          return;
+        }
         
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({
-          project: projectYaml,
-          backlog,
-          requirements: {
-            functional: functionalReqs.requirements,
-            nonFunctional: nonFunctionalReqs.requirements
-          },
-          decisions: decisions.decisions,
-          techStack: techStack.technologies
-        }));
+        res.end(JSON.stringify(data));
         return;
       }
       
@@ -672,6 +846,8 @@ function startDashboard() {
 }
 
 function stopDashboard() {
+  projectsCache = null;
+  projectsCacheTime = 0;
   if (dashboardServer) {
     dashboardServer.close();
     dashboardServer = null;
