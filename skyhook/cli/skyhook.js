@@ -794,6 +794,7 @@ async function main() {
   
   const commands = {
     init: cmdInit,
+    setup: cmdSetup,
     discover: cmdDiscover,
     question: cmdQuestion,
     plan: cmdPlan,
@@ -823,3 +824,270 @@ async function main() {
 }
 
 main();
+
+// ==================== SETUP COMMANDS ====================
+
+async function cmdSetup(args) {
+  const target = args.agent || args._[0];
+  if (!target) {
+    log('error', 'Usage: skyhook setup <codex|claude|gemini|copilot|all>');
+    return;
+  }
+
+  const agents = target === 'all' ? ['codex', 'claude', 'gemini', 'copilot'] : [target];
+  
+  for (const agent of agents) {
+    await setupAgent(agent);
+  }
+}
+
+async function setupAgent(agent) {
+  const cwd = process.cwd();
+  
+  switch (agent) {
+    case 'codex': {
+      const codexDir = path.join(cwd, '.codex');
+      if (!fs.existsSync(codexDir)) fs.mkdirSync(codexDir, { recursive: true });
+      
+      const agentsMd = `# Skyhook Agent Instructions
+
+## Available Slash Commands
+
+All Skyhook commands are invoked via stdio JSON. Use the \`skyhook-cmd\` binary.
+
+### Feature Management
+- \`/skyhook-listCurrentFeatures\` - List all features with status
+- \`/skyhook-getFeature --id=EPIC-001\` - Get detailed feature info
+- \`/skyhook-addFeature --title="New Feature" --description="..." --stories='[{"title":"Story 1","userStory":"As a user..."}]'\`
+
+### Task Management
+- \`/skyhook-getNextTask\` - Get highest priority ready task with context
+- \`/skyhook-getBlockers\` - Get all blocked items
+- \`/skyhook-updateStatus --storyId=STORY-001 --status=in-progress\`
+
+### Decisions & Architecture
+- \`/skyhook-recordDecision --title="Use PostgreSQL" --decision="PostgreSQL with Prisma" --context="Need ACID" --category=technology\`
+- \`/skyhook-sync\` - Check code vs documentation drift
+
+### Traceability & Impact
+- \`/skyhook-trace --id=REQ-001\` - Trace requirement to code/stories/decisions
+- \`/skyhook-impact --id=REQ-001\` - Analyze change impact
+- \`/skyhook-untraced\` - Find requirements with no code references
+
+### Context
+- \`/skyhook-getContext --topic=authentication\` - Get relevant context for topic
+
+### Dashboard
+- \`/skyhook-dashboard start\` - Start web UI at http://localhost:4343
+- \`/skyhook-dashboard stop\` - Stop dashboard
+- \`/skyhook-dashboard status\` - Check status
+
+## JSON Protocol
+
+All commands accept JSON via stdin:
+
+\`\`\`json
+{"command": "listCurrentFeatures", "args": {"status": "in-progress"}}
+\`\`\`
+
+Returns structured JSON for programmatic use.
+`;
+      fs.writeFileSync(path.join(codexDir, 'agents.md'), agentsMd);
+      log('success', `Created .codex/agents.md`);
+      break;
+    }
+    
+    case 'claude': {
+      const claudeDir = path.join(cwd, '.claude', 'commands');
+      if (!fs.existsSync(claudeDir)) fs.mkdirSync(claudeDir, { recursive: true });
+      
+      const commands = {
+        'skyhook-next.md': `---\ndescription: Get next priority task from Skyhook\n---\nGet the highest priority ready task with full context from Skyhook.`,
+        'skyhook-features.md': `---\ndescription: List all Skyhook features with status\n---\nList all features with their stories and blockers.`,
+        'skyhook-blockers.md': `---\ndescription: Show all blocked items\n---\nShow all blocked stories and their reasons.`,
+        'skyhook-decide.md': `---\ndescription: Record architectural decision (auto-generates ADR)\nargument-hint: <title> | <decision> | <context> | [category]\n---\nRecord a decision with auto-generated ADR.\nUsage: /skyhook-decide "Use Redis" | "Redis for caching" | "Need performance" | technology`,
+        'skyhook-trace.md': `---\ndescription: Trace requirement to code/stories/decisions\nargument-hint: <requirement-id>\n---\nTrace a requirement through stories, decisions, and code references.`,
+        'skyhook-impact.md': `---\ndescription: Analyze impact of changing a requirement\nargument-hint: <requirement-id>\n---\nShow impact analysis with risk level for a requirement change.`,
+        'skyhook-sync.md': `---\ndescription: Check code vs documentation drift\n---\nSync check: tech stack vs package.json, requirements→stories, decisions tracked.`,
+        'skyhook-dashboard.md': `---\ndescription: Start/stop Skyhook web dashboard\nargument-hint: start|stop|status\n---\nControl the on-demand web dashboard at http://localhost:4343`
+      };
+      
+      for (const [filename, content] of Object.entries(commands)) {
+        fs.writeFileSync(path.join(claudeDir, filename), content);
+      }
+      log('success', `Created .claude/commands/skyhook-*.md (${Object.keys(commands).length} commands)`);
+      break;
+    }
+    
+    case 'gemini': {
+      const geminiDir = path.join(cwd, '.gemini', 'functions');
+      if (!fs.existsSync(geminiDir)) fs.mkdirSync(geminiDir, { recursive: true });
+      
+      const functionsJs = `// Skyhook functions for Gemini CLI
+const { spawn } = require('child_process');
+
+function runSkyhook(command, args = {}) {
+  return new Promise((resolve, reject) => {
+    const proc = spawn('skyhook-cmd', [], {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      cwd: process.cwd()
+    });
+    
+    const input = JSON.stringify({ command, args });
+    proc.stdin.write(input);
+    proc.stdin.end();
+    
+    let stdout = '', stderr = '';
+    proc.stdout.on('data', d => stdout += d);
+    proc.stderr.on('data', d => stderr += d);
+    
+    proc.on('close', code => {
+      if (code === 0) {
+        try { resolve(JSON.parse(stdout)); }
+        catch { resolve(stdout); }
+      } else {
+        reject(new Error(stderr || \`Exit code \${code}\`));
+      }
+    });
+  });
+}
+
+const functions = {
+  skyhook_list_features: {
+    description: 'List all features with status, stories, and blockers',
+    parameters: { type: 'object', properties: { status: { type: 'string', enum: ['all', 'backlog', 'in-progress', 'done', 'blocked'] } } },
+    execute: async ({ status = 'all' }) => runSkyhook('listCurrentFeatures', { status })
+  },
+  skyhook_get_next_task: {
+    description: 'Get highest priority ready task with full context',
+    parameters: { type: 'object', properties: { assignee: { type: 'string' } } },
+    execute: async ({ assignee }) => runSkyhook('getNextTask', { assignee })
+  },
+  skyhook_get_blockers: {
+    description: 'Get all blocked items with reasons',
+    parameters: { type: 'object', properties: {} },
+    execute: async () => runSkyhook('getBlockers', {})
+  },
+  skyhook_trace: {
+    description: 'Trace requirement to stories, decisions, and code references',
+    parameters: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] },
+    execute: async ({ id }) => runSkyhook('trace', { id })
+  },
+  skyhook_impact: {
+    description: 'Analyze impact of changing a requirement',
+    parameters: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] },
+    execute: async ({ id }) => runSkyhook('impact', { id })
+  },
+  skyhook_untraced: {
+    description: 'Find requirements with no code references',
+    parameters: { type: 'object', properties: {} },
+    execute: async () => runSkyhook('untraced', {})
+  },
+  skyhook_record_decision: {
+    description: 'Record architectural decision (auto-generates ADR)',
+    parameters: { type: 'object', properties: { title: { type: 'string' }, decision: { type: 'string' }, context: { type: 'string' }, category: { type: 'string', enum: ['architecture', 'technology', 'security', 'process', 'ux', 'software'], default: 'architecture' } }, required: ['title', 'decision', 'context'] },
+    execute: async (args) => runSkyhook('recordDecision', args)
+  },
+  skyhook_sync: {
+    description: 'Check code vs documentation drift',
+    parameters: { type: 'object', properties: {} },
+    execute: async () => runSkyhook('sync', {})
+  },
+  skyhook_get_context: {
+    description: 'Get relevant context for a topic',
+    parameters: { type: 'object', properties: { topic: { type: 'string' } } },
+    execute: async ({ topic = 'general' }) => runSkyhook('getContext', { topic })
+  },
+  skyhook_dashboard: {
+    description: 'Control the on-demand web dashboard',
+    parameters: { type: 'object', properties: { action: { type: 'string', enum: ['start', 'stop', 'status'] } }, required: ['action'] },
+    execute: async ({ action }) => runSkyhook('dashboard', { action })
+  }
+};
+
+module.exports = { functions, runSkyhook };
+`;
+      fs.writeFileSync(path.join(geminiDir, 'skyhook.js'), functionsJs);
+      
+      // Also create settings.json
+      const settingsPath = path.join(cwd, '.gemini', 'settings.json');
+      let settings = { functions: {}, permissions: { allow: [] } };
+      if (fs.existsSync(settingsPath)) {
+        try { settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8')); } catch {}
+      }
+      settings.functions.skyhook = '.gemini/functions/skyhook.js';
+      settings.permissions.allow = [...new Set([...(settings.permissions.allow || []), 'skyhook_*'])];
+      fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+      
+      log('success', `Created .gemini/functions/skyhook.js and updated .gemini/settings.json`);
+      break;
+    }
+    
+    case 'copilot': {
+      const copilotPath = path.join(cwd, '.github', 'copilot-instructions.md');
+      const copilotDir = path.dirname(copilotPath);
+      if (!fs.existsSync(copilotDir)) fs.mkdirSync(copilotDir, { recursive: true });
+      
+      const copilotMd = `# Skyhook Project Intelligence
+
+This project uses Skyhook for persistent, structured project intelligence.
+
+## Skyhook Commands
+
+All Skyhook commands are available via \`skyhook-cmd\` binary (stdio JSON protocol).
+
+### Key Commands for Copilot
+
+- **List features**: \`echo '{"command":"listCurrentFeatures","args":{}}' | skyhook-cmd\`
+- **Next task**: \`echo '{"command":"getNextTask","args":{}}' | skyhook-cmd\`
+- **Blockers**: \`echo '{"command":"getBlockers","args":{}}' | skyhook-cmd\`
+- **Trace requirement**: \`echo '{"command":"trace","args":{"id":"REQ-001"}}' | skyhook-cmd\`
+- **Impact analysis**: \`echo '{"command":"impact","args":{"id":"REQ-001"}}' | skyhook-cmd\`
+- **Record decision**: \`echo '{"command":"recordDecision","args":{"title":"...","decision":"...","context":"..."}}' | skyhook-cmd\`
+- **Sync check**: \`echo '{"command":"sync","args":{}}' | skyhook-cmd\`
+- **Get context**: \`echo '{"command":"getContext","args":{"topic":"authentication"}}' | skyhook-cmd\`
+- **Dashboard**: \`skyhook-cmd dashboard start\` (opens http://localhost:4343)
+
+## Traceability
+
+Use \`@skyhook-implements REQ-XXX\` comments in code:
+
+\`\`\`typescript
+// @skyhook-implements REQ-003
+export function RevenueChart() { ... }
+\`\`\`
+
+Then use:
+- \`/skyhook-trace --id=REQ-003\` - Find code implementing a requirement
+- \`/skyhook-impact --id=REQ-003\` - Analyze change impact
+- \`/skyhook-untraced\` - Find requirements with no code refs
+`;
+      fs.writeFileSync(copilotPath, copilotMd);
+      
+      // VS Code tasks
+      const vscodeDir = path.join(cwd, '.vscode');
+      if (!fs.existsSync(vscodeDir)) fs.mkdirSync(vscodeDir, { recursive: true });
+      
+      const tasksJson = {
+        version: "2.0.0",
+        tasks: [
+          { label: "Skyhook: Next Task", type: "shell", command: "echo '{\"command\":\"getNextTask\",\"args\":{}}' | skyhook-cmd", presentation: { reveal: "always", panel: "new" } },
+          { label: "Skyhook: List Features", type: "shell", command: "echo '{\"command\":\"listCurrentFeatures\",\"args\":{}}' | skyhook-cmd", presentation: { reveal: "always", panel: "new" } },
+          { label: "Skyhook: Check Drift", type: "shell", command: "echo '{\"command\":\"sync\",\"args\":{}}' | skyhook-cmd", presentation: { reveal: "always", panel: "new" } },
+          { label: "Skyhook: Start Dashboard", type: "shell", command: "skyhook-cmd dashboard start", presentation: { reveal: "always", panel: "new" } }
+        ]
+      };
+      fs.writeFileSync(path.join(vscodeDir, 'tasks.json'), JSON.stringify(tasksJson, null, 2));
+      
+      log('success', `Created .github/copilot-instructions.md and .vscode/tasks.json`);
+      break;
+    }
+  }
+}
+
+// Add setup to command list
+const originalCommands = { init: cmdInit,
+    setup: cmdSetup, discover: cmdDiscover, question: cmdQuestion, plan: cmdPlan, standards: cmdStandards, decide: cmdDecide, sync: cmdSync, version: cmdVersion, install: cmdInstall, profile: cmdProfile, help: cmdHelp };
+originalCommands.setup = cmdSetup;
+
+// Override main to include setup
