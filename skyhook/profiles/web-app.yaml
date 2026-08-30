@@ -1,0 +1,328 @@
+# Skyhook Profile: Web Application
+# Version: 1.0.0
+
+schemaVersion: "1.0.0"
+id: "web-app"
+name: "Web Application"
+description: "Full-stack web application with frontend and backend"
+category: "application"
+
+detection:
+  keywords:
+    - "react"
+    - "vue"
+    - "svelte"
+    - "next"
+    - "nuxt"
+    - "remix"
+    - "astro"
+    - "vite"
+  packagePatterns:
+    - "react"
+    - "vue"
+    - "svelte"
+    - "next"
+    - "@remix-run"
+    - "astro"
+  filePatterns:
+    - "src/app/**"
+    - "src/pages/**"
+    - "pages/**"
+    - "app/**"
+  scoreThreshold: 40
+
+techStack:
+  language:
+    default: "TypeScript"
+    alternatives: ["JavaScript"]
+  
+  frontend:
+    framework:
+      default: "React"
+      alternatives: ["Vue", "Svelte", "Solid"]
+    buildTool:
+      default: "Vite"
+      alternatives: ["Next.js", "Remix", "Astro"]
+    styling:
+      default: "Tailwind CSS"
+      alternatives: ["CSS Modules", "Styled Components", "Emotion"]
+    stateManagement:
+      default: "React Context + Hooks"
+      alternatives: ["Zustand", "Redux Toolkit", "Jotai", "TanStack Query"]
+    componentLibrary:
+      default: "Custom (with Radix UI primitives)"
+      alternatives: ["shadcn/ui", "MUI", "Chakra UI", "Headless UI"]
+  
+  backend:
+    framework:
+      default: "Next.js API Routes / Server Actions"
+      alternatives: ["Hono", "Fastify", "Express", "tRPC"]
+    database:
+      default: "PostgreSQL"
+      alternatives: ["MySQL", "SQLite", "MongoDB"]
+    orm:
+      default: "Prisma"
+      alternatives: ["Drizzle", "Kysely", "TypeORM"]
+    auth:
+      default: "NextAuth.js (Auth.js)"
+      alternatives: ["Clerk", "Supabase Auth", "Lucia", "Custom JWT"]
+  
+  deployment:
+    platform:
+      default: "Vercel"
+      alternatives: ["Netlify", "AWS Amplify", "Docker + VPS", "Railway", "Fly.io"]
+    cdn: "Vercel Edge Network"
+    preview: "Automatic per-PR"
+  
+  testing:
+    unit: "Vitest + React Testing Library"
+    integration: "Vitest + Testcontainers"
+    e2e: "Playwright"
+    contract: "Optional (Pact)"
+
+# Smart Variants for common web-app patterns
+variants:
+  - id: "nextjs-tailwind-prisma"
+    name: "Next.js + Tailwind + Prisma (Standard)"
+    description: "Modern full-stack with Next.js App Router, Tailwind CSS, Prisma ORM"
+    appliesWhen:
+      - framework: "next"
+      - styling: "tailwind"
+      - orm: "prisma"
+    autoAnswers:
+      auth-method: "Email/password with NextAuth.js (credentials provider)"
+      database-type: "PostgreSQL (via Prisma)"
+      deployment-target: "Vercel"
+      api-style: "tRPC (end-to-end type safety)"
+      component-library: "Custom components with Radix UI primitives"
+      dark-mode: "Yes (system + manual toggle)"
+    extraRequirements:
+      - title: "Server-Side Rendering"
+        category: "performance"
+        userStory: "As a user, I want fast initial page loads, so that the app feels responsive"
+        priority: "high"
+      - title: "SEO Optimization"
+        category: "seo"
+        userStory: "As a marketer, I want proper meta tags and sitemap, so that pages rank well"
+        priority: "medium"
+    extraDecisions:
+      - title: "App Router over Pages Router"
+        decision: "Use Next.js 13+ App Router with React Server Components"
+        category: "architecture"
+
+  - id: "react-vite-tailwind"
+    name: "React + Vite + Tailwind (SPA)"
+    description: "Client-side SPA with Vite, Tailwind, no SSR"
+    appliesWhen:
+      - framework: "react"
+      - buildTool: "vite"
+      - styling: "tailwind"
+    autoAnswers:
+      auth-method: "Email/password with custom JWT"
+      database-type: "PostgreSQL (via Prisma)"
+      deployment-target: "Vercel / Netlify / Cloudflare Pages"
+      api-style: "REST + OpenAPI"
+      component-library: "shadcn/ui"
+      dark-mode: "Yes (system + manual toggle)"
+    extraRequirements:
+      - title: "Client-Side Routing"
+        category: "frontend"
+        userStory: "As a user, I want fast navigation without page reloads, so that the app feels native"
+        priority: "high"
+
+  - id: "remix-tailwind-prisma"
+    name: "Remix + Tailwind + Prisma"
+    description: "Full-stack with Remix, nested routes, progressive enhancement"
+    appliesWhen:
+      - framework: "remix"
+      - styling: "tailwind"
+    autoAnswers:
+      auth-method: "Remix Auth with session cookies"
+      database-type: "PostgreSQL (via Prisma)"
+      deployment-target: "Vercel / Fly.io / Railway"
+      api-style: "Remix loaders/actions"
+      component-library: "Custom with Radix UI"
+      dark-mode: "Yes"
+
+questions:
+  init:
+    - id: "project-name"
+      category: "identity"
+      priority: "critical"
+      question: "What's the project name?"
+      context: "Used for repo, package, and deployment names"
+    
+    - id: "project-description"
+      category: "identity"
+      priority: "critical"
+      question: "One-sentence description of what this app does"
+      context: "Helps with README, SEO, and team alignment"
+  
+  vision:
+    - id: "target-users"
+      category: "vision"
+      priority: "critical"
+      question: "Who are the primary users?"
+      context: "Drives UX decisions, feature priority, and marketing"
+    
+    - id: "core-value"
+      category: "vision"
+      priority: "critical"
+      question: "What's the core value proposition?"
+      context: "North star for product decisions"
+  
+  requirements:
+    - id: "auth-strategy"
+      category: "authentication"
+      priority: "critical"
+      question: "How should users authenticate?"
+      context: "Determines auth architecture, libraries, and user flows"
+      default: "Email/password with NextAuth.js (credentials provider)"
+      options:
+        - "Email/password (credentials)"
+        - "Social only (Google, GitHub, etc.)"
+        - "Email + social"
+        - "Magic links / passwordless"
+        - "Third-party (Clerk, Auth0, Supabase)"
+        - "Enterprise SSO (SAML, OIDC)"
+      tags: ["mvp", "security"]
+    
+    - id: "database-choice"
+      category: "database"
+      priority: "critical"
+      question: "What database will you use?"
+      context: "Affects schema design, migrations, hosting, and costs"
+      default: "PostgreSQL (via Prisma)"
+      options:
+        - "PostgreSQL"
+        - "MySQL"
+        - "SQLite (local/dev only)"
+        - "MongoDB"
+        - "PlanetScale / Neon / Supabase (managed Postgres)"
+      tags: ["mvp", "architecture"]
+    
+    - id: "deployment-target"
+      category: "deployment"
+      priority: "high"
+      question: "Where will this be deployed?"
+      context: "Determines build config, environment variables, CI/CD"
+      default: "Vercel"
+      options:
+        - "Vercel"
+        - "Netlify"
+        - "AWS (Amplify, ECS, Lambda)"
+        - "Google Cloud Run"
+        - "Docker (any VPS/K8s)"
+        - "Railway / Render / Fly.io"
+      tags: ["mvp", "operations"]
+    
+    - id: "api-style"
+      category: "api"
+      priority: "high"
+      question: "What API style for backend communication?"
+      context: "Affects frontend data fetching, type safety, and tooling"
+      default: "tRPC (end-to-end type safety)"
+      options:
+        - "tRPC (React/Next.js)"
+        - "REST + OpenAPI + generated client"
+        - "GraphQL (Apollo/Urql)"
+        - "Server Actions (Next.js)"
+      tags: ["architecture", "mvp"]
+  
+  ux:
+    - id: "design-direction"
+      category: "ux"
+      priority: "medium"
+      question: "What's the visual direction?"
+      context: "Guides design system, component choices, and implementation"
+      default: "Clean, modern, accessible (Tailwind defaults)"
+      options:
+        - "Clean/minimal (Apple/Linear style)"
+        - "Bold/colorful (Stripe/Vercel style)"
+        - "Technical/developer-focused (GitHub/Terminal style)"
+        - "Futuristic/3D (Spline/Rive animations)"
+        - "Enterprise/professional (Salesforce/Atlassian style)"
+        - "Custom - I'll provide references"
+      tags: ["design", "phase-1"]
+    
+    - id: "component-library"
+      category: "ux"
+      priority: "medium"
+      question: "Component library approach?"
+      context: "Affects development speed, consistency, and bundle size"
+      default: "Custom components with Radix UI primitives"
+      options:
+        - "Custom (Radix UI primitives)"
+        - "shadcn/ui (copy-paste components)"
+        - "MUI (Material UI)"
+        - "Chakra UI"
+        - "Headless UI + Tailwind"
+      tags: ["architecture", "mvp"]
+
+defaultRequirements:
+  functional:
+    - category: "authentication"
+      userStory: "As a user, I want to sign up and log in, so that I can access my account"
+      priority: "critical"
+    - category: "user-management"
+      userStory: "As a user, I want to manage my profile, so that my information stays current"
+      priority: "high"
+    - category: "data-management"
+      userStory: "As a user, I want to create/read/update/delete my data, so that I can accomplish my goals"
+      priority: "critical"
+  
+  nonFunctional:
+    - category: "performance"
+      metric: "page load time"
+      target: "< 2s (LCP < 2.5s)"
+    - category: "accessibility"
+      metric: "WCAG compliance"
+      target: "WCAG 2.1 AA"
+    - category: "security"
+      metric: "OWASP Top 10"
+      target: "No critical/high vulnerabilities"
+    - category: "availability"
+      metric: "uptime"
+      target: "99.9%"
+
+backlog:
+  epics:
+    - id: "auth"
+      name: "Authentication & Authorization"
+      goal: "Secure user authentication and access control"
+    - id: "core"
+      name: "Core Features"
+      goal: "Primary user-facing functionality"
+    - id: "ux"
+      name: "User Experience"
+      goal: "Polished, accessible, responsive interface"
+    - id: "ops"
+      name: "Operations & Observability"
+      goal: "Reliable deployment, monitoring, and debugging"
+
+standards:
+  software: "strict"
+  ux: "strict"
+  accessibility: "strict"
+  architecture: "advisory"
+  security: "strict"
+  testing: "advisory"
+
+scaffold:
+  - "package.json with all defaults"
+  - "tsconfig.json (strict)"
+  - "next.config.js / vite.config.ts"
+  - "tailwind.config.ts"
+  - "prisma/schema.prisma"
+  - ".env.example"
+  - "src/app/(auth)/login/page.tsx"
+  - "src/app/(auth)/register/page.tsx"
+  - "src/components/ui/*"
+  - "src/lib/auth.ts"
+  - "src/lib/db.ts"
+  - "tests/unit/"
+  - "tests/integration/"
+  - "tests/e2e/"
+  - ".github/workflows/ci.yml"
+  - "README.md"
+  - "Dockerfile"

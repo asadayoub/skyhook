@@ -1,0 +1,192 @@
+# Skyhook Profile: AI Agent / LLM Application
+# Version: 1.0.0
+
+schemaVersion: "1.0.0"
+id: "ai-agent"
+name: "AI Agent / LLM Application"
+description: "Application powered by LLMs (chatbots, agents, RAG, etc.)"
+category: "application"
+
+detection:
+  keywords:
+    - "langchain"
+    - "llamaindex"
+    - "openai"
+    - "anthropic"
+    - "rag"
+    - "vector"
+    - "embedding"
+  packagePatterns:
+    - "langchain"
+    - "llamaindex"
+    - "@langchain"
+    - "openai"
+    - "@anthropic-ai"
+    - "chromadb"
+    - "pinecone"
+    - "weaviate"
+  scoreThreshold: 30
+
+techStack:
+  language:
+    default: "TypeScript"
+    alternatives: ["Python"]
+  
+  framework:
+    default: "Next.js / FastAPI"
+    alternatives: ["LangChain Expression Language", "Custom"]
+  
+  llm:
+    default: "OpenAI (GPT-4o) + Anthropic (Claude)"
+    alternatives: ["Local (Ollama, vLLM)", "Azure OpenAI", "Bedrock"]
+  
+  vectorDb:
+    default: "PostgreSQL + pgvector"
+    alternatives: ["Pinecone", "Weaviate", "Chroma", "Qdrant", "Milvus"]
+  
+  orchestration:
+    default: "LangGraph / Custom State Machine"
+    alternatives: ["LangChain LCEL", "AutoGen", "CrewAI"]
+  
+  observability:
+    default: "LangSmith / Langfuse"
+    alternatives: ["Custom", "Helicone"]
+
+questions:
+  init:
+    - id: "project-name"
+      category: "identity"
+      priority: "critical"
+      question: "What's the project name?"
+    
+    - id: "project-description"
+      category: "identity"
+      priority: "critical"
+      question: "What does this AI agent do?"
+  
+  vision:
+    - id: "use-case"
+      category: "vision"
+      priority: "critical"
+      question: "Primary use case?"
+      options:
+        - "Chatbot / Assistant"
+        - "RAG / Knowledge Base Q&A"
+        - "Agent with Tools"
+        - "Code Generation"
+        - "Content Generation"
+        - "Data Analysis"
+        - "Multi-agent System"
+    
+    - id: "target-users"
+      category: "vision"
+      priority: "critical"
+      question: "Who uses this?"
+  
+  requirements:
+    - id: "llm-provider"
+      category: "llm"
+      priority: "critical"
+      question: "LLM provider(s)?"
+      default: "OpenAI + Anthropic (with fallback)"
+      options:
+        - "OpenAI only"
+        - "Anthropic only"
+        - "OpenAI + Anthropic"
+        - "Local models (Ollama)"
+        - "Azure OpenAI"
+        - "AWS Bedrock"
+        - "Multi-provider with routing"
+      tags: ["mvp", "architecture", "cost"]
+    
+    - id: "rag-needed"
+      category: "rag"
+      priority: "high"
+      question: "Retrieval-augmented generation needed?"
+      default: "Yes (documents, knowledge base)"
+      options:
+        - "Yes, documents"
+        - "Yes, database"
+        - "Yes, web search"
+        - "No, pure LLM"
+      tags: ["mvp", "architecture"]
+    
+    - id: "tools-functions"
+      category: "agent"
+      priority: "high"
+      question: "Tools/functions for agent?"
+      default: "Web search, code execution, API calls"
+      options:
+        - "Web search"
+        - "Code execution (sandbox)"
+        - "API integrations"
+        - "File operations"
+        - "Database queries"
+        - "Custom functions"
+      tags: ["mvp", "architecture"]
+    
+    - id: "memory-strategy"
+      category: "agent"
+      priority: "medium"
+      question: "Conversation memory?"
+      default: "Short-term (window) + long-term (vector store)"
+      options:
+        - "Window (last N messages)"
+        - "Summary buffer"
+        - "Vector store (semantic)"
+        - "Hybrid (window + vector)"
+        - "Full history"
+      tags: ["architecture", "cost"]
+    
+    - id: "eval-testing"
+      category: "quality"
+      priority: "high"
+      question: "Evaluation strategy?"
+      default: "Automated evals (correctness, hallucination, tone)"
+      options:
+        - "Automated evals"
+        - "Human evals"
+        - "A/B testing"
+        - "Golden dataset"
+        - "LLM-as-judge"
+
+defaultRequirements:
+  functional:
+    - category: "llm"
+      userStory: "As a user, I want accurate, relevant AI responses, so that I trust the system"
+      priority: "critical"
+    - category: "rag"
+      userStory: "As a user, I want answers grounded in my data, so that responses are factual"
+      priority: "high"
+  
+  nonFunctional:
+    - category: "performance"
+      metric: "time to first token"
+      target: "< 500ms"
+    - category: "cost"
+      metric: "cost per 1k interactions"
+      target: "< $0.10"
+    - category: "reliability"
+      metric: "hallucination rate"
+      target: "< 2%"
+
+standards:
+  software: "strict"
+  architecture: "strict"
+  security: "strict"
+  testing: "strict"
+  ux: "advisory"
+
+scaffold:
+  - "package.json / pyproject.toml"
+  - "src/agents/"
+  - "src/tools/"
+  - "src/rag/"
+  - "src/evals/"
+  - "src/lib/llm.ts"
+  - "src/lib/vector.ts"
+  - "prompts/"
+  - "tests/unit/"
+  - "tests/evals/"
+  - ".github/workflows/ci.yml"
+  - "README.md"

@@ -1,0 +1,108 @@
+# Skyhook Project Structure Template
+# Used by skyhook init to create .skyhook/ directory
+
+schemaVersion: "1.0.0"
+version: "1.0.0"
+
+directories:
+  - ".skyhook"
+  - ".skyhook/requirements"
+  - ".skyhook/decisions"
+  - ".skyhook/backlog"
+  - ".skyhook/ux"
+  - ".skyhook/standards"
+  - ".skyhook/plan"
+  - ".skyhook/extensions"
+
+files:
+  - path: ".skyhook/project.yaml"
+    template: "project.yaml.tmpl"
+    required: true
+  
+  - path: ".skyhook/context.md"
+    template: "context.md.tmpl"
+    required: true
+  
+  - path: ".skyhook/vision.md"
+    template: "vision.md.tmpl"
+    required: true
+  
+  - path: ".skyhook/requirements/functional.yaml"
+    template: "requirements/functional.yaml.tmpl"
+    required: true
+  
+  - path: ".skyhook/requirements/non-functional.yaml"
+    template: "requirements/non-functional.yaml.tmpl"
+    required: true
+  
+  - path: ".skyhook/requirements/constraints.yaml"
+    template: "requirements/constraints.yaml.tmpl"
+    required: true
+  
+  - path: ".skyhook/decisions/index.yaml"
+    template: "decisions/index.yaml.tmpl"
+    required: true
+  
+  - path: ".skyhook/backlog/epics.yaml"
+    template: "backlog/epics.yaml.tmpl"
+    required: true
+  
+  - path: ".skyhook/backlog/stories.yaml"
+    template: "backlog/stories.yaml.tmpl"
+    required: true
+  
+  - path: ".skyhook/backlog/tasks.yaml"
+    template: "backlog/tasks.yaml.tmpl"
+    required: true
+  
+  - path: ".skyhook/tech-stack.yaml"
+    template: "tech-stack.yaml.tmpl"
+    required: true
+  
+  - path: ".skyhook/ux/styleguide.md"
+    template: "ux/styleguide.md.tmpl"
+    required: true
+  
+  - path: ".skyhook/ux/components.yaml"
+    template: "ux/components.yaml.tmpl"
+    required: false
+  
+  - path: ".skyhook/ux/patterns.yaml"
+    template: "ux/patterns.yaml.tmpl"
+    required: false
+  
+  - path: ".skyhook/standards/software.md"
+    template: "standards/software.md.tmpl"
+    required: false
+  
+  - path: ".skyhook/standards/security.md"
+    template: "standards/security.md.tmpl"
+    required: false
+  
+  - path: ".skyhook/standards/testing.md"
+    template: "standards/testing.md.tmpl"
+    required: false
+  
+  - path: ".skyhook/standards/architecture.md"
+    template: "standards/architecture.md.tmpl"
+    required: false
+  
+  - path: ".skyhook/standards/accessibility.md"
+    template: "standards/accessibility.md.tmpl"
+    required: false
+  
+  - path: ".skyhook/plan/PROJECT_PLAN.md"
+    template: "plan/PROJECT_PLAN.md.tmpl"
+    required: false
+  
+  - path: ".skyhook/changelog.md"
+    template: "changelog.md.tmpl"
+    required: true
+  
+  - path: ".skyhook/.gitignore"
+    content: |
+      # Skyhook project state - commit everything except:
+      *.tmp
+      *.bak
+      .DS_Store
+    required: true

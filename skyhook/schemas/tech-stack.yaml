@@ -1,0 +1,149 @@
+# Skyhook Tech Stack Schema
+# Version: 1.0.0
+# Defines structure for technology choices and rationale
+
+schemaVersion: "1.0.0"
+definitions:
+  technology:
+    type: "object"
+    required: ["id", "category", "name", "version", "purpose", "rationale", "status", "decidedAt"]
+    properties:
+      id:
+        type: "string"
+        pattern: "^[0-9A-HJKMNP-TV-Z]{26}$"
+      category:
+        type: "string"
+        enum: ["language", "runtime", "framework", "library", "database", "orm", "cache", 
+               "queue", "search", "auth", "hosting", "cdn", "monitoring", "logging", 
+               "ci-cd", "testing", "linting", "bundling", "deployment", "infrastructure", 
+               "containerization", "orchestration", "service-mesh", "api-gateway", 
+               "message-broker", "event-store", "feature-flags", "analytics", "other"]
+      name:
+        type: "string"
+      version:
+        type: "string"
+        description: "Version constraint (e.g., '^18.0.0', '>=20.0.0 <21.0.0')"
+      purpose:
+        type: "string"
+        description: "What problem this technology solves"
+      rationale:
+        type: "string"
+        description: "Why this was chosen over alternatives"
+      alternatives:
+        type: "array"
+        items:
+          type: "object"
+          required: ["name", "reasonNotChosen"]
+          properties:
+            name:
+              type: "string"
+            version:
+              type: "string"
+            reasonNotChosen:
+              type: "string"
+      status:
+        type: "string"
+        enum: ["evaluating", "selected", "adopted", "deprecated", "replaced"]
+        default: "evaluating"
+      decidedAt:
+        type: "string"
+        format: "date-time"
+      decidedBy:
+        type: "object"
+        required: ["type", "identifier"]
+        properties:
+          type:
+            type: "string"
+            enum: ["human", "agent", "team"]
+          identifier:
+            type: "string"
+          name:
+            type: "string"
+      configuration:
+        type: "object"
+        description: "Key configuration decisions"
+        additionalProperties: true
+      constraints:
+        type: "array"
+        items:
+          type: "string"
+        description: "Known constraints or limitations"
+      risks:
+        type: "array"
+        items:
+          type: "string"
+      migrationPath:
+        type: "string"
+        description: "Plan if this needs to be replaced"
+      metadata:
+        type: "object"
+        additionalProperties: true
+
+  architecturePattern:
+    type: "object"
+    required: ["name", "description", "applicability", "tradeoffs"]
+    properties:
+      name:
+        type: "string"
+      description:
+        type: "string"
+      applicability:
+        type: "array"
+        items:
+          type: "string"
+      tradeoffs:
+        type: "object"
+        required: ["pros", "cons"]
+        properties:
+          pros:
+            type: "array"
+            items:
+              type: "string"
+          cons:
+            type: "array"
+            items:
+              type: "string"
+
+techStack:
+  type: "object"
+  required: ["schemaVersion", "metadata", "technologies", "patterns", "constraints"]
+  properties:
+    schemaVersion:
+      type: "string"
+      const: "1.0.0"
+    metadata:
+      type: "object"
+      required: ["createdAt", "updatedAt", "version"]
+      properties:
+        createdAt:
+          type: "string"
+          format: "date-time"
+        updatedAt:
+          type: "string"
+          format: "date-time"
+        version:
+          type: "string"
+    technologies:
+      type: "array"
+      items:
+        $ref: "#/definitions/technology"
+    patterns:
+      type: "array"
+      items:
+        $ref: "#/definitions/architecturePattern"
+    constraints:
+      type: "array"
+      items:
+        type: "object"
+        required: ["category", "description"]
+        properties:
+          category:
+            type: "string"
+            enum: ["performance", "cost", "team-expertise", "compliance", "vendor-lockin", 
+                   "scalability", "maintenance", "security", "compatibility"]
+          description:
+            type: "string"
+          severity:
+            type: "string"
+            enum: ["hard", "soft", "preference"]
+            default: "soft"

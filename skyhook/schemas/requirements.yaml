@@ -1,0 +1,188 @@
+# Skyhook Requirements Schema
+# Version: 1.0.0
+# Defines structure for functional, non-functional, and constraint requirements
+
+schemaVersion: "1.0.0"
+definitions:
+  requirementBase:
+    type: "object"
+    required: ["id", "title", "description", "priority", "status", "source", "createdAt", "updatedAt"]
+    properties:
+      id:
+        type: "string"
+        pattern: "^[0-9A-HJKMNP-TV-Z]{26}$"
+        description: "ULID identifier"
+      title:
+        type: "string"
+        minLength: 1
+        maxLength: 200
+      description:
+        type: "string"
+        description: "Detailed requirement description in natural language"
+      priority:
+        type: "string"
+        enum: ["critical", "high", "medium", "low", "backlog"]
+        default: "medium"
+      status:
+        type: "string"
+        enum: ["proposed", "confirmed", "in-progress", "implemented", "verified", "deferred", "rejected", "superseded"]
+        default: "proposed"
+      source:
+        type: "object"
+        required: ["type", "reference"]
+        properties:
+          type:
+            type: "string"
+            enum: ["user", "agent-inferred", "standard", "regulation", "stakeholder", "discovery"]
+          reference:
+            type: "string"
+            description: "Reference to conversation, document, ticket, etc."
+          confidence:
+            type: "number"
+            minimum: 0
+            maximum: 1
+            default: 1.0
+      rationale:
+        type: "string"
+        description: "Why this requirement exists"
+      acceptanceCriteria:
+        type: "array"
+        items:
+          type: "string"
+        description: "Testable acceptance criteria"
+      dependsOn:
+        type: "array"
+        items:
+          type: "string"
+          pattern: "^[0-9A-HJKMNP-TV-Z]{26}$"
+        description: "IDs of requirements this depends on"
+      blocks:
+        type: "array"
+        items:
+          type: "string"
+          pattern: "^[0-9A-HJKMNP-TV-Z]{26}$"
+        description: "IDs of requirements blocked by this"
+      tags:
+        type: "array"
+        items:
+          type: "string"
+      metadata:
+        type: "object"
+        additionalProperties: true
+      createdAt:
+        type: "string"
+        format: "date-time"
+      updatedAt:
+        type: "string"
+        format: "date-time"
+      confirmedAt:
+        type: "string"
+        format: "date-time"
+      implementedAt:
+        type: "string"
+        format: "date-time"
+
+  functionalRequirement:
+    allOf:
+      - $ref: "#/definitions/requirementBase"
+      - type: "object"
+        required: ["category", "userStory"]
+        properties:
+          category:
+            type: "string"
+            enum: ["authentication", "authorization", "user-management", "data-management", 
+                   "api", "ui", "integration", "notification", "reporting", "search", 
+                   "workflow", "billing", "admin", "custom"]
+          userStory:
+            type: "string"
+            description: "As a [role], I want [action], so that [benefit]"
+          actor:
+            type: "string"
+            description: "Primary actor/role"
+          trigger:
+            type: "string"
+            description: "What initiates this functionality"
+          preconditions:
+            type: "array"
+            items:
+              type: "string"
+          postconditions:
+            type: "array"
+            items:
+              type: "string"
+
+  nonFunctionalRequirement:
+    allOf:
+      - $ref: "#/definitions/requirementBase"
+      - type: "object"
+        required: ["category", "metric", "target"]
+        properties:
+          category:
+            type: "string"
+            enum: ["performance", "scalability", "availability", "reliability", 
+                   "security", "usability", "accessibility", "maintainability", 
+                   "portability", "compliance", "operational"]
+          metric:
+            type: "string"
+            description: "Measurable metric (e.g., 'response time', 'uptime', 'throughput')"
+          target:
+            type: "string"
+            description: "Target value (e.g., '< 200ms', '99.9%', '1000 req/s')"
+          measurement:
+            type: "string"
+            description: "How to measure/verify"
+
+  constraint:
+    allOf:
+      - $ref: "#/definitions/requirementBase"
+      - type: "object"
+        required: ["category"]
+        properties:
+          category:
+            type: "string"
+            enum: ["technical", "business", "regulatory", "budget", "timeline", 
+                   "team", "infrastructure", "legacy", "policy"]
+          constraint:
+            type: "string"
+            description: "The limiting factor"
+          impact:
+            type: "string"
+            enum: ["blocks", "limits", "influences", "guides"]
+            default: "limits"
+
+# File structures
+functionalRequirements:
+  type: "object"
+  required: ["schemaVersion", "requirements"]
+  properties:
+    schemaVersion:
+      type: "string"
+      const: "1.0.0"
+    requirements:
+      type: "array"
+      items:
+        $ref: "#/definitions/functionalRequirement"
+
+nonFunctionalRequirements:
+  type: "object"
+  required: ["schemaVersion", "requirements"]
+  properties:
+    schemaVersion:
+      type: "string"
+      const: "1.0.0"
+    requirements:
+      type: "array"
+      items:
+        $ref: "#/definitions/nonFunctionalRequirement"
+
+constraints:
+  type: "object"
+  required: ["schemaVersion", "constraints"]
+  properties:
+    schemaVersion:
+      type: "string"
+      const: "1.0.0"
+    constraints:
+      type: "array"
+      items:
+        $ref: "#/definitions/constraint"

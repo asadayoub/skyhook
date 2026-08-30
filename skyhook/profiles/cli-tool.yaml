@@ -1,0 +1,110 @@
+# Skyhook Profile: CLI Tool
+# Version: 1.0.0
+
+schemaVersion: "1.0.0"
+id: "cli-tool"
+name: "CLI Tool"
+description: "Command-line application"
+category: "tooling"
+
+detection:
+  keywords:
+    - "commander"
+    - "yargs"
+    - "cobra"
+    - "cliffy"
+    - "oclif"
+  packagePatterns:
+    - "commander"
+    - "yargs"
+    - "@oclif"
+    - "cobra"
+  filePatterns:
+    - "bin/**"
+    - "src/cli/**"
+    - "cmd/**"
+    - "main.ts"
+    - "cli.ts"
+  scoreThreshold: 30
+
+techStack:
+  language:
+    default: "TypeScript"
+    alternatives: ["Go", "Python", "Rust", "Node.js (JS)"]
+  
+  framework:
+    default: "Commander.js (TS) / Cobra (Go) / Click (Python)"
+    alternatives: ["Yargs", "Oclif", "Cliffy"]
+  
+  packaging:
+    default: "npm package / Go binary / PyPI"
+  
+  testing:
+    unit: "Vitest / Go test / pytest"
+    integration: "Snapshot testing (expected output)"
+
+questions:
+  init:
+    - id: "command-name"
+      category: "identity"
+      priority: "critical"
+      question: "What's the command name? (e.g., 'mytool')"
+    
+    - id: "project-description"
+      category: "identity"
+      priority: "critical"
+      question: "What does this CLI do?"
+  
+  vision:
+    - id: "target-users"
+      category: "vision"
+      priority: "high"
+      question: "Who uses this? (developers, ops, end-users)"
+  
+  requirements:
+    - id: "subcommands"
+      category: "cli"
+      priority: "critical"
+      question: "What subcommands are needed?"
+      context: "Defines the command structure"
+      default: "Start with 1-3 core commands"
+    
+    - id: "config-file"
+      category: "cli"
+      priority: "medium"
+      question: "Config file support?"
+      default: "Yes (YAML/JSON in ~/.config or project root)"
+      options:
+        - "Yes, YAML"
+        - "Yes, JSON"
+        - "Yes, TOML"
+        - "No config file"
+    
+    - id: "output-format"
+      category: "cli"
+      priority: "medium"
+      question: "Output formats?"
+      default: "Human-readable + JSON (--json flag)"
+      options:
+        - "Human + JSON"
+        - "Human + JSON + CSV"
+        - "Only JSON"
+        - "Table + JSON"
+
+standards:
+  software: "strict"
+  testing: "advisory"
+  ux: "minimal"
+  accessibility: "minimal"
+
+scaffold:
+  - "package.json / Cargo.toml / pyproject.toml"
+  - "src/cli/index.ts"
+  - "src/commands/*.ts"
+  - "src/lib/config.ts"
+  - "src/lib/output.ts"
+  - "tests/unit/"
+  - "tests/snapshots/"
+  - ".github/workflows/ci.yml"
+  - "README.md"
+  - "completions/bash, zsh, fish"

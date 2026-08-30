@@ -1,0 +1,185 @@
+# Skyhook Profile: API Service
+# Version: 1.0.0
+
+schemaVersion: "1.0.0"
+id: "api-service"
+name: "API Service"
+description: "REST/GraphQL API backend service"
+category: "backend"
+
+detection:
+  keywords:
+    - "fastapi"
+    - "express"
+    - "fastify"
+    - "hono"
+    - "nestjs"
+    - "gin"
+    - "echo"
+  packagePatterns:
+    - "fastapi"
+    - "express"
+    - "fastify"
+    - "hono"
+    - "@nestjs"
+    - "gin"
+  filePatterns:
+    - "src/routes/**"
+    - "src/controllers/**"
+    - "app/**/*.py"
+    - "main.py"
+    - "server.ts"
+  scoreThreshold: 35
+
+techStack:
+  language:
+    default: "TypeScript"
+    alternatives: ["Python", "Go", "Rust"]
+  
+  framework:
+    default: "Hono (TypeScript) / FastAPI (Python)"
+    alternatives: ["Express", "Fastify", "NestJS", "Gin", "Axum"]
+  
+  database:
+    default: "PostgreSQL"
+    alternatives: ["MySQL", "MongoDB", "SQLite"]
+  
+  orm:
+    default: "Prisma (TS) / SQLAlchemy (Python)"
+    alternatives: ["Drizzle", "Kysely", "Django ORM", "GORM"]
+  
+  auth:
+    default: "JWT + Refresh Tokens"
+    alternatives: ["API Keys", "OAuth 2.0", "mTLS"]
+  
+  apiStyle:
+    default: "REST + OpenAPI"
+    alternatives: ["GraphQL", "gRPC", "tRPC"]
+  
+  validation:
+    default: "Zod (TS) / Pydantic (Python)"
+  
+  deployment:
+    platform:
+      default: "Docker + Cloud Run / Fly.io"
+      alternatives: ["AWS Lambda", "Vercel", "Railway", "Kubernetes"]
+  
+  testing:
+    unit: "Vitest / pytest"
+    integration: "Testcontainers"
+    contract: "Pact / Schemathesis"
+
+questions:
+  init:
+    - id: "project-name"
+      category: "identity"
+      priority: "critical"
+      question: "What's the service name?"
+    
+    - id: "project-description"
+      category: "identity"
+      priority: "critical"
+      question: "What does this API do?"
+  
+  vision:
+    - id: "consumers"
+      category: "vision"
+      priority: "critical"
+      question: "Who consumes this API? (web, mobile, third-party, internal)"
+    
+    - id: "scale"
+      category: "vision"
+      priority: "high"
+      question: "Expected scale (requests/day, concurrent users)?"
+  
+  requirements:
+    - id: "api-style"
+      category: "api"
+      priority: "critical"
+      question: "What API style?"
+      default: "REST + OpenAPI"
+      options:
+        - "REST + OpenAPI"
+        - "GraphQL"
+        - "gRPC"
+        - "tRPC"
+      tags: ["architecture", "mvp"]
+    
+    - id: "auth-strategy"
+      category: "authentication"
+      priority: "critical"
+      question: "Authentication method?"
+      default: "JWT (access + refresh tokens)"
+      options:
+        - "JWT (access + refresh)"
+        - "API Keys"
+        - "OAuth 2.0 / OIDC"
+        - "mTLS"
+        - "Session/Cookie"
+      tags: ["mvp", "security"]
+    
+    - id: "database-choice"
+      category: "database"
+      priority: "critical"
+      question: "Database?"
+      default: "PostgreSQL"
+      options:
+        - "PostgreSQL"
+        - "MySQL"
+        - "MongoDB"
+        - "DynamoDB"
+        - "SQLite (dev only)"
+      tags: ["mvp", "architecture"]
+    
+    - id: "rate-limiting"
+      category: "api"
+      priority: "high"
+      question: "Rate limiting strategy?"
+      default: "Token bucket per client (1000/min)"
+      options:
+        - "Token bucket per client"
+        - "Fixed window per IP"
+        - "Sliding window"
+        - "Redis-based distributed"
+      tags: ["operations", "security"]
+
+defaultRequirements:
+  functional:
+    - category: "api"
+      userStory: "As a client, I want to authenticate and access resources, so that I can integrate with the service"
+      priority: "critical"
+    - category: "api"
+      userStory: "As a client, I want clear error responses, so that I can handle failures gracefully"
+      priority: "high"
+  
+  nonFunctional:
+    - category: "performance"
+      metric: "p95 latency"
+      target: "< 200ms"
+    - category: "availability"
+      metric: "uptime"
+      target: "99.95%"
+    - category: "security"
+      metric: "OWASP API Top 10"
+      target: "No critical/high"
+
+standards:
+  software: "strict"
+  architecture: "strict"
+  security: "strict"
+  testing: "advisory"
+  ux: "minimal"
+  accessibility: "minimal"
+
+scaffold:
+  - "package.json / pyproject.toml"
+  - "src/routes/ / app/api/"
+  - "src/middleware/auth.ts"
+  - "src/middleware/validation.ts"
+  - "src/lib/db.ts"
+  - "prisma/schema.prisma"
+  - "openapi.yaml"
+  - "tests/integration/api/"
+  - ".github/workflows/ci.yml"
+  - "Dockerfile"
+  - "README.md"

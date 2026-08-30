@@ -1,0 +1,170 @@
+# Skyhook Decisions Schema
+# Version: 1.0.0
+# Defines structure for Architectural Decision Records (ADRs) and design decisions
+
+schemaVersion: "1.0.0"
+definitions:
+  decisionBase:
+    type: "object"
+    required: ["id", "title", "status", "context", "decision", "consequences", "author", "createdAt"]
+    properties:
+      id:
+        type: "string"
+        pattern: "^[0-9A-HJKMNP-TV-Z]{26}$"
+      title:
+        type: "string"
+        minLength: 1
+        maxLength: 200
+      status:
+        type: "string"
+        enum: ["proposed", "accepted", "rejected", "deprecated", "superseded"]
+        default: "proposed"
+      context:
+        type: "string"
+        description: "The situation and forces at play"
+      decision:
+        type: "string"
+        description: "The decision that was made"
+      consequences:
+        type: "object"
+        required: ["positive", "negative", "neutral"]
+        properties:
+          positive:
+            type: "array"
+            items:
+              type: "string"
+          negative:
+            type: "array"
+            items:
+              type: "string"
+          neutral:
+            type: "array"
+            items:
+              type: "string"
+      alternatives:
+        type: "array"
+        items:
+          type: "object"
+          required: ["title", "description", "pros", "cons"]
+          properties:
+            title:
+              type: "string"
+            description:
+              type: "string"
+            pros:
+              type: "array"
+              items:
+                type: "string"
+            cons:
+              type: "array"
+              items:
+                type: "string"
+      author:
+        type: "object"
+        required: ["type", "identifier"]
+        properties:
+          type:
+            type: "string"
+            enum: ["human", "agent", "team"]
+          identifier:
+            type: "string"
+          name:
+            type: "string"
+      tags:
+        type: "array"
+        items:
+          type: "string"
+      relatedDecisions:
+        type: "array"
+        items:
+          type: "string"
+          pattern: "^[0-9A-HJKMNP-TV-Z]{26}$"
+      relatedRequirements:
+        type: "array"
+        items:
+          type: "string"
+          pattern: "^[0-9A-HJKMNP-TV-Z]{26}$"
+      metadata:
+        type: "object"
+        additionalProperties: true
+      createdAt:
+        type: "string"
+        format: "date-time"
+      decidedAt:
+        type: "string"
+        format: "date-time"
+      supersededAt:
+        type: "string"
+        format: "date-time"
+      supersededBy:
+        type: "string"
+        pattern: "^[0-9A-HJKMNP-TV-Z]{26}$"
+
+  architecturalDecision:
+    allOf:
+      - $ref: "#/definitions/decisionBase"
+      - type: "object"
+        required: ["category", "impact"]
+        properties:
+          category:
+            type: "string"
+            enum: ["architecture", "technology", "data", "security", "infrastructure", 
+                   "integration", "process", "organization"]
+          impact:
+            type: "string"
+            enum: ["strategic", "tactical", "operational"]
+            default: "tactical"
+          scope:
+            type: "string"
+            enum: ["system", "service", "component", "module", "cross-cutting"]
+            default: "service"
+
+  designDecision:
+    allOf:
+      - $ref: "#/definitions/decisionBase"
+      - type: "object"
+        required: ["category"]
+        properties:
+          category:
+            type: "string"
+            enum: ["ui", "ux", "api", "database", "algorithm", "pattern", "library", "convention"]
+          userFacing:
+            type: "boolean"
+            default: false
+
+# Index file structure
+decisionsIndex:
+  type: "object"
+  required: ["schemaVersion", "decisions"]
+  properties:
+    schemaVersion:
+      type: "string"
+      const: "1.0.0"
+    decisions:
+      type: "array"
+      items:
+        type: "object"
+        required: ["id", "title", "status", "category", "createdAt"]
+        properties:
+          id:
+            type: "string"
+            pattern: "^[0-9A-HJKMNP-TV-Z]{26}$"
+          title:
+            type: "string"
+          status:
+            type: "string"
+            enum: ["proposed", "accepted", "rejected", "deprecated", "superseded"]
+          category:
+            type: "string"
+          impact:
+            type: "string"
+          tags:
+            type: "array"
+            items:
+              type: "string"
+          createdAt:
+            type: "string"
+            format: "date-time"
+          decidedAt:
+            type: "string"
+            format: "date-time"

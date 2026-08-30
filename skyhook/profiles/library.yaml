@@ -1,0 +1,100 @@
+# Skyhook Profile: Library / Package
+# Version: 1.0.0
+
+schemaVersion: "1.0.0"
+id: "library"
+name: "Library / Package"
+description: "Reusable package, SDK, or component library"
+category: "library"
+
+detection:
+  keywords:
+    - "library"
+    - "sdk"
+    - "package"
+  packagePatterns:
+    - "main"
+    - "module"
+    - "exports"
+    - "types"
+  filePatterns:
+    - "src/index.ts"
+    - "src/lib/**"
+    - "package.json"
+  scoreThreshold: 25
+
+techStack:
+  language:
+    default: "TypeScript"
+    alternatives: ["JavaScript", "Python", "Go", "Rust"]
+  
+  build:
+    default: "tsup / Rollup / esbuild"
+    alternatives: ["tsc", "swc", "unbuild"]
+  
+  testing:
+    unit: "Vitest"
+    types: "tsd / expect-type"
+  
+  publishing:
+    registry: "npm / PyPI / crates.io"
+    provenance: "SLSA / npm provenance"
+
+questions:
+  init:
+    - id: "package-name"
+      category: "identity"
+      priority: "critical"
+      question: "Package name (npm: @scope/name)?"
+    
+    - id: "project-description"
+      category: "identity"
+      priority: "critical"
+      question: "What does this library do?"
+  
+  vision:
+    - id: "consumers"
+      category: "vision"
+      priority: "critical"
+      question: "Who uses this? (internal, public, specific frameworks)"
+  
+  requirements:
+    - id: "api-surface"
+      category: "library"
+      priority: "critical"
+      question: "What's the public API surface?"
+      context: "Functions, classes, types, React components, etc."
+    
+    - id: "versioning"
+      category: "library"
+      priority: "high"
+      question: "Versioning strategy?"
+      default: "SemVer with conventional commits"
+      options:
+        - "SemVer"
+        - "CalVer"
+        - "ZeroVer (0.x)"
+    
+    - id: "peer-dependencies"
+      category: "library"
+      priority: "high"
+      question: "Peer dependencies?"
+      context: "React, Vue, etc. versions"
+
+standards:
+  software: "strict"
+  testing: "strict"
+  architecture: "advisory"
+  ux: "minimal"
+
+scaffold:
+  - "package.json with exports map"
+  - "tsconfig.json (declaration: true)"
+  - "src/index.ts (public API)"
+  - "src/types.ts"
+  - "vitest.config.ts"
+  - "tests/unit/"
+  - ".github/workflows/ci.yml"
+  - "README.md"
+  - "CHANGELOG.md"
+  - ".npmignore"

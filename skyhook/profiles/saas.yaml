@@ -1,0 +1,209 @@
+# Skyhook Profile: SaaS Platform
+# Version: 1.0.0
+
+schemaVersion: "1.0.0"
+id: "saas"
+name: "SaaS Platform"
+description: "Multi-tenant SaaS with billing, teams, and admin"
+category: "application"
+extends: "web-app"
+
+detection:
+  keywords:
+    - "stripe"
+    - "subscription"
+    - "tenant"
+    - "organization"
+    - "billing"
+  packagePatterns:
+    - "stripe"
+    - "@stripe"
+    - "paddle"
+  scoreThreshold: 35
+  requires: ["web-app"]
+
+techStack:
+  billing:
+    default: "Stripe"
+    alternatives: ["Paddle", "Lemon Squeezy", "Chargebee"]
+  
+  multiTenancy:
+    default: "Row-level security (PostgreSQL RLS)"
+    alternatives: ["Separate schemas", "Separate databases", "Shared schema + tenant_id"]
+  
+  email:
+    default: "Resend / SendGrid"
+    alternatives: ["Postmark", "Mailgun", "Nodemailer"]
+  
+  featureFlags:
+    default: "LaunchDarkly / Unleash"
+    alternatives: ["Custom", "Flagsmith"]
+
+# Smart Variants - pre-fill decisions for common patterns
+variants:
+  - id: "stripe-b2b"
+    name: "SaaS with Stripe (B2B)"
+    description: "Multi-tenant, per-seat billing, team invites, admin dashboard"
+    appliesWhen:
+      - billing: "stripe"
+      - multiTenancy: "organizations"
+    autoAnswers:
+      auth-mfa: "TOTP required for admins, optional for members"
+      team-structure: "Organizations with roles (owner, admin, member, viewer)"
+      billing-model: "Per-seat with usage add-ons"
+      admin-dashboard: "Full (users, teams, billing, usage, audit logs, impersonation)"
+      email-provider: "Resend"
+      sso-provider: "SAML/OIDC (Okta, Azure AD, Google Workspace)"
+      audit-logs: "All admin actions, billing changes, auth events"
+      api-rate-limiting: "Per-organization tiered limits"
+      data-export: "GDPR-compliant export per organization"
+    extraRequirements:
+      - id: "REQ-SAAS-001"
+        title: "Organization Management"
+        category: "multi-tenancy"
+        userStory: "As an org admin, I want to invite/remove team members and assign roles, so that I control access"
+        priority: "critical"
+      - id: "REQ-SAAS-002"
+        title: "Per-Seat Billing with Stripe"
+        category: "billing"
+        userStory: "As a billing admin, I want per-seat pricing with automatic proration, so that billing is fair"
+        priority: "critical"
+      - id: "REQ-SAAS-003"
+        title: "Admin Dashboard"
+        category: "admin"
+        userStory: "As a platform admin, I want to view metrics, manage customers, and impersonate users, so that I can support customers"
+        priority: "high"
+      - id: "REQ-SAAS-004"
+        title: "SSO Integration"
+        category: "authentication"
+        userStory: "As an enterprise customer, I want to use our existing SAML/OIDC provider, so that users don't need separate credentials"
+        priority: "high"
+      - id: "REQ-SAAS-005"
+        title: "Audit Logs"
+        category: "security"
+        userStory: "As a compliance officer, I want immutable audit logs of all admin actions, so that we meet compliance requirements"
+        priority: "high"
+    extraDecisions:
+      - title: "Use Stripe Billing for Subscriptions"
+        decision: "Stripe Subscriptions with per-seat pricing, metered billing for add-ons"
+        category: "technology"
+      - title: "PostgreSQL RLS for Multi-Tenancy"
+        decision: "Row-level security on all tenant-scoped tables with organization_id"
+        category: "architecture"
+      - title: "Impersonation for Customer Support"
+        decision: "Admins can impersonate users with audit trail, requires MFA confirmation"
+        category: "security"
+
+  - id: "stripe-b2c"
+    name: "SaaS with Stripe (B2C)"
+    description: "Single-user subscriptions, simple billing, self-serve"
+    appliesWhen:
+      - billing: "stripe"
+      - multiTenancy: "none"
+    autoAnswers:
+      auth-mfa: "TOTP optional for all users"
+      team-structure: "None (single user accounts)"
+      billing-model: "Tiered subscriptions (Free, Pro, Premium)"
+      admin-dashboard: "Minimal (users, subscriptions, revenue)"
+      email-provider: "Resend"
+      trial-period: "14 days no credit card"
+    extraRequirements:
+      - title: "Subscription Management"
+        category: "billing"
+        userStory: "As a user, I want to upgrade/downgrade/cancel my plan, so that I control my subscription"
+        priority: "critical"
+      - title: "Free Trial"
+        category: "billing"
+        userStory: "As a new user, I want a 14-day free trial without credit card, so that I can evaluate"
+        priority: "high"
+
+  - id: "paddle-b2b"
+    name: "SaaS with Paddle (B2B)"
+    description: "Paddle handles taxes/VAT globally, per-seat billing"
+    appliesWhen:
+      - billing: "paddle"
+    autoAnswers:
+      billing-provider: "Paddle"
+      tax-handling: "Paddle handles all VAT/sales tax globally"
+      invoicing: "Automatic invoice generation via Paddle"
+
+questions:
+  # Inherits web-app questions, adds:
+  requirements:
+    - id: "billing-model"
+      category: "billing"
+      priority: "critical"
+      question: "What's the billing model?"
+      default: "Tiered subscriptions (Free, Pro, Team, Enterprise)"
+      options:
+        - "Tiered subscriptions"
+        - "Usage-based / metered"
+        - "Per-seat"
+        - "Hybrid (base + usage)"
+        - "One-time purchases"
+      tags: ["mvp", "business"]
+    
+    - id: "team-structure"
+      category: "multi-tenancy"
+      priority: "critical"
+      question: "Team/organization model?"
+      default: "Organizations with members and roles"
+      options:
+        - "Organizations (members + roles)"
+        - "Workspaces (flat)"
+        - "Projects within organizations"
+        - "Custom hierarchy"
+      tags: ["mvp", "architecture"]
+    
+    - id: "admin-dashboard"
+      category: "admin"
+      priority: "high"
+      question: "Admin dashboard needed?"
+      default: "Yes (user mgmt, billing, analytics, feature flags)"
+      options:
+        - "Full admin panel"
+        - "Minimal (users only)"
+        - "Internal tool (separate)"
+      tags: ["phase-2"]
+
+    - id: "sso-provider"
+      category: "authentication"
+      priority: "high"
+      question: "Enterprise SSO provider?"
+      default: "SAML/OIDC (Okta, Azure AD, Google Workspace)"
+      options:
+        - "SAML (Okta, Azure AD)"
+        - "OIDC (Google, Microsoft)"
+        - "Both SAML and OIDC"
+        - "Not needed for MVP"
+      tags: ["phase-2", "enterprise"]
+
+defaultRequirements:
+  functional:
+    - category: "billing"
+      userStory: "As a customer, I want to manage my subscription, so that I control my plan and billing"
+      priority: "critical"
+    - category: "multi-tenancy"
+      userStory: "As an org admin, I want to invite/manage team members, so that my team can collaborate"
+      priority: "critical"
+    - category: "admin"
+      userStory: "As a platform admin, I want to view metrics and manage customers, so that I can operate the business"
+      priority: "high"
+
+standards:
+  software: "strict"
+  ux: "strict"
+  accessibility: "strict"
+  architecture: "strict"
+  security: "strict"
+  testing: "advisory"
+
+scaffold:
+  - "extends web-app scaffold"
+  - "src/features/billing/"
+  - "src/features/organizations/"
+  - "src/features/admin/"
+  - "prisma/schema.prisma (with organizations, subscriptions, audit_logs)"
+  - "src/lib/stripe.ts"
+  - "src/lib/permissions.ts"
+  - "src/middleware.ts (auth + org resolution)"

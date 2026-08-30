@@ -1,0 +1,21 @@
+name: Release
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create skill archive
+        run: |
+          cd skyhook
+          tar -czf ../skyhook-skill.tar.gz .
+      - uses: softprops/action-gh-release@v1
+        with:
+          files: skyhook-skill.tar.gz
+          generate_release_notes: true
+          draft: false
+          prerelease: false

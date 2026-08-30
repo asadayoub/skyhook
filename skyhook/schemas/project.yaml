@@ -1,0 +1,90 @@
+# Skyhook Project Schema
+# Version: 1.0.0
+# This schema defines the structure of .skyhook/project.yaml
+
+schemaVersion: "1.0.0"
+type: "object"
+required: ["id", "name", "type", "createdAt", "updatedAt", "version"]
+properties:
+  id:
+    type: "string"
+    description: "Unique project identifier (ULID)"
+    pattern: "^[0-9A-HJKMNP-TV-Z]{26}$"
+  name:
+    type: "string"
+    description: "Human-readable project name"
+    minLength: 1
+    maxLength: 100
+  description:
+    type: "string"
+    description: "Brief project description"
+    maxLength: 500
+  type:
+    type: "string"
+    description: "Project type profile"
+    enum: 
+      - "web-app"
+      - "api-service"
+      - "cli-tool"
+      - "mobile-app"
+      - "desktop-app"
+      - "library"
+      - "marketing-site"
+      - "ecommerce"
+      - "saas"
+      - "ai-agent"
+      - "custom"
+  profile:
+    type: "string"
+    description: "Specific profile variant (e.g., 'react-node', 'python-fastapi')"
+  createdAt:
+    type: "string"
+    format: "date-time"
+    description: "Project creation timestamp (ISO 8601 UTC)"
+  updatedAt:
+    type: "string"
+    format: "date-time"
+    description: "Last update timestamp (ISO 8601 UTC)"
+  version:
+    type: "string"
+    description: "Project version (SemVer)"
+    pattern: "^\\d+\\.\\d+\\.\\d+(-[\\w.]+)?(\\+[\\w.]+)?$"
+  repository:
+    type: "object"
+    properties:
+      url:
+        type: "string"
+        format: "uri"
+      branch:
+        type: "string"
+        default: "main"
+      provider:
+        type: "string"
+        enum: ["github", "gitlab", "bitbucket", "azure", "self-hosted", "none"]
+  skyhookVersion:
+    type: "string"
+    description: "Skyhook skill version that created this project"
+  configuration:
+    type: "object"
+    properties:
+      questionThreshold:
+        type: "string"
+        enum: ["minimal", "contextual", "comprehensive"]
+        default: "contextual"
+      autoPlan:
+        type: "boolean"
+        default: true
+      standardsLevel:
+        type: "string"
+        enum: ["advisory", "strict", "custom"]
+        default: "advisory"
+      trackDecisions:
+        type: "boolean"
+        default: true
+      syncOnCommit:
+        type: "boolean"
+        default: false
+  metadata:
+    type: "object"
+    description: "Arbitrary project metadata"
+    additionalProperties: true

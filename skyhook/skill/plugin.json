@@ -1,0 +1,42 @@
+{
+  "name": "skyhook",
+  "version": "1.0.0",
+  "description": "Universal Project Intelligence Skill for AI Agents - provides persistent, structured, version-controlled project understanding",
+  "author": "Skyhook Contributors",
+  "license": "MIT",
+  "homepage": "https://github.com/skyhook/skyhook",
+  "repository": "https://github.com/skyhook/skyhook",
+  "keywords": ["ai-agent", "project-intelligence", "skill", "codex", "claude-code", "gemini-cli"],
+  "entry": {
+    "main": "index.md",
+    "cli": "cli/skyhook.js"
+  },
+  "capabilities": [
+    "project-discovery",
+    "requirements-gathering",
+    "decision-tracking",
+    "standards-enforcement",
+    "ux-design-guidance",
+    "project-planning",
+    "contextual-questioning",
+    "incremental-knowledge-building"
+  ],
+  "provides": {
+    "schemas": "schemas/",
+    "standards": "standards/",
+    "profiles": "profiles/",
+    "templates": "templates/",
+    "workflows": "workflows/",
+    "cli": "cli/"
+  },
+  "compatibility": {
+    "agents": ["codex", "claude-code", "gemini-cli", "antigravity", "generic"],
+    "minAgentVersion": "1.0.0"
+  },
+  "configuration": {
+    "projectDir": ".skyhook",
+    "globalConfigDir": "~/.skyhook",
+    "autoInit": true,
+    "questionThreshold": "contextual"
+  }
+}

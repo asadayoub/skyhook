@@ -1,0 +1,367 @@
+# Skyhook UX/Design Schema
+# Version: 1.0.0
+# Defines structure for design system, style guide, and UX specifications
+
+schemaVersion: "1.0.0"
+definitions:
+  colorToken:
+    type: "object"
+    required: ["name", "value", "description"]
+    properties:
+      name:
+        type: "string"
+        pattern: "^[a-z][a-z0-9-]*$"
+      value:
+        type: "string"
+        description: "CSS color value (hex, rgb, hsl, okklch, etc.)"
+      description:
+        type: "string"
+      cssVar:
+        type: "string"
+        pattern: "^--[a-z][a-z0-9-]*$"
+      scales:
+        type: "object"
+        description: "Color scale variants (50-950)"
+        additionalProperties:
+          type: "string"
+
+  spacingToken:
+    type: "object"
+    required: ["name", "value", "description"]
+    properties:
+      name:
+        type: "string"
+        pattern: "^[a-z][a-z0-9-]*$"
+      value:
+        type: "string"
+        description: "CSS length value (rem, em, px, etc.)"
+      description:
+        type: "string"
+      cssVar:
+        type: "string"
+        pattern: "^--[a-z][a-z0-9-]*$"
+
+  typographyToken:
+    type: "object"
+    required: ["name", "fontFamily", "fontSize", "fontWeight", "lineHeight"]
+    properties:
+      name:
+        type: "string"
+        pattern: "^[a-z][a-z0-9-]*$"
+      fontFamily:
+        type: "string"
+      fontSize:
+        type: "string"
+      fontWeight:
+        type: ["string", "number"]
+      lineHeight:
+        type: ["string", "number"]
+      letterSpacing:
+        type: "string"
+      textTransform:
+        type: "string"
+        enum: ["none", "uppercase", "lowercase", "capitalize"]
+      cssVar:
+        type: "string"
+        pattern: "^--[a-z][a-z0-9-]*$"
+
+  componentSpec:
+    type: "object"
+    required: ["name", "category", "description", "props", "states", "variants"]
+    properties:
+      name:
+        type: "string"
+      category:
+        type: "string"
+        enum: ["layout", "navigation", "data-entry", "data-display", "feedback", "overlay", "media", "custom"]
+      description:
+        type: "string"
+      props:
+        type: "array"
+        items:
+          type: "object"
+          required: ["name", "type", "required", "description"]
+          properties:
+            name:
+              type: "string"
+            type:
+              type: "string"
+            required:
+              type: "boolean"
+            default:
+              description: "Default value"
+            description:
+              type: "string"
+            options:
+              type: "array"
+              items:
+                type: "string"
+      states:
+        type: "array"
+        items:
+          type: "string"
+          enum: ["default", "hover", "focus", "active", "disabled", "loading", "error", "success", "empty"]
+      variants:
+        type: "array"
+        items:
+          type: "object"
+          required: ["name", "description"]
+          properties:
+            name:
+              type: "string"
+            description:
+              type: "string"
+            props:
+              type: "object"
+              additionalProperties: true
+      accessibility:
+        type: "object"
+        properties:
+          ariaRoles:
+            type: "array"
+            items:
+              type: "string"
+          keyboardNavigation:
+            type: "string"
+          focusManagement:
+            type: "string"
+      examples:
+        type: "array"
+        items:
+          type: "object"
+          required: ["name", "code", "description"]
+          properties:
+            name:
+              type: "string"
+            code:
+              type: "string"
+            description:
+              type: "string"
+
+  pattern:
+    type: "object"
+    required: ["name", "category", "problem", "solution", "whenToUse", "whenNotToUse"]
+    properties:
+      name:
+        type: "string"
+      category:
+        type: "string"
+        enum: ["navigation", "forms", "data-display", "feedback", "onboarding", "empty-states", "loading", "error-handling", "custom"]
+      problem:
+        type: "string"
+      solution:
+        type: "string"
+      whenToUse:
+        type: "array"
+        items:
+          type: "string"
+      whenNotToUse:
+        type: "array"
+        items:
+          type: "string"
+      accessibility:
+        type: "array"
+        items:
+          type: "string"
+      relatedComponents:
+        type: "array"
+        items:
+          type: "string"
+      examples:
+        type: "array"
+        items:
+          type: "object"
+          required: ["description", "code"]
+          properties:
+            description:
+              type: "string"
+            code:
+              type: "string"
+
+# Style guide structure
+styleguide:
+  type: "object"
+  required: ["schemaVersion", "metadata", "colors", "spacing", "typography", "borderRadius", "shadows", "transitions", "zIndex", "breakpoints", "components", "patterns"]
+  properties:
+    schemaVersion:
+      type: "string"
+      const: "1.0.0"
+    metadata:
+      type: "object"
+      required: ["name", "version", "createdAt", "updatedAt", "author"]
+      properties:
+        name:
+          type: "string"
+        version:
+          type: "string"
+        description:
+          type: "string"
+        createdAt:
+          type: "string"
+          format: "date-time"
+        updatedAt:
+          type: "string"
+          format: "date-time"
+        author:
+          type: "string"
+    colors:
+      type: "object"
+      required: ["palette", "semantic", "modes"]
+      properties:
+        palette:
+          type: "array"
+          items:
+            $ref: "#/definitions/colorToken"
+        semantic:
+          type: "object"
+          description: "Semantic color mappings (primary, secondary, success, warning, error, etc.)"
+          additionalProperties:
+            type: "string"
+        modes:
+          type: "object"
+          required: ["light", "dark"]
+          properties:
+            light:
+              type: "object"
+              additionalProperties:
+                type: "string"
+            dark:
+              type: "object"
+              additionalProperties:
+                type: "string"
+    spacing:
+      type: "object"
+      required: ["scale", "semantic"]
+      properties:
+        scale:
+          type: "array"
+          items:
+            $ref: "#/definitions/spacingToken"
+        semantic:
+          type: "object"
+          additionalProperties:
+            type: "string"
+    typography:
+      type: "object"
+      required: ["scale", "semantic", "fontFamilies"]
+      properties:
+        scale:
+          type: "array"
+          items:
+            $ref: "#/definitions/typographyToken"
+        semantic:
+          type: "object"
+          additionalProperties:
+            type: "string"
+        fontFamilies:
+          type: "object"
+          required: ["sans", "mono"]
+          properties:
+            sans:
+              type: "string"
+            mono:
+              type: "string"
+            serif:
+              type: "string"
+            display:
+              type: "string"
+    borderRadius:
+      type: "object"
+      required: ["scale", "semantic"]
+      properties:
+        scale:
+          type: "array"
+          items:
+            $ref: "#/definitions/spacingToken"
+        semantic:
+          type: "object"
+          additionalProperties:
+            type: "string"
+    shadows:
+      type: "object"
+      required: ["scale", "semantic"]
+      properties:
+        scale:
+          type: "array"
+          items:
+            type: "object"
+            required: ["name", "value"]
+            properties:
+              name:
+                type: "string"
+              value:
+                type: "string"
+              description:
+                type: "string"
+        semantic:
+          type: "object"
+          additionalProperties:
+            type: "string"
+    transitions:
+      type: "object"
+      required: ["scale", "semantic"]
+      properties:
+        scale:
+          type: "array"
+          items:
+            type: "object"
+            required: ["name", "value"]
+            properties:
+              name:
+                type: "string"
+              value:
+                type: "string"
+              description:
+                type: "string"
+        semantic:
+          type: "object"
+          additionalProperties:
+            type: "string"
+    zIndex:
+      type: "object"
+      required: ["scale", "semantic"]
+      properties:
+        scale:
+          type: "array"
+          items:
+            type: "object"
+            required: ["name", "value", "description"]
+            properties:
+              name:
+                type: "string"
+              value:
+                type: "integer"
+              description:
+                type: "string"
+        semantic:
+          type: "object"
+          additionalProperties:
+            type: "integer"
+    breakpoints:
+      type: "object"
+      required: ["scale", "semantic"]
+      properties:
+        scale:
+          type: "array"
+          items:
+            type: "object"
+            required: ["name", "value", "description"]
+            properties:
+              name:
+                type: "string"
+              value:
+                type: "string"
+              description:
+                type: "string"
+        semantic:
+          type: "object"
+          additionalProperties:
+            type: "string"
+    components:
+      type: "array"
+      items:
+        $ref: "#/definitions/componentSpec"
+    patterns:
+      type: "array"
+      items:
+        $ref: "#/definitions/pattern"
