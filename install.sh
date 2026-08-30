@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Skyhook Universal Installer
-# curl -fsSL https://raw.githubusercontent.com/yourname/skyhook/main/install.sh | bash
+# curl -fsSL https://raw.githubusercontent.com/asadayoub/skyhook/main/install.sh | bash
 
 set -e
 
 SKYHOOK_HOME="${SKYHOOK_HOME:-$HOME/.skyhook}"
-REPO="${REPO:-yourname/skyhook}"
+REPO="${REPO:-asadayoub/skyhook}"
 BRANCH="${BRANCH:-main}"
 INSTALL_DIR="$SKYHOOK_HOME/skill"
 
