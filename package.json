@@ -8,7 +8,7 @@
   "files": ["skyhook/**/*"],
   "scripts": {
     "postinstall": "chmod +x skyhook/cli/skyhook.js",
-    "test": "node --test skyhook/skill/commands/index.js"
+    "test": "node --test skyhook/skill/commands/test.js"
   },
   "keywords": ["ai", "agents", "project-intelligence", "skyhook", "cli"],
   "license": "MIT",
