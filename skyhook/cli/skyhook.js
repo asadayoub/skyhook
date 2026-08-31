@@ -23,7 +23,7 @@ import { execSync } from 'child_process';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SKYHOOK_ROOT = path.resolve(__dirname, '..');
-const SKYHOOK_VERSION = '1.0.0';
+const SKYHOOK_VERSION = '1.3.0';
 
 // Colors for output
 const colors = {
