@@ -28,8 +28,15 @@ rm -rf "$INSTALL_DIR"
 cp -r "$TMP_DIR/skyhook/skyhook" "$INSTALL_DIR"
 chmod +x "$INSTALL_DIR/cli/skyhook.js"
 
+# Create skyhook wrapper (no .js extension) for direct PATH execution
+cat > "$INSTALL_DIR/cli/skyhook" << 'WRAPPER_EOF'
+#!/usr/bin/env bash
+exec node "$(dirname "$0")/skyhook.js" "$@"
+WRAPPER_EOF
+chmod +x "$INSTALL_DIR/cli/skyhook"
+
 # Verify
-if "$INSTALL_DIR/cli/skyhook.js" version &> /dev/null; then
+if "$INSTALL_DIR/cli/skyhook" version &> /dev/null; then
     echo "✅ Skyhook installed successfully!"
 else
     echo "⚠️  Install completed but verification failed"
