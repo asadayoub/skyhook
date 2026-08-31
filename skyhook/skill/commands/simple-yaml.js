@@ -162,28 +162,49 @@ function stringifyYaml(obj, indent = 0) {
   
   for (const [key, value] of Object.entries(obj)) {
     if (Array.isArray(value)) {
-      result += `${spaces}${key}:\n`;
+      result += spaces + key + ':\n';
       for (const item of value) {
         if (typeof item === 'object' && item !== null) {
-          result += `${spaces}  -\n`;
-          result += stringifyYaml(item, indent + 2).replace(/^/gm, '    ');
+          // Array item that's an object - put first key on same line as dash
+          const entries = Object.entries(item);
+          if (entries.length > 0) {
+            const [firstKey, firstVal] = entries[0];
+            let valStr = String(firstVal);
+            if (valStr.includes(':') || valStr.includes('#') || valStr.startsWith(' ')) {
+              valStr = '"' + valStr.replace(/"/g, '\\"') + '"';
+            }
+            result += spaces + '  - ' + firstKey + ': ' + valStr + '\n';
+            // Remaining properties indented by 2 more spaces
+            const itemSpaces = '  '.repeat(indent + 2);
+            for (let i = 1; i < entries.length; i++) {
+              const [k, v] = entries[i];
+              let vStr = String(v);
+              if (vStr.includes(':') || vStr.includes('#') || vStr.startsWith(' ')) {
+                vStr = '"' + vStr.replace(/"/g, '\\"') + '"';
+              }
+              result += itemSpaces + k + ': ' + vStr + '\n';
+            }
+          } else {
+            // Empty object
+            result += spaces + '  - {}\n';
+          }
         } else {
           let valStr = String(item);
           if (valStr.includes(':') || valStr.includes('#') || valStr.startsWith(' ')) {
-            valStr = `"${valStr.replace(/"/g, '\\"')}"`;
+            valStr = '"' + valStr.replace(/"/g, '\\"') + '"';
           }
-          result += `${spaces}  - ${valStr}\n`;
+          result += spaces + '  - ' + valStr + '\n';
         }
       }
     } else if (typeof value === 'object' && value !== null) {
-      result += `${spaces}${key}:\n`;
+      result += spaces + key + ':\n';
       result += stringifyYaml(value, indent + 1);
     } else {
       let valStr = String(value);
       if (valStr.includes(':') || valStr.includes('#') || valStr.startsWith(' ')) {
-        valStr = `"${valStr.replace(/"/g, '\\"')}"`;
+        valStr = '"' + valStr.replace(/"/g, '\\"') + '"';
       }
-      result += `${spaces}${key}: ${valStr}\n`;
+      result += spaces + key + ': ' + valStr + '\n';
     }
   }
   return result;

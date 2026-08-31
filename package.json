@@ -1,6 +1,6 @@
 {
   "name": "@skyhook/skill",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Universal Project Intelligence for AI Agents",
   "bin": {
     "skyhook": "./skyhook/cli/skyhook.js"
