@@ -5,33 +5,39 @@
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                      AI AGENT HARNESS                           │
-│  (Codex, Claude Code, Gemini CLI, Antigravity, Custom)         │
+│  (Codex, Claude Code, Gemini CLI, GitHub Copilot, Custom)      │
 └──────────────────────────┬──────────────────────────────────────┘
-                           │
+                           │  stdio JSON protocol
                            ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                     SKYHOOK SKILL LAYER                         │
-│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌───────────┐ │
-│  │  Protocols  │ │  Schemas    │ │  Standards  │ │  Profiles │ │
-│  │  (agent-    │ │  (project,  │ │  (software, │ │  (web-    │ │
-│  │   protocol, │ │   reqs,     │ │   ux,       │ │   app,    │ │
-│  │   lifecycle)│ │   decisions)│ │   arch,     │ │   api,    │ │
-│  └─────────────┘ └─────────────┘ │   security, │ │   cli,    │ │
-│  ┌─────────────┐ ┌─────────────┐ │   testing)  │ │   lib,    │ │
-│  │  Question   │ │  Templates  │ └─────────────┘ │   saas,   │ │
-│  │  Engine     │ │  (init,     │ ┌─────────────┐ │   ai-agent│ │
-│  └─────────────┘ │   files)    │ │    CLI      │ └───────────┘ │
-│  ┌─────────────┐ └─────────────┘ │  (skyhook.js)            │
-│  │  Workflows  │                 └─────────────┘            │
-│  │  (discovery,│                                          │
-│  │   lifecycle)│                                          │
-│  └─────────────┘                                          │
+│  ┌─────────────────────────────────────────────────────────────┐ │
+│  │  skyhook CLI (cli/skyhook.js)                               │ │
+│  │  - init, discover, question, plan, standards, decide,       │ │
+│  │    sync, version, install, profile, setup, help            │ │
+│  └─────────────────────────────────────────────────────────────┘ │
+│  ┌─────────────────────────────────────────────────────────────┐ │
+│  │  skyhook-cmd (skill/commands/index.js)                      │ │
+│  │  13 Slash Commands via stdin/stdout JSON:                   │ │
+│  │  Feature Mgmt: listCurrentFeatures, getFeature, addFeature  │ │
+│  │  Task Mgmt: getNextTask, getBlockers, updateStatus          │ │
+│  │  Decisions: recordDecision (auto-ADR), sync                 │ │
+│  │  Traceability: trace, impact, untraced                      │ │
+│  │  Context: getContext                                        │ │
+│  │  Dashboard: dashboard (on-demand HTTP server)               │ │
+│  └─────────────────────────────────────────────────────────────┘ │
+│  ┌─────────────────────────────────────────────────────────────┐ │
+│  │  Core Libraries                                              │ │
+│  │  - simple-yaml.js: Zero-dep YAML parser                     │ │
+│  │  - trace.js: trace/impact/untraced logic                    │ │
+│  │  - adr.js: Auto-ADR generation with alternatives            │ │
+│  │  - inference.js: Repo analysis engine                       │ │
+│  └─────────────────────────────────────────────────────────────┘ │
 └──────────────────────────┬──────────────────────────────────────┘
-                           │
+                           │  reads/writes .skyhook/
                            ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                  PROJECT SKYHOOK STATE                          │
-│  .skyhook/                                                      │
+│                  PROJECT SKYHOOK STATE (.skyhook/)              │
 │  ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌────────────┐  │
 │  │  Project   │ │ Requirements│ │ Decisions  │ │  Backlog   │  │
 │  │  Config    │ │ (func,      │ │  (ADRs,    │ │  (epics,   │  │
@@ -40,231 +46,154 @@
 │  ┌────────────┐ └────────────┘ ┌────────────┐ └────────────┘  │
 │  │   Tech     │ ┌────────────┐ │    UX      │ ┌────────────┐  │
 │  │   Stack    │ │  Context   │ │  (style-   │ │  Standards │  │
-│  │   (YAML)   │ │  & Vision  │ │   guide,   │ │  (overrides)│ │
+│  │   (YAML)   │ │  & Vision  │ │  guide,    │ │  (overrides)│ │
 │  └────────────┘ │  (Markdown)│ │  components)│ └────────────┘  │
 │  ┌────────────┐ └────────────┘ └────────────┘ ┌────────────┐  │
 │  │    Plan    │ ┌────────────┐                 │  Changelog │  │
 │  │  (Markdown)│ │ Extensions │                 │  (Markdown)│  │
 │  └────────────┘ └────────────┘                 └────────────┘  │
+└─────────────────────────┬───────────────────────────────────────┘
+                           │  scans for @skyhook-implements
+                           ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                        CODEBASE                                 │
+│  // @skyhook-implements REQ-003                                 │
+│  export function RevenueChart() { }                             │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-## Core Design Principles
-
-### 1. Separation of Concerns
-
-| Layer | Responsibility | Portability |
-|-------|---------------|-------------|
-| **Skill** | Reusable capability, standards, workflows | Install once, use everywhere |
-| **Project State** | Project-specific knowledge only | Plain text, git-friendly, agent-agnostic |
-
-### 2. Plain Text Persistence
-
-All project knowledge stored as:
-- **YAML** for structured data (schemas, requirements, decisions, tech stack)
-- **Markdown** for narrative content (context, vision, ADR details, plans)
-
-Benefits:
-- Human readable and editable
-- Git diffable
-- No vendor lock-in
-- Any agent can read/write
-
-### 3. Schema-Driven
-
-Every `.skyhook/` file conforms to a schema:
-- Versioned schemas in `schemas/`
-- Validation on read/write
-- Migration path for schema changes
-- Type-safe interpretation
-
-### 4. Agent-Agnostic Protocol
-
-Agents interact via:
-1. **File-based protocol** - Read/write `.skyhook/` files directly
-2. **CLI commands** - `skyhook init`, `discover`, `plan`, `decide`, etc.
-3. **Skill manifest** - `SKILL.md` describes capabilities
-
-No RPC, no daemon, no network required.
-
 ---
 
-## Component Details
+## Core Components
 
-### 1. Schemas (`schemas/`)
+### 1. CLI Layer (`cli/skyhook.js`)
 
-Define structure for all project knowledge:
-
-| Schema | Purpose | Key Files |
-|--------|---------|-----------|
-| `project.yaml` | Project metadata, config | `.skyhook/project.yaml` |
-| `requirements.yaml` | Functional, non-functional, constraints | `.skyhook/requirements/*.yaml` |
-| `decisions.yaml` | ADRs and design decisions | `.skyhook/decisions/index.yaml`, `*.md` |
-| `ux.yaml` | Design system, components, patterns | `.skyhook/ux/styleguide.md`, `components.yaml` |
-| `tech-stack.yaml` | Technology choices, rationale | `.skyhook/tech-stack.yaml` |
-| `backlog.yaml` | Epics, stories, tasks | `.skyhook/backlog/*.yaml` |
-
-Each schema includes:
-- `schemaVersion` for migration
-- JSON Schema compatible definitions
-- Required/optional fields
-- Enum constraints for consistency
-
-### 2. Standards (`standards/`)
-
-Built-in, overridable standards:
-
-| Standard | Scope | Enforcement |
-|----------|-------|-------------|
-| `software.md` | Code quality, TS patterns, architecture | Advisory by default |
-| `ux.md` | Design tokens, components, responsive | Advisory |
-| `accessibility.md` | WCAG 2.1 AA requirements | Strict recommended |
-| `architecture.md` | DDD, API design, event-driven | Advisory |
-| `security.md` | OWASP Top 10, crypto, secrets | Strict recommended |
-| `testing.md` | Test pyramid, patterns, coverage | Advisory |
-
-Override mechanism: Create `.skyhook/standards/{name}.md` in project.
-
-### 3. Profiles (`profiles/`)
-
-Project-type configurations:
-
-| Profile | Extends | Key Characteristics |
-|---------|---------|---------------------|
-| `web-app` | — | Full-stack, React/Vue/Next, Tailwind, Prisma |
-| `api-service` | — | REST/GraphQL, auth, rate limiting, OpenAPI |
-| `cli-tool` | — | Commander/Cobra, config files, snapshots |
-| `library` | — | Package exports, types, SemVer, publishing |
-| `saas` | `web-app` | Multi-tenancy, Stripe billing, admin |
-| `ai-agent` | — | LLM providers, RAG, tools, evals |
-| `marketing-site` | — | Static/SSG, content, SEO, analytics |
-| `ecommerce` | `saas` | Products, cart, checkout, inventory |
-| `mobile-app` | — | React Native/Expo, native modules |
-| `desktop-app` | — | Electron/Tauri, auto-updater |
-
-Each profile defines:
-- Detection heuristics
-- Default tech stack
-- Phase-specific questions
-- Default requirements
-- Standards emphasis
-- Scaffold templates
-
-### 4. Question Engine (`question-engine.md`)
-
-Intelligent question generation:
-
-```
-Discovery → Identify Unknowns → Classify Importance 
-    → Filter Contextual → Ask Only Relevant
-```
-
-Key features:
-- **Never asks inferable information**
-- **Scores questions by current relevance**
-- **Batches related questions (max 3)**
-- **Offers defaults from standards/profile**
-- **Interprets natural language answers**
-- **Detects conflicts with existing knowledge**
-
-### 5. Workflows (`workflows/`)
-
-Lifecycle orchestration:
-
-| Workflow | Purpose |
-|----------|---------|
-| `discovery.md` | Initial project understanding |
-| `lifecycle.md` | 17-phase project lifecycle |
-
-Phases: Init → Capture Idea → Context → Vision → Requirements → Backlog → Tech Stack → UX/Style → Standards → Scaffold → Project Plan → Build → Discover → Update Requirements → Track Decisions → Handle Changes → Recompile Plan
-
-### 6. CLI (`cli/skyhook.js`)
-
-Commands:
-
+**Commands:**
 | Command | Purpose |
 |---------|---------|
-| `init` | Create `.skyhook/` in project |
-| `discover` | Run discovery workflow |
-| `question` | Generate contextual questions |
-| `plan` | Generate/update PROJECT_PLAN.md |
-| `standards` | Show applicable standards |
-| `decide` | Record architectural decision |
-| `sync` | Check code/doc alignment |
-| `version` | Show versions |
-| `install` | Install skill globally/locally |
-| `profile` | Show profile details |
+| `init` | Create `.skyhook/` in project with auto-detected or specified profile |
+| `discover` | Interactive requirements gathering workflow |
+| `question` | Generate contextual questions for requirements |
+| `plan` | Generate/update `PROJECT_PLAN.md` |
+| `standards` | Show applicable built-in standards |
+| `decide` | Record architectural decision + auto-generate ADR |
+| `sync` | Check code vs docs drift |
+| `version` | Show version info |
+| `install` | Install skill globally |
+| `profile` | Show profile details (tech stack, questions, scaffolds) |
+| `setup` | Auto-configure agent harnesses (codex, claude, gemini, copilot, all) |
+| `help` | Show all commands |
+
+### 2. Slash Command Layer (`skill/commands/index.js`)
+
+**13 Commands via stdio JSON protocol:**
+
+| Category | Commands |
+|----------|----------|
+| **Feature Management** | `listCurrentFeatures`, `getFeature`, `addFeature` |
+| **Task Management** | `getNextTask`, `getBlockers`, `updateStatus` |
+| **Decisions & Architecture** | `recordDecision`, `sync` |
+| **Traceability & Impact** | `trace`, `impact`, `untraced` |
+| **Context** | `getContext` |
+| **Dashboard** | `dashboard` (start/stop/status) |
+
+**Protocol:**
+```json
+// Request
+{"command": "getNextTask", "args": {}}
+
+// Response
+{"story": {...}, "context": {...}}
+```
+
+### 3. Traceability Engine (`skill/commands/trace.js`)
+
+| Command | Function |
+|---------|----------|
+| `trace` | Requirement → stories, decisions, code refs (`@skyhook-implements`) |
+| `impact` | Risk level (low/medium/high), affected stories/decisions/files |
+| `untraced` | Requirements with implemented/in-progress status but no code refs |
+
+### 4. Auto-ADR Generator (`skill/commands/adr.js`)
+
+Generates complete Architecture Decision Records with:
+- Alternatives (profile-suggested + user-provided)
+- Consequences (positive/negative/neutral)
+- Related requirements & decisions
+- Implementation steps + validation criteria
+- Markdown output to `decisions/ULID.md`
+
+### 5. Inference Engine (`skill/lib/inference.js`)
+
+Auto-detects from repository (zero config):
+- Language: TypeScript, JavaScript, Python, Go, Rust
+- Framework: Next.js, React, Vue, FastAPI, Express, NestJS, Remix, Astro, Hono
+- Build Tool: Vite, Webpack, esbuild, Turbopack
+- Styling: Tailwind, Styled Components, Emotion, Sass
+- Database/ORM: Prisma, Drizzle, Kysely, Mongoose, TypeORM
+- Auth: NextAuth.js, Clerk, Supabase Auth, JWT
+- Deployment: Vercel, Netlify, Fly.io, Railway, Docker, Kubernetes
+- CI/CD: GitHub Actions, GitLab CI, CircleCI
+- Testing: Jest, Vitest, Playwright, Cypress
+- Monorepo: pnpm-workspace, Turborepo, Nx
+
+### 6. Dashboard (`skill/dashboard/public/index.html`)
+
+On-demand HTTP server (port 4343):
+- Multi-project discovery via `/api/projects`
+- Project data via `/api/data?project=<path>`
+- Frontend: vanilla JS, dark theme, auto-refresh 30s
+- Zero overhead when stopped
 
 ---
 
 ## Data Flow
 
 ### Initialization Flow
-
 ```
-User: "Use Skyhook"
+skyhook init
     │
     ▼
-Agent detects Skyhook skill
+Detect project type (package.json, configs, files)
     │
     ▼
-Agent runs: skyhook init
+Load profile (web-app, api-service, cli-tool, library, saas, ai-agent)
     │
     ▼
-CLI detects project type (package.json, files)
-    │
-    ▼
-CLI loads profile (web-app, api-service, etc.)
-    │
-    ▼
-CLI creates .skyhook/ with:
-  - project.yaml (with detected type)
+Create .skyhook/ with:
+  - project.yaml (detected type, config)
   - Empty schema-compliant files
   - context.md, vision.md templates
   - Basic styleguide.md
-    │
-    ▼
-Agent reads .skyhook/, begins discovery
 ```
 
 ### Discovery Flow
-
 ```
-Agent loads project state
+skyhook discover
     │
     ▼
-Inspects repository (package.json, configs, code)
+Load project state + repo scan (inference engine)
     │
     ▼
-Confirms/refines project type
+Confirm/refine project type + load profile + standards
     │
     ▼
-Loads profile + built-in standards
+Identify knowns vs unknowns (profile requirements - knowns)
     │
     ▼
-Identifies knowns (from repo, context, conversation)
+Score unknowns by importance + current relevance
     │
     ▼
-Identifies unknowns (profile requirements - knowns)
+Ask top N questions (contextual, not exhaustive)
     │
     ▼
-Scores unknowns by importance + current relevance
+Interpret answers → structured requirements/decisions
     │
     ▼
-Asks top N questions (contextual, not exhaustive)
-    │
-    ▼
-Interprets answers → structured requirements/decisions
-    │
-    ▼
-Saves to .skyhook/
-    │
-    ▼
-Generates initial PROJECT_PLAN.md
+Save to .skyhook/ → Generate PROJECT_PLAN.md
 ```
 
-### Build Flow (Ongoing)
-
+### Ongoing Build Flow
 ```
 For each task:
   1. Agent reads relevant .skyhook/ context
@@ -280,91 +209,167 @@ For each task:
 
 ---
 
-## Extensibility Points
+## .skyhook/ File System Schema
 
-### 1. Custom Profiles
-
-Add `.skyhook/profiles/custom.yaml`:
+### project.yaml
 ```yaml
-extends: "web-app"
-techStack:
-  frontend:
-    framework:
-      default: "SolidJS"
+schemaVersion: 1.0.0
+id: ULID
+name: string
+description: string
+type: web-app|api-service|cli-tool|library|saas|ai-agent
+profile: string
+version: semver
+repository: {url, branch, provider}
+configuration:
+  questionThreshold: minimal|contextual|comprehensive
+  autoPlan: boolean
+  standardsLevel: advisory|strict|custom
+  trackDecisions: boolean
+  syncOnCommit: boolean
 ```
 
-### 2. Custom Standards
-
-Create `.skyhook/standards/software.md`:
-```markdown
-# Overrides
-- Use tabs not spaces
-- Max line length: 120
+### requirements/functional.yaml
+```yaml
+schemaVersion: 1.0.0
+requirements:
+  - id: REQ-XXX
+    title: string
+    description: string
+    priority: critical|high|medium|low
+    status: proposed|confirmed|in-progress|implemented|deferred
+    category: string
+    userStory: string
+    actor: string
+    trigger: string
+    tags: [string]
+    timestamps: createdAt, updatedAt, confirmedAt, implementedAt
 ```
 
-### 3. Custom Questions
+### decisions/index.yaml
+```yaml
+schemaVersion: 1.0.0
+decisions:
+  - id: DEC-XXX|ULID
+    title: string
+    status: proposed|accepted|rejected|deprecated|superseded
+    category: architecture|technology|security|process|ux|software
+    createdAt: ISO8601
+    decidedAt: ISO8601
+```
 
-Add to profile or create `.skyhook/extensions/questions/*.yaml`
+### decisions/ULID.md (Auto-generated ADR)
+Full ADR with: Context, Decision, Consequences, Alternatives, Related Requirements, Related Decisions, Implementation Notes, Validation Criteria.
 
-### 4. Custom Interpreters
+### backlog/epics.yaml
+```yaml
+schemaVersion: 1.0.0
+metadata: {createdAt, updatedAt, version}
+epics:
+  - id: EPIC-XXX
+    title: string
+    description: string
+    goal: string
+    successMetrics: [string]
+    childStories: [STORY-XXX]
+    targetDate: ISO8601
+    timestamps: createdAt, updatedAt
+stories:
+  - id: STORY-XXX
+    title: string
+    description: string
+    userStory: string
+    acceptanceCriteria: [string]
+    epicId: EPIC-XXX
+    priority: number (WSJF)
+    status: backlog|ready|in-progress|in-review|done|blocked|cancelled
+    relatedRequirements: [REQ-XXX]
+    dependencies: [STORY-XXX]
+    blockerReason: string
+    timestamps: createdAt, updatedAt, startedAt, completedAt
+tasks: []
+prioritization: {method: wsjf, criteria: {}}
+```
 
-Agent can implement domain-specific answer parsing.
+---
 
-### 5. Custom Plan Generators
+## Module Interconnections
 
-Replace `plan/PROJECT_PLAN.md` template.
+| From | To | Mechanism |
+|------|-----|-----------|
+| CLI | Profile | Loads `profiles/*.yaml` for defaults |
+| Slash Commands | .skyhook/ | `SkyhookContext` reads/writes YAML/MD |
+| trace/impact | Codebase | Scans for `@skyhook-implements REQ-XXX` |
+| adr.js | decisions/ | Writes ULID.md + updates index.yaml |
+| sync | package.json | Compares deps vs tech-stack.yaml |
+| inference | Repo | Reads package.json, configs, files |
+| dashboard | .skyhook/ | Serves via `/api/data?project=<path>` |
+
+---
+
+## Agent Integration Layer
+
+### Setup Command (`skyhook setup <agent>`)
+
+| Agent | Creates | Native Commands |
+|-------|---------|-----------------|
+| Codex | `.codex/agents.md` | `/skyhook-listCurrentFeatures`, `/skyhook-getNextTask`, etc. |
+| Claude Code | `.claude/commands/skyhook-*.md` (8) | `/skyhook-next`, `/skyhook-decide "..." \| "..." \| "..." \| technology`, etc. |
+| Gemini CLI | `.gemini/functions/skyhook.js` + `settings.json` | `skyhook_get_next_task()`, `skyhook_trace({id})`, etc. |
+| Copilot | `.github/copilot-instructions.md` + `.vscode/tasks.json` | VS Code Tasks: "Skyhook: Next Task", etc. |
+
+### Universal Protocol
+All agents use stdio JSON:
+```bash
+echo '{"command":"getNextTask","args":{}}' | skyhook-cmd
+```
+
+---
+
+## Key Principles
+
+- **Zero dependencies** — Pure Node.js ≥18, no external packages
+- **Local-only** — No server, network, or daemon; runs via stdio JSON
+- **Agent-agnostic** — Works with any AI via stdin/stdout JSON
+- **Git-friendly** — All `.skyhook/` files are plain text, diffable
+- **On-demand dashboard** — Zero overhead when not running
 
 ---
 
 ## Versioning & Compatibility
 
-### Skill Versioning
-
-- Semantic Versioning (MAJOR.MINOR.PATCH)
-- MAJOR: Breaking protocol/schema changes
-- MINOR: New features, profiles, standards
-- PATCH: Bug fixes, typo corrections
-
-### Schema Versioning
-
-Each schema file has `schemaVersion`:
-- Incremented on breaking changes
-- Migration scripts provided
-- Backward compatible within MAJOR
-
-### Agent Compatibility
-
-- Protocol version in `plugin.json`
-- Agents declare supported protocol version
-- Graceful degradation for unknown fields
+- **Skill Version**: Semantic (v1.2.0)
+- **Schema Version**: Each file has `schemaVersion: 1.0.0`
+- **Protocol**: Stable JSON stdio interface
+- **Compatibility**: Agents declare supported protocol version
 
 ---
 
-## Security Considerations
+## Security
 
-1. **No network access** - Fully local
-2. **No secrets in .skyhook/** - References to secret managers only
-3. **Git-friendly** - Designed for version control
-4. **No code execution** - Data only, no eval
-5. **Agent sandbox** - Agents operate within project directory
+1. **No network access** — Fully local
+2. **No secrets in .skyhook/** — References to secret managers only
+3. **Git-friendly** — Designed for version control
+4. **No code execution** — Data only, no eval
+5. **Agent sandbox** — Agents operate within project directory
 
 ---
 
 ## Performance
 
-- **Init**: < 1 second (file creation)
+- **Init**: < 1 second
 - **Discover**: < 3 seconds (repo scan + profile load)
-- **Plan generation**: < 500ms (template + data merge)
-- **Question generation**: < 100ms (filter + score)
+- **Plan generation**: < 500ms
+- **Question generation**: < 100ms
 - **CLI startup**: ~50ms (Node.js)
 
 ---
 
 ## Future Architecture Considerations
 
-1. **Language-agnostic CLI** - Rewrite in Go/Rust for faster startup
-2. **Schema registry** - Central schema repository
-3. **Real-time sync** - File watcher for multi-agent
-4. **Web UI** - Visual project dashboard
-5. **Plugin API** - Formal extension system
-6. **Cloud sync** - Optional team synchronization
+1. **NPM Package** — `npm install -g @skyhook/skill`
+2. **GitHub Action** — `.github/workflows/skyhook-drift.yml`
+3. **VS Code Extension** — Sidebar, inline traceability
+4. **Multi-Language** — Python, Go, Rust inference
+5. **Team Features** — Webhook server for real-time sync
+6. **AI Planning** — Auto-generate plan from backlog + capacity
