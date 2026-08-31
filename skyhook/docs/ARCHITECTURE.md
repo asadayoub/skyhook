@@ -86,16 +86,18 @@
 
 ### 2. Slash Command Layer (`skill/commands/index.js`)
 
-**13 Commands via stdio JSON protocol:**
+**24 Commands via stdio JSON protocol:**
 
 | Category | Commands |
 |----------|----------|
 | **Feature Management** | `listCurrentFeatures`, `getFeature`, `addFeature` |
 | **Task Management** | `getNextTask`, `getBlockers`, `updateStatus` |
-| **Decisions & Architecture** | `recordDecision`, `sync` |
+| **Decisions & Architecture** | `recordDecision`, `sync`, `decide` |
 | **Traceability & Impact** | `trace`, `impact`, `untraced` |
 | **Context** | `getContext` |
 | **Dashboard** | `dashboard` (start/stop/status) |
+| **Project Initialization** | `init`, `discover`, `question`, `plan`, `profile`, `version`, `install`, `setup`, `batchCreate` |
+| **Standards** | `standards` |
 
 **Protocol:**
 ```json

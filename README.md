@@ -105,6 +105,21 @@ All agents invoke via: `echo '{"command":"...","args":{}}' | skyhook-cmd`
 |---------|------|---------|
 | `dashboard` | `action: start\|stop\|status` | Starts HTTP server on port 4343 (on-demand, no background process) |
 
+### Project Initialization & Discovery
+| Command | Args | Returns |
+|---------|------|---------|
+| `init` | `profile?, name?, description?, variant?, force?` | Initializes `.skyhook/` with profile, creates all template files |
+| `discover` | `phase?, answers?` | Phased questions for requirements gathering (init, vision, requirements, architecture, ux, tech, plan) |
+| `question` | `category?, limit?` | Contextual questions filtered by category (init, vision, requirements, architecture, ux, tech, plan) |
+| `plan` | — | Generates `PROJECT_PLAN.md` with phases, milestones, risks, tech stack |
+| `standards` | `category?` | Lists all applicable standards with levels (strict/advisory) and source (profile/project/override) |
+| `profile` | `name?` | Profile details: tech stack, variants, question count, standards, default requirements |
+| `version` | — | Skyhook version, protocol, Node.js version, platform |
+| `install` | `scope?: global\|local, force?` | Installs skill globally to `~/.skyhook/skill` |
+| `setup` | `agent: codex\|claude\|gemini\|copilot\|all` | Auto-configures agent harness with native slash commands |
+| `decide` | `title, decision, context, ...` | Shorthand for `recordDecision` with auto-generated ADR |
+| `batchCreate` | `items: [{type: feature\|story\|requirement\|decision, data: {...}}]` | Bulk creates multiple items in one call |
+
 ### JSON Protocol Examples
 ```bash
 # List features
