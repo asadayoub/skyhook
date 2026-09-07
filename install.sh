@@ -26,6 +26,7 @@ fi
 mkdir -p "$SKYHOOK_HOME"
 rm -rf "$INSTALL_DIR"
 cp -r "$TMP_DIR/skyhook/skyhook" "$INSTALL_DIR"
+cp "$TMP_DIR/skyhook/package.json" "$INSTALL_DIR/"
 chmod +x "$INSTALL_DIR/cli/skyhook.js"
 
 # Create skyhook wrapper (no .js extension) for direct PATH execution

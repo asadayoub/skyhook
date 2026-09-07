@@ -4,8 +4,22 @@ import { fileURLToPath } from 'url';
 import { parseYaml, stringifyYaml } from './yaml.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+export const CLI_ROOT = path.resolve(__dirname, '..');
 export const SKYHOOK_ROOT = path.resolve(__dirname, '..', '..');
-export const SKYHOOK_VERSION = '1.3.7';
+
+let version = '1.4.1';
+try {
+  let pkgPath = path.join(CLI_ROOT, 'package.json');
+  if (!fs.existsSync(pkgPath)) {
+    pkgPath = path.join(CLI_ROOT, '..', 'package.json');
+  }
+  if (fs.existsSync(pkgPath)) {
+    const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
+    if (pkg.version) version = pkg.version;
+  }
+} catch (e) { /* fallback to hardcoded */ }
+
+export const SKYHOOK_VERSION = version;
 export const DASHBOARD_PORT = 31415;
 export const dashboardServer = `http://localhost:${DASHBOARD_PORT}`;
 export let projectsCache = [];
@@ -58,7 +72,7 @@ export function appendChangelog(skyhookDir, entry) {
 }
 
 export function loadProfile(profileName) {
-  const profilePath = path.join(SKYHOOK_ROOT, 'skyhook', 'profiles', profileName + '.yaml');
+  const profilePath = path.join(CLI_ROOT, 'profiles', profileName + '.yaml');
   if (fs.existsSync(profilePath)) {
     return readYaml(profilePath);
   }
