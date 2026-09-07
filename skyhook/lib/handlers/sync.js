@@ -43,13 +43,13 @@ export async function cmdSync(ctx, args) {
 export async function cmdTrace(ctx, args) {
   if (!args.id) return { error: 'Missing required: id (requirement ID)' };
   const projectDir = process.cwd();
-  return traceRequirement(args.id, projectDir);
+  return traceRequirement(projectDir, args.id);
 }
 
 export async function cmdImpact(ctx, args) {
   if (!args.id) return { error: 'Missing required: id (requirement ID)' };
   const projectDir = process.cwd();
-  return analyzeImpact(args.id, projectDir);
+  return analyzeImpact(projectDir, args.id);
 }
 
 export async function cmdUntraced(ctx, args) {

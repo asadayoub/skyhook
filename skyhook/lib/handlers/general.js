@@ -112,11 +112,15 @@ export async function cmdDashboard(ctx, args) {
         }
       });
       
-      server.listen(DASHBOARD_PORT, '127.0.0.1', () => {
-        dashboardServer = server;
+      return new Promise((resolve) => {
+        server.listen(DASHBOARD_PORT, '127.0.0.1', () => {
+          dashboardServer = server;
+          resolve({ message: 'Dashboard started at http://localhost:' + DASHBOARD_PORT, port: DASHBOARD_PORT });
+        });
+        server.on('error', (e) => {
+          resolve({ error: 'Failed to start dashboard: ' + e.message });
+        });
       });
-      
-      return { message: 'Dashboard started at http://localhost:' + DASHBOARD_PORT, port: DASHBOARD_PORT };
     } catch (e) {
       return { error: 'Failed to start dashboard: ' + e.message };
     }

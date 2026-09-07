@@ -30,7 +30,8 @@
     "node": ">=18"
   },
   "devDependencies": {
-    "eslint": "^9.39.5"
+    "eslint": "^9.39.5",
+    "wtfnode": "^0.10.1"
   },
   "dependencies": {
     "@babel/parser": "^7.29.8",

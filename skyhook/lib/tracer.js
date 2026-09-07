@@ -275,12 +275,14 @@ export async function findUntracedRequirements(projectDir) {
 // ==================== HELPERS ====================
 
 function findSkyhookDir(projectDir) {
-  let dir = projectDir;
+  let dir = path.resolve(projectDir);
   while (dir !== path.parse(dir).root) {
     if (fs.existsSync(path.join(dir, '.skyhook'))) {
       return path.join(dir, '.skyhook');
     }
-    dir = path.dirname(dir);
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
   }
   return null;
 }
