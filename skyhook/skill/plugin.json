@@ -8,7 +8,7 @@
   "repository": "https://github.com/skyhook/skyhook",
   "keywords": ["ai-agent", "project-intelligence", "skill", "codex", "claude-code", "gemini-cli"],
   "entry": {
-    "main": "index.md",
+    "main": "SKILL.md",
     "cli": "cli/skyhook.js"
   },
   "capabilities": [

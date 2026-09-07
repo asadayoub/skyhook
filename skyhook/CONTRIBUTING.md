@@ -24,7 +24,7 @@ npm install  # If package.json exists for tooling
 skyhook/
 ├── skill/
 │   ├── plugin.json          # Skill manifest
-│   ├── index.md             # Main documentation
+│   ├── SKILL.md             # Main documentation
 │   ├── agent-protocol.md    # Agent integration protocol
 │   ├── question-engine.md   # Question generation/interpreation
 │   ├── schemas/             # YAML schemas

@@ -35,6 +35,13 @@ exec node "$(dirname "$0")/skyhook.js" "$@"
 WRAPPER_EOF
 chmod +x "$INSTALL_DIR/cli/skyhook"
 
+# Create skyhook-cmd wrapper for the agent JSON protocol
+cat > "$INSTALL_DIR/cli/skyhook-cmd" << 'WRAPPER_EOF'
+#!/usr/bin/env bash
+exec node "$(dirname "$0")/../skill/commands/index.js" "$@"
+WRAPPER_EOF
+chmod +x "$INSTALL_DIR/cli/skyhook-cmd"
+
 # Verify
 if "$INSTALL_DIR/cli/skyhook" version &> /dev/null; then
     echo "✅ Skyhook installed successfully!"

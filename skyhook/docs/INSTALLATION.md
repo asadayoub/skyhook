@@ -93,9 +93,8 @@ skyhook discover
 ```
 ~/.skyhook/
 └── skill/                 # Skyhook skill (this repo)
-    ├── SKILL.md          # Skill manifest
     ├── plugin.json       # Plugin metadata
-    ├── index.md          # Main documentation
+    ├── SKILL.md          # Main documentation
     ├── agent-protocol.md # Agent integration protocol
     ├── question-engine.md
     ├── schemas/          # YAML schemas (6)
