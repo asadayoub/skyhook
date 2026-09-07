@@ -1,27 +1,52 @@
 {
   "name": "skyhook-plugin",
   "description": "Universal Project Intelligence for AI Agents",
-  "version": "1.3.2",
+  "version": "1.3.3",
   "slash_commands": [
     {
-      "name": "skyhook",
-      "description": "Interact with Skyhook Project Intelligence",
-      "instruction": "Run `skyhook` commands in the terminal to manage project intelligence. Read SKILL.md for more details."
+      "name": "skyhook-init",
+      "description": "Initialize Skyhook in this project",
+      "instruction": "Run `skyhook init` in the terminal."
+    },
+    {
+      "name": "skyhook-discover",
+      "description": "Run the discovery workflow",
+      "instruction": "Run `skyhook discover` in the terminal."
+    },
+    {
+      "name": "skyhook-question",
+      "description": "Generate contextual questions to fill missing knowledge",
+      "instruction": "Run `skyhook question` in the terminal."
     },
     {
       "name": "skyhook-plan",
       "description": "Generate or update PROJECT_PLAN.md",
-      "instruction": "Run `skyhook plan` in the terminal to generate the project plan."
+      "instruction": "Run `skyhook plan` in the terminal."
+    },
+    {
+      "name": "skyhook-standards",
+      "description": "List applicable standards for this project",
+      "instruction": "Run `skyhook standards` in the terminal."
+    },
+    {
+      "name": "skyhook-decide",
+      "description": "Record an architectural or design decision",
+      "instruction": "Run `skyhook decide` in the terminal. Provide title, decision, and context."
     },
     {
       "name": "skyhook-sync",
-      "description": "Check for drift between code and documentation",
-      "instruction": "Run `skyhook sync` in the terminal to check for drift."
+      "description": "Sync code with documentation and check for drift",
+      "instruction": "Run `skyhook sync` in the terminal."
     },
     {
-      "name": "skyhook-question",
-      "description": "Generate contextual questions about the project",
-      "instruction": "Run `skyhook question` to determine missing context."
+      "name": "skyhook-profile",
+      "description": "Show profile details (tech stack, variants, questions)",
+      "instruction": "Run `skyhook profile` in the terminal."
+    },
+    {
+      "name": "skyhook-batch-create",
+      "description": "Bulk create features, stories, or requirements",
+      "instruction": "Run `skyhook batchCreate` using the JSON protocol."
     }
   ]
 }

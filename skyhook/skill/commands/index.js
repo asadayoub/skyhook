@@ -13,7 +13,7 @@ const { generateADR } = require('./adr.js');
 const { inferFromRepo } = require('../lib/inference.js');
 
 const SKYHOOK_ROOT = path.resolve(__dirname, '..', '..');
-const SKYHOOK_VERSION = '1.3.2';
+const SKYHOOK_VERSION = '1.3.3';
 
 // ==================== UTILITIES ====================
 
