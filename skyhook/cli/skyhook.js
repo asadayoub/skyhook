@@ -23,7 +23,7 @@ import { execSync } from 'child_process';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SKYHOOK_ROOT = path.resolve(__dirname, '..');
-const SKYHOOK_VERSION = '1.3.1';
+const SKYHOOK_VERSION = '1.3.2';
 
 // Colors for output
 const colors = {
@@ -1091,7 +1091,8 @@ Then use:
       const targetLink = path.join(pluginsDir, 'skyhook-plugin');
       try { fs.rmSync(targetLink, { recursive: true, force: true }); } catch (e) {}
       
-      fs.symlinkSync(SKYHOOK_ROOT, targetLink, 'junction');
+      const antigravityPluginDir = path.join(SKYHOOK_ROOT, 'antigravity-plugin');
+      fs.symlinkSync(antigravityPluginDir, targetLink, 'junction');
       log('success', `Linked Skyhook plugin to ${targetLink}`);
       break;
     }

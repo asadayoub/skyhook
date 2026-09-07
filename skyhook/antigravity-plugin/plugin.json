@@ -1,0 +1,27 @@
+{
+  "name": "skyhook-plugin",
+  "description": "Universal Project Intelligence for AI Agents",
+  "version": "1.3.2",
+  "slash_commands": [
+    {
+      "name": "skyhook",
+      "description": "Interact with Skyhook Project Intelligence",
+      "instruction": "Run `skyhook` commands in the terminal to manage project intelligence. Read SKILL.md for more details."
+    },
+    {
+      "name": "skyhook-plan",
+      "description": "Generate or update PROJECT_PLAN.md",
+      "instruction": "Run `skyhook plan` in the terminal to generate the project plan."
+    },
+    {
+      "name": "skyhook-sync",
+      "description": "Check for drift between code and documentation",
+      "instruction": "Run `skyhook sync` in the terminal to check for drift."
+    },
+    {
+      "name": "skyhook-question",
+      "description": "Generate contextual questions about the project",
+      "instruction": "Run `skyhook question` to determine missing context."
+    }
+  ]
+}

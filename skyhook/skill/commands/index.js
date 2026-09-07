@@ -13,7 +13,7 @@ const { generateADR } = require('./adr.js');
 const { inferFromRepo } = require('../lib/inference.js');
 
 const SKYHOOK_ROOT = path.resolve(__dirname, '..', '..');
-const SKYHOOK_VERSION = '1.3.1';
+const SKYHOOK_VERSION = '1.3.2';
 
 // ==================== UTILITIES ====================
 
@@ -1214,7 +1214,8 @@ async function cmdSetup(ctx, args) {
       const targetLink = path.join(pluginsDir, 'skyhook-plugin');
       try { fs.rmSync(targetLink, { recursive: true, force: true }); } catch (e) {}
       
-      fs.symlinkSync(skyhookRoot, targetLink, 'junction');
+      const antigravityPluginDir = path.join(skyhookRoot, 'antigravity-plugin');
+      fs.symlinkSync(antigravityPluginDir, targetLink, 'junction');
       return { success: true, message: `Linked Skyhook plugin to ${targetLink}` };
     }
     
