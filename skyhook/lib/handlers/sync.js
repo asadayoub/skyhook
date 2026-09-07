@@ -1,43 +1,63 @@
 import fs from 'fs';
 import path from 'path';
 import { loadProfile } from '../utils.js';
-import { inferFromRepo } from '../../skill/lib/inference.js';
+import { inferFromRepo } from '../inference/InferenceEngine.js';
+import { detectDrift } from '../drift-analyzer.js';
 import { traceRequirement, analyzeImpact, findUntracedRequirements, generateCoverageHeatmap, indexCodebase } from '../tracer.js';
 
 export async function cmdSync(ctx, args) {
   const projectDir = process.cwd();
-  const facts = inferFromRepo(projectDir);
+  
+  // 1. Run Modular Inference Engine
+  const facts = await inferFromRepo(projectDir);
+  
+  // 2. Load Desired State
   const project = ctx.readProjectYaml();
   const techStack = ctx.readTechStack();
+  const profile = project.profile ? loadProfile(project.profile) : null;
   
-  const drift = {
-    detected: false,
-    issues: [],
-    recommendations: []
-  };
+  // 3. Analyze Drift
+  const driftResult = detectDrift(facts, techStack, profile);
   
-  if (facts.framework && project.profile) {
-    const profile = loadProfile(project.profile);
-    if (profile) {
-      const expectedFramework = profile.techStack?.frontend?.framework?.default;
-      if (expectedFramework && facts.framework.toLowerCase() !== expectedFramework.toLowerCase()) {
-        drift.detected = true;
-        drift.issues.push('Framework mismatch: profile expects ' + expectedFramework + ', detected ' + facts.framework);
-        drift.recommendations.push('Update profile or tech-stack.yaml');
-      }
-    }
+  // 4. Handle auto-adopt
+  if (driftResult.detected && (args.adopt || args['auto-adopt'])) {
+    console.log('\n🔄 Adopting detected architecture changes...');
+    if (!techStack.technologies) techStack.technologies = [];
+    
+    // Add missing technologies
+    if (facts.orm) techStack.technologies.push({ name: facts.orm, category: 'Database & ORM' });
+    if (facts.database) techStack.technologies.push({ name: facts.database, category: 'Database' });
+    if (facts.styling) techStack.technologies.push({ name: facts.styling, category: 'Styling' });
+    
+    // Write back to disk
+    ctx.writeTechStack(techStack);
+    
+    console.log('✅ Successfully updated .skyhook/tech-stack.yaml');
+    
+    // Re-run drift analysis after adoption
+    const postAdoptDrift = detectDrift(facts, techStack, profile);
+    return { drift: postAdoptDrift, facts, adopted: true };
   }
   
-  if (facts.orm && techStack.technologies) {
-    const hasOrm = techStack.technologies.some(t => t.name?.toLowerCase().includes(facts.orm.toLowerCase()));
-    if (!hasOrm) {
-      drift.detected = true;
-      drift.issues.push('ORM detected (' + facts.orm + ') but not in tech-stack.yaml');
-      drift.recommendations.push('Add ' + facts.orm + ' to tech-stack.yaml');
+  // 5. Format CLI output for drift
+  if (driftResult.detected) {
+    console.log('\n⚠️ Architecture Drift Detected:');
+    driftResult.violations.forEach((v, idx) => {
+      console.log(`\n  ${idx + 1}. [${v.type}]`);
+      console.log(`     Issue: ${v.message}`);
+      console.log(`     Fix:   ${v.recommendation}`);
+    });
+    
+    // Check if CI mode is enabled
+    if (args['ci-check'] || args.ciCheck) {
+      console.error('\n❌ Drift detected in CI mode. Exiting with failure.');
+      process.exit(1);
     }
+  } else {
+    console.log('\n✅ No architecture drift detected. Codebase matches declared tech stack.');
   }
   
-  return { drift, facts };
+  return { drift: driftResult, facts };
 }
 
 export async function cmdTrace(ctx, args) {
