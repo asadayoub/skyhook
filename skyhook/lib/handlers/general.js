@@ -124,6 +124,9 @@ export async function cmdDashboard(ctx, args) {
   
   if (action === 'stop') {
     if (dashboardServer) {
+      if (dashboardServer.closeAllConnections) {
+        dashboardServer.closeAllConnections();
+      }
       dashboardServer.close();
       dashboardServer = null;
       projectsCache = null;
