@@ -31,5 +31,9 @@
   },
   "devDependencies": {
     "eslint": "^9.39.5"
+  },
+  "dependencies": {
+    "@babel/parser": "^7.29.8",
+    "@babel/traverse": "^7.29.8"
   }
 }

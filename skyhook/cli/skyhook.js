@@ -9,7 +9,7 @@ import { fileURLToPath } from 'url';
 import { createSkyhookContext } from '../lib/context.js';
 import * as backlogHandlers from '../lib/handlers/backlog.js';
 import * as adrHandlers from '../lib/handlers/adr.js';
-import * as syncHandlers from '../lib/handlers/sync.js';
+import { cmdSync, cmdTrace, cmdImpact, cmdUntraced, cmdCoverage, cmdMapLegacy, cmdGraph } from '../lib/handlers/sync.js';
 import * as generalHandlers from '../lib/handlers/general.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -76,7 +76,13 @@ async function main() {
   const handlers = {
     ...backlogHandlers,
     ...adrHandlers,
-    ...syncHandlers,
+    cmdSync,
+    cmdTrace,
+    cmdImpact,
+    cmdUntraced,
+    cmdCoverage,
+    cmdMapLegacy,
+    cmdGraph,
     ...generalHandlers
   };
 
@@ -90,6 +96,12 @@ async function main() {
     standards: 'cmdStandards',
     decide: 'cmdDecide',
     sync: 'cmdSync',
+    trace: 'cmdTrace',
+    impact: 'cmdImpact',
+    untraced: 'cmdUntraced',
+    coverage: 'cmdCoverage',
+    mapLegacy: 'cmdMapLegacy',
+    graph: 'cmdGraph',
     version: 'cmdVersion',
     install: 'cmdInstall',
     profile: 'cmdProfile',

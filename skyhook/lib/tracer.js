@@ -5,6 +5,7 @@
 import fs from 'fs';
 import path from 'path';
 import { readYaml } from './utils.js';
+import { parseFile, getParserStatus } from './parsers/index.js';
 
 // ==================== TRACE COMMAND ====================
 
@@ -14,7 +15,7 @@ import { readYaml } from './utils.js';
  * @param {string} requirementId - Requirement ID to trace
  * @returns {Object} Trace results
  */
-function traceRequirement(projectDir, requirementId) {
+export async function traceRequirement(projectDir, requirementId) {
   const results = {
     requirementId,
     requirement: null,
@@ -57,8 +58,8 @@ function traceRequirement(projectDir, requirementId) {
     );
   }
 
-  // 4. Search codebase for @skyhook-implements annotations
-  results.codeReferences = searchCodeForRequirement(projectDir, requirementId);
+  // 4. Search codebase for annotations using the AST Parser
+  results.codeReferences = await searchCodeForRequirement(projectDir, requirementId);
 
   // 5. Collect unique files
   results.files = [...new Set(results.codeReferences.map(r => r.file))];
@@ -67,24 +68,27 @@ function traceRequirement(projectDir, requirementId) {
 }
 
 /**
- * Search codebase for @skyhook-implements annotations
+ * Search codebase for a specific requirement ID using AST
  */
-function searchCodeForRequirement(projectDir, requirementId) {
-  const references = [];
-  const annotationPatterns = [
-    new RegExp(`@skyhook-implements\\s+${requirementId}`, 'g'),
-    new RegExp(`@skyhook-implements\\s+\\[${requirementId}\\]`, 'g'),
-    new RegExp(`skyhook-implements:\\s*${requirementId}`, 'g'),
-    new RegExp(`implements:\\s*${requirementId}`, 'g')
-  ];
+export async function searchCodeForRequirement(projectDir, requirementId) {
+  const allSymbols = await indexCodebase(projectDir);
+  return allSymbols.filter(s => s.traced && s.requirementId === requirementId);
+}
 
-  function searchDir(dir) {
+/**
+ * Index the entire codebase to find all significant symbols (Classes, Functions)
+ * This powers both Traceability and Brownfield Legacy Mapping
+ */
+export async function indexCodebase(projectDir) {
+  const allSymbols = [];
+  
+  async function searchDir(dir) {
     try {
       const entries = fs.readdirSync(dir, { withFileTypes: true });
       for (const entry of entries) {
         const fullPath = path.join(dir, entry.name);
         
-        // Skip node_modules, .git, dist, build, .next, .skyhook
+        // Skip common ignore dirs
         if (entry.name === 'node_modules' || entry.name === '.git' || 
             entry.name === 'dist' || entry.name === 'build' || 
             entry.name === '.next' || entry.name === '.skyhook' ||
@@ -93,33 +97,13 @@ function searchCodeForRequirement(projectDir, requirementId) {
         }
 
         if (entry.isDirectory()) {
-          searchDir(fullPath);
+          await searchDir(fullPath);
         } else if (isCodeFile(entry.name)) {
           try {
-            const content = fs.readFileSync(fullPath, 'utf-8');
-            for (const pattern of annotationPatterns) {
-              const matches = content.matchAll(pattern);
-              for (const match of matches) {
-                // Find line number
-                const beforeMatch = content.substring(0, match.index);
-                const lineNumber = beforeMatch.split('\n').length;
-                
-                // Get context (3 lines before and after)
-                const lines = content.split('\n');
-                const start = Math.max(0, lineNumber - 4);
-                const end = Math.min(lines.length, lineNumber + 3);
-                const context = lines.slice(start, end).join('\n');
-                
-                references.push({
-                  file: path.relative(projectDir, fullPath),
-                  line: lineNumber,
-                  match: match[0],
-                  context: context.trim()
-                });
-              }
-            }
+            const symbols = await parseFile(fullPath, projectDir);
+            allSymbols.push(...symbols);
           } catch (e) {
-            // Ignore read errors
+            // Ignore individual file parse errors
           }
         }
       }
@@ -128,8 +112,52 @@ function searchCodeForRequirement(projectDir, requirementId) {
     }
   }
 
-  searchDir(projectDir);
-  return references;
+  await searchDir(projectDir);
+  return allSymbols;
+}
+
+/**
+ * Generate a coverage heatmap of traced vs untraced code
+ */
+export async function generateCoverageHeatmap(projectDir) {
+  const allSymbols = await indexCodebase(projectDir);
+  
+  let totalSymbols = allSymbols.length;
+  let tracedSymbols = allSymbols.filter(s => s.traced).length;
+  let untracedSymbols = totalSymbols - tracedSymbols;
+  
+  const files = {};
+  for (const s of allSymbols) {
+    if (!files[s.file]) files[s.file] = { total: 0, traced: 0, untraced: 0 };
+    files[s.file].total++;
+    if (s.traced) files[s.file].traced++;
+    else files[s.file].untraced++;
+  }
+  
+  const darkMatter = [];
+  for (const [file, stats] of Object.entries(files)) {
+    if (stats.untraced > 0) {
+      darkMatter.push({
+        file,
+        coveragePercentage: Math.round((stats.traced / stats.total) * 100),
+        untracedCount: stats.untraced
+      });
+    }
+  }
+  
+  // Sort by most untraced code first
+  darkMatter.sort((a, b) => b.untracedCount - a.untracedCount);
+  
+  return {
+    summary: {
+      totalSymbols,
+      tracedSymbols,
+      untracedSymbols,
+      overallCoverage: totalSymbols > 0 ? Math.round((tracedSymbols / totalSymbols) * 100) : 0
+    },
+    darkMatter,
+    parserStatus: getParserStatus()
+  };
 }
 
 /**
@@ -148,8 +176,8 @@ function isCodeFile(filename) {
 /**
  * Get impact analysis for a requirement
  */
-function analyzeImpact(projectDir, requirementId) {
-  const trace = traceRequirement(projectDir, requirementId);
+export async function analyzeImpact(projectDir, requirementId) {
+  const trace = await traceRequirement(projectDir, requirementId);
   if (trace.error) return trace;
 
   const impact = {
@@ -217,7 +245,7 @@ function generateRecommendations(trace) {
 /**
  * Find all requirements that are not traced to code
  */
-function findUntracedRequirements(projectDir) {
+export async function findUntracedRequirements(projectDir) {
   const skyhookDir = findSkyhookDir(projectDir);
   if (!skyhookDir) return { error: 'No .skyhook directory found' };
 
@@ -229,7 +257,7 @@ function findUntracedRequirements(projectDir) {
   
   for (const req of allReqs) {
     if (req.status === 'implemented' || req.status === 'in-progress' || req.status === 'confirmed') {
-      const trace = traceRequirement(projectDir, req.id);
+      const trace = await traceRequirement(projectDir, req.id);
       if (trace.codeReferences.length === 0) {
         untraced.push({
           id: req.id,
@@ -256,10 +284,3 @@ function findSkyhookDir(projectDir) {
   }
   return null;
 }
-
-export { 
-  traceRequirement, 
-  analyzeImpact, 
-  findUntracedRequirements,
-  searchCodeForRequirement
-};

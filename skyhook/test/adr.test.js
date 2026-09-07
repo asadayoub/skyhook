@@ -34,16 +34,21 @@ function createMockContext(tmpDir) {
 }
 
 test('cmdRecordDecision requires title, decision, and context', async () => {
-  const ctx = createMockContext();
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'skyhook-adr-test-req-'));
+  const ctx = createMockContext(tmpDir);
   
-  let result = await cmdRecordDecision(ctx, { title: 'T' });
-  assert.ok(result.error);
-  
-  result = await cmdRecordDecision(ctx, { title: 'T', decision: 'D' });
-  assert.ok(result.error);
-  
-  result = await cmdRecordDecision(ctx, { title: 'T', decision: 'D', context: 'C' });
-  assert.ok(!result.error);
+  try {
+    let result = await cmdRecordDecision(ctx, { title: 'T' });
+    assert.ok(result.error);
+    
+    result = await cmdRecordDecision(ctx, { title: 'T', decision: 'D' });
+    assert.ok(result.error);
+    
+    result = await cmdRecordDecision(ctx, { title: 'T', decision: 'D', context: 'C' });
+    assert.ok(!result.error);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
 });
 
 test('cmdRecordDecision creates an ADR and writes decision', async () => {
