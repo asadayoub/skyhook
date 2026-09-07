@@ -3,7 +3,7 @@ import path from 'path';
 import { parseYaml, stringifyYaml } from './yaml.js';
 import { validateBacklog } from './schema.js';
 import { generateULID, getTimestamp, appendChangelog } from './utils.js';
-import { generateADR } from '../skill/commands/adr.js';
+import { generateADR } from './adr-generator.js';
 
 class SkyhookContext {
   constructor(skyhookDir) {
