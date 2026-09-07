@@ -1,21 +1,35 @@
 {
   "name": "@skyhook/skill",
   "version": "1.3.7",
+  "type": "module",
   "description": "Universal Project Intelligence for AI Agents",
   "bin": {
     "skyhook": "./skyhook/cli/skyhook.js",
-    "skyhook-cmd": "./skyhook/skill/commands/index.js"
+    "skyhook-cmd": "./skyhook/cli/skyhook-cmd.js"
   },
-  "files": ["skyhook/**/*"],
+  "files": [
+    "skyhook/**/*"
+  ],
   "scripts": {
     "postinstall": "chmod +x skyhook/cli/skyhook.js",
-    "test": "node --test skyhook/skill/commands/test.js"
+    "test": "node --test skyhook/test/*.test.js"
   },
-  "keywords": ["ai", "agents", "project-intelligence", "skyhook", "cli"],
+  "keywords": [
+    "ai",
+    "agents",
+    "project-intelligence",
+    "skyhook",
+    "cli"
+  ],
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/asadayoub/skyhook.git"
   },
-  "engines": { "node": ">=18" }
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "eslint": "^9.39.5"
+  }
 }

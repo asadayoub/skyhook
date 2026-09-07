@@ -3,7 +3,7 @@
  * Handles our specific use case: nested objects, arrays, strings, numbers, booleans
  */
 
-function parseYaml(content) {
+export function parseYaml(content) {
   const lines = content.split('\n');
   const root = {};
   // Stack frames: { obj, indent, isArray, inArrayItem }
@@ -158,7 +158,7 @@ function parseValue(value) {
   return value;
 }
 
-function stringifyYaml(obj, indent = 0) {
+export function stringifyYaml(obj, indent = 0) {
   const spaces = '  '.repeat(indent);
   let result = '';
   
@@ -211,5 +211,3 @@ function stringifyYaml(obj, indent = 0) {
   }
   return result;
 }
-
-module.exports = { parseYaml, stringifyYaml };

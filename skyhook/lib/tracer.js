@@ -2,9 +2,9 @@
  * Skyhook Traceability Commands - Requirement→Code traceability
  */
 
-const fs = require('fs');
-const path = require('path');
-const { parseYaml } = require('./simple-yaml.js');
+import fs from 'fs';
+import path from 'path';
+import { readYaml } from './utils.js';
 
 // ==================== TRACE COMMAND ====================
 
@@ -257,16 +257,7 @@ function findSkyhookDir(projectDir) {
   return null;
 }
 
-function readYaml(filePath) {
-  try {
-    const content = fs.readFileSync(filePath, 'utf-8');
-    return parseYaml(content);
-  } catch {
-    return null;
-  }
-}
-
-module.exports = { 
+export { 
   traceRequirement, 
   analyzeImpact, 
   findUntracedRequirements,

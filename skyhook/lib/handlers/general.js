@@ -1,481 +1,27 @@
-#!/usr/bin/env node
+import fs from 'fs';
+import path from 'path';
+import { execSync } from 'child_process';
+import http from 'http';
+import { readYaml, writeYaml, getTimestamp, generateULID, loadProfile, SKYHOOK_ROOT, SKYHOOK_VERSION } from '../utils.js';
 
-/**
- * Skyhook Slash Command Handler - Uses simple-yaml (no external deps)
- * Local-only: runs via CLI, communicates via stdio JSON.
- */
-
-const fs = require('fs');
-const path = require('path');
-const { parseYaml, stringifyYaml } = require('./simple-yaml.js');
-const { traceRequirement, analyzeImpact, findUntracedRequirements } = require('./trace.js');
-const { generateADR } = require('./adr.js');
-const { inferFromRepo } = require('../lib/inference.js');
-
-const SKYHOOK_ROOT = path.resolve(__dirname, '..', '..');
-const SKYHOOK_VERSION = '1.3.7';
-
-// ==================== UTILITIES ====================
-
-function findSkyhookDir() {
-  let dir = process.cwd();
-  while (dir !== path.parse(dir).root) {
-    if (fs.existsSync(path.join(dir, '.skyhook'))) {
-      return path.join(dir, '.skyhook');
-    }
-    dir = path.dirname(dir);
-  }
-  return null;
-}
-
-function readYaml(filePath) {
-  try {
-    const content = fs.readFileSync(filePath, 'utf-8');
-    return parseYaml(content);
-  } catch {
-    return null;
-  }
-}
-
-function writeYaml(filePath, data) {
-  fs.writeFileSync(filePath, stringifyYaml(data), 'utf-8');
-}
-
-function generateULID() {
-  const chars = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
-  let id = '';
-  for (let i = 0; i < 26; i++) {
-    id += chars[Math.floor(Math.random() * chars.length)];
-  }
-  return id;
-}
-
-function getTimestamp() {
-  return new Date().toISOString();
-}
-
-function appendChangelog(skyhookDir, entry) {
-  const changelogPath = path.join(skyhookDir, 'changelog.md');
-  let content = fs.readFileSync(changelogPath, 'utf-8');
-  const lines = content.split('\n');
-  const insertIdx = lines.findIndex(l => l.includes('## [Unreleased]')) + 1;
-  lines.splice(insertIdx, 0, entry);
-  fs.writeFileSync(changelogPath, lines.join('\n'), 'utf-8');
-}
-
-// ==================== PROFILE LOADING ====================
-
-function loadProfile(profileName) {
-  const profilePath = path.join(SKYHOOK_ROOT, 'profiles', profileName + '.yaml');
-  if (fs.existsSync(profilePath)) {
-    return readYaml(profilePath);
-  }
-  return null;
-}
-
-// ==================== SKYHOOK CONTEXT ====================
-
-class SkyhookContext {
-  constructor(skyhookDir) {
-    this.skyhookDir = skyhookDir;
-  }
-
-  readFunctionalReqs() {
-    return readYaml(path.join(this.skyhookDir, 'requirements', 'functional.yaml')) || { requirements: [] };
-  }
-  
-  readNonFunctionalReqs() {
-    return readYaml(path.join(this.skyhookDir, 'requirements', 'non-functional.yaml')) || { requirements: [] };
-  }
-  
-  readConstraints() {
-    return readYaml(path.join(this.skyhookDir, 'requirements', 'constraints.yaml')) || { constraints: [] };
-  }
-
-  readDecisions() {
-    return readYaml(path.join(this.skyhookDir, 'decisions', 'index.yaml')) || { decisions: [] };
-  }
-  
-  readDecisionDetail(id) {
-    const detailPath = path.join(this.skyhookDir, 'decisions', id + '.md');
-    if (fs.existsSync(detailPath)) {
-      return fs.readFileSync(detailPath, 'utf-8');
-    }
-    return null;
-  }
-  
-  writeDecision(data) {
-    const id = generateULID();
-    const detailPath = path.join(this.skyhookDir, 'decisions', id + '.md');
-    
-    // Generate full ADR with auto-fill
-    const projectDir = process.cwd();
-    const projectYaml = readYaml(path.join(this.skyhookDir, 'project.yaml')) || {};
-    const context = {
-      projectDir,
-      projectType: projectYaml.type,
-      profile: projectYaml.profile,
-      techStack: this.readTechStack()
-    };
-    
-    const adrContent = generateADR({ ...data, id }, context);
-    
-    fs.writeFileSync(detailPath, adrContent, 'utf-8');
-    
-    // Update index
-    const indexPath = path.join(this.skyhookDir, 'decisions', 'index.yaml');
-    const index = readYaml(indexPath) || { schemaVersion: "1.0.0", decisions: [] };
-    index.decisions.push({
-      id, title: data.title, status: data.status || 'accepted',
-      category: data.category || 'architecture', createdAt: getTimestamp()
-    });
-    writeYaml(indexPath, index);
-    
-    appendChangelog(this.skyhookDir, '- Recorded decision: ' + data.title + ' (' + id + ')');
-    
-    return id;
-  }
-
-  readBacklog() {
-    const data = readYaml(path.join(this.skyhookDir, 'backlog', 'epics.yaml')) || { epics: [], stories: [], tasks: [] };
-    if (!data.epics) data.epics = [];
-    if (!data.stories) data.stories = [];
-    if (!data.tasks) data.tasks = [];
-    return data;
-  }
-  
-  writeBacklog(data) {
-    writeYaml(path.join(this.skyhookDir, 'backlog', 'epics.yaml'), data);
-  }
-  
-  updateStoryStatus(storyId, status) {
-    const backlog = this.readBacklog();
-    const story = backlog.stories.find(s => s.id === storyId);
-    if (story) {
-      const oldStatus = story.status;
-      story.status = status;
-      story.updatedAt = getTimestamp();
-      if (status === 'in-progress' && !story.startedAt) story.startedAt = getTimestamp();
-      if (status === 'done' && !story.completedAt) story.completedAt = getTimestamp();
-      this.writeBacklog(backlog);
-      appendChangelog(this.skyhookDir, '- Story ' + storyId + ': ' + oldStatus + ' to ' + status);
-      return true;
-    }
-    return false;
-  }
-  
-  addFeature(featureData) {
-    const backlog = this.readBacklog();
-    const epicId = generateULID();
-    const storyIds = [];
-    
-    const epic = {
-      id: epicId,
-      title: featureData.title,
-      description: featureData.description || '',
-      goal: featureData.goal || featureData.title,
-      successMetrics: featureData.successMetrics || [],
-      childStories: [],
-      targetDate: featureData.targetDate || null,
-      status: 'backlog',
-      createdAt: getTimestamp(),
-      updatedAt: getTimestamp()
-    };
-    
-    if (featureData.stories && Array.isArray(featureData.stories)) {
-      for (const story of featureData.stories) {
-        const storyId = generateULID();
-        backlog.stories.push({
-          id: storyId,
-          epicId,
-          title: story.title,
-          userStory: story.userStory || '',
-          acceptanceCriteria: story.acceptanceCriteria || [],
-          priority: story.priority || 'medium',
-          status: 'backlog',
-          storyPoints: story.storyPoints || null,
-          dependsOn: story.dependsOn || [],
-          createdAt: getTimestamp(),
-          updatedAt: getTimestamp()
-        });
-        epic.childStories.push(storyId);
-        storyIds.push(storyId);
-      }
-    }
-    
-    backlog.epics.push(epic);
-    backlog.metadata = backlog.metadata || {};
-    backlog.metadata.updatedAt = getTimestamp();
-    this.writeBacklog(backlog);
-    
-    appendChangelog(this.skyhookDir, '- Added feature: ' + featureData.title + ' (' + epicId + ') with ' + storyIds.length + ' stories');
-    
-    return { epicId, storyIds };
-  }
-
-  readTechStack() {
-    return readYaml(path.join(this.skyhookDir, 'tech-stack.yaml')) || { technologies: [], patterns: [], constraints: [] };
-  }
-  
-  writeTechStack(data) {
-    writeYaml(path.join(this.skyhookDir, 'tech-stack.yaml'), data);
-  }
-
-  readStandards() {
-    return readYaml(path.join(this.skyhookDir, 'standards', 'index.yaml')) || { overrides: [], adoptions: [] };
-  }
-
-  readProjectYaml() {
-    return readYaml(path.join(this.skyhookDir, 'project.yaml')) || {};
-  }
-}
-
-// ==================== EXISTING COMMANDS ====================
-
-async function cmdListCurrentFeatures(ctx, args) {
-  const backlog = ctx.readBacklog();
-  const filter = args.status || 'all';
-  
-  // Ensure arrays
-  let epics = backlog.epics || [];
-  if (!Array.isArray(epics)) epics = Object.values(epics);
-  let stories = backlog.stories || [];
-  if (!Array.isArray(stories)) stories = Object.values(stories);
-  
-  if (filter !== 'all') {
-    stories = stories.filter(s => s.status === filter);
-  }
-  
-  // Group by epic
-  const result = epics.map(epic => ({
-    epic: { id: epic.id, title: epic.title, status: epic.status },
-    stories: stories.filter(s => s.epicId === epic.id).map(s => ({
-      id: s.id, title: s.title, status: s.status, priority: s.priority
-    }))
-  }));
-  
-  return { features: result };
-}
-
-async function cmdGetFeature(ctx, args) {
-  const backlog = ctx.readBacklog();
-  const feature = backlog.epics.find(e => e.id === args.id);
-  if (!feature) return { error: 'Feature not found: ' + args.id };
-  
-  const stories = backlog.stories.filter(s => s.epicId === args.id);
-  return { feature, stories };
-}
-
-async function cmdGetNextTask(ctx, args) {
-  const backlog = ctx.readBacklog();
-  const assignee = args.assignee || 'default';
-  
-  const readyStories = backlog.stories
-    .filter(s => s.status === 'ready')
-    .sort((a, b) => {
-      const priorityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
-      return (priorityOrder[a.priority] || 2) - (priorityOrder[b.priority] || 2);
-    });
-  
-  if (readyStories.length === 0) {
-    return { message: 'No ready tasks found', task: null };
-  }
-  
-  const task = readyStories[0];
-  return { task };
-}
-
-async function cmdGetBlockers(ctx, args) {
-  const backlog = ctx.readBacklog();
-  const blocked = backlog.stories.filter(s => s.status === 'blocked');
-  return { blockers: blocked };
-}
-
-async function cmdRecordDecision(ctx, args) {
-  const required = ['title', 'decision', 'context'];
-  for (const field of required) {
-    if (!args[field]) return { error: 'Missing required field: ' + field };
-  }
-  
-  const id = ctx.writeDecision({
-    title: args.title,
-    decision: args.decision,
-    context: args.context,
-    status: args.status || 'accepted',
-    category: args.category || 'architecture',
-    alternatives: args.alternatives,
-    relatedRequirements: args.relatedRequirements,
-    consequences: args.consequences,
-    rationale: args.rationale,
-    implementationNotes: args.implementationNotes
-  });
-  
-  return { decisionId: id, message: 'Decision recorded successfully with auto-generated ADR' };
-}
-
-async function cmdUpdateStatus(ctx, args) {
-  if (!args.storyId || !args.status) {
-    return { error: 'Missing required: storyId, status' };
-  }
-  
-  const validStatuses = ['backlog', 'ready', 'in-progress', 'in-review', 'done', 'blocked', 'cancelled'];
-  if (!validStatuses.includes(args.status)) {
-    return { error: 'Invalid status. Must be one of: ' + validStatuses.join(', ') };
-  }
-  
-  const success = ctx.updateStoryStatus(args.storyId, args.status);
-  if (!success) return { error: 'Story not found: ' + args.storyId };
-  
-  return { success: true, storyId: args.storyId, status: args.status };
-}
-
-async function cmdGetContext(ctx, args) {
-  const topic = args.topic || 'general';
-  const project = ctx.readProjectYaml();
-  const backlog = ctx.readBacklog();
-  const decisions = ctx.readDecisions();
-  const funcReqs = ctx.readFunctionalReqs();
-  const nfReqs = ctx.readNonFunctionalReqs();
-  const techStack = ctx.readTechStack();
-  
-  let context = {
-    project: { id: project.id, name: project.name, type: project.type, profile: project.profile },
-    stats: {
-      epics: backlog.epics?.length || 0,
-      stories: backlog.stories?.length || 0,
-      decisions: decisions.decisions?.length || 0,
-      requirements: (funcReqs.requirements?.length || 0) + (nfReqs.requirements?.length || 0)
-    }
-  };
-  
-  if (topic === 'features') {
-    context.activeFeatures = backlog.epics?.filter(e => e.status !== 'done').map(e => ({
-      id: e.id, title: e.title, stories: e.childStories?.length || 0
-    })) || [];
-  } else if (topic === 'decisions') {
-    context.recentDecisions = decisions.decisions?.slice(-5).map(d => ({
-      id: d.id, title: d.title, status: d.status, category: d.category
-    })) || [];
-  } else if (topic === 'requirements') {
-    context.requirements = [
-      ...(funcReqs.requirements?.slice(-10) || []),
-      ...(nfReqs.requirements?.slice(-10) || [])
-    ];
-  } else if (topic === 'tech') {
-    context.techStack = techStack;
-  }
-  
-  return context;
-}
-
-async function cmdSync(ctx, args) {
-  const projectDir = process.cwd();
-  const facts = inferFromRepo(projectDir);
-  const project = ctx.readProjectYaml();
-  const techStack = ctx.readTechStack();
-  
-  const drift = {
-    detected: false,
-    issues: [],
-    recommendations: []
-  };
-  
-  if (facts.framework && project.profile) {
-    const profile = loadProfile(project.profile);
-    if (profile) {
-      const expectedFramework = profile.techStack?.frontend?.framework?.default;
-      if (expectedFramework && facts.framework.toLowerCase() !== expectedFramework.toLowerCase()) {
-        drift.detected = true;
-        drift.issues.push('Framework mismatch: profile expects ' + expectedFramework + ', detected ' + facts.framework);
-        drift.recommendations.push('Update profile or tech-stack.yaml');
-      }
-    }
-  }
-  
-  if (facts.orm && techStack.technologies) {
-    const hasOrm = techStack.technologies.some(t => t.name?.toLowerCase().includes(facts.orm.toLowerCase()));
-    if (!hasOrm) {
-      drift.detected = true;
-      drift.issues.push('ORM detected (' + facts.orm + ') but not in tech-stack.yaml');
-      drift.recommendations.push('Add ' + facts.orm + ' to tech-stack.yaml');
-    }
-  }
-  
-  return { drift, facts };
-}
-
-async function cmdAddFeature(ctx, args) {
-  if (!args.title) return { error: 'Missing required: title' };
-  
-  const result = ctx.addFeature({
-    title: args.title,
-    description: args.description,
-    goal: args.goal,
-    successMetrics: args.successMetrics,
-    stories: args.stories,
-    targetDate: args.targetDate
-  });
-  
-  return { success: true, ...result };
-}
-
-async function cmdTrace(ctx, args) {
-  if (!args.id) return { error: 'Missing required: id (requirement ID)' };
-  const projectDir = process.cwd();
-  return traceRequirement(args.id, projectDir);
-}
-
-async function cmdImpact(ctx, args) {
-  if (!args.id) return { error: 'Missing required: id (requirement ID)' };
-  const projectDir = process.cwd();
-  return analyzeImpact(args.id, projectDir);
-}
-
-async function cmdUntraced(ctx, args) {
-  const projectDir = process.cwd();
-  return findUntracedRequirements(projectDir);
-}
-
-// ==================== DASHBOARD ====================
-
-const DASHBOARD_PORT = 4343;
-let dashboardServer = null;
-let projectsCache = null;
+let projectsCache = [];
 let projectsCacheTime = 0;
+let dashboardServer = null;
+const DASHBOARD_PORT = 31415;
 
 async function scanProjects() {
   const home = process.env.HOME || process.env.USERPROFILE;
-  if (!home) return [];
-  
-  const skyhookDir = path.join(home, '.skyhook');
-  if (!fs.existsSync(skyhookDir)) return [];
-  
-  const projects = [];
-  const entries = fs.readdirSync(skyhookDir, { withFileTypes: true });
-  
-  for (const entry of entries) {
-    if (!entry.isDirectory()) continue;
-    const projDir = path.join(skyhookDir, entry.name);
-    const projectYaml = path.join(projDir, 'project.yaml');
-    if (fs.existsSync(projectYaml)) {
-      const data = readYaml(projectYaml);
-      if (data) {
-        projects.push({
-          id: data.id || entry.name,
-          name: data.name || entry.name,
-          description: data.description || '',
-          type: data.type || 'unknown',
-          profile: data.profile || 'unknown',
-          path: projDir,
-          updatedAt: data.updatedAt || data.createdAt || ''
-        });
-      }
-    }
-  }
-  return projects;
+  const skyhookHome = path.join(home, '.skyhook');
+  if (!fs.existsSync(skyhookHome)) return [];
+  return fs.readdirSync(skyhookHome)
+    .filter(f => fs.statSync(path.join(skyhookHome, f)).isDirectory())
+    .map(f => {
+      const projData = readYaml(path.join(skyhookHome, f, 'project.yaml'));
+      return projData ? { id: f, name: projData.name || f } : { id: f, name: f };
+    });
 }
 
-async function cmdDashboard(ctx, args) {
+export async function cmdDashboard(ctx, args) {
   const action = args.action || 'status';
   
   if (action === 'start') {
@@ -484,7 +30,6 @@ async function cmdDashboard(ctx, args) {
     }
     
     try {
-      const http = require('http');
       const server = http.createServer(async (req, res) => {
         res.setHeader('Access-Control-Allow-Origin', '*');
         res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -594,9 +139,116 @@ async function cmdDashboard(ctx, args) {
   };
 }
 
-// ==================== NEW COMMANDS ====================
+export async function cmdProfile(ctx, args) {
+  const name = args.name || 'web-app';
+  const profile = loadProfile(name);
+  
+  if (!profile) {
+    const profilesDir = path.join(SKYHOOK_ROOT, 'profiles');
+    const available = fs.readdirSync(profilesDir)
+      .filter(f => f.endsWith('.yaml'))
+      .map(f => f.replace('.yaml', ''));
+    return { error: 'Profile not found: ' + name, available };
+  }
+  
+  return {
+    profile: {
+      id: profile.id,
+      name: profile.name,
+      description: profile.description,
+      category: profile.category,
+      extends: profile.extends,
+      techStack: profile.techStack,
+      variants: profile.variants?.map(v => ({ id: v.id, name: v.name, description: v.description })) || [],
+      questionsCount: Object.values(profile.questions || {}).flat().length,
+      standards: profile.standards,
+      defaultRequirements: profile.defaultRequirements
+    }
+  };
+}
 
-async function cmdInit(ctx, args) {
+export async function cmdVersion(ctx, args) {
+  return {
+    version: SKYHOOK_VERSION,
+    protocol: 'skyhook-stdio-v1',
+    node: process.version,
+    platform: process.platform
+  };
+}
+
+export async function cmdHelp(ctx, args) {
+  return {
+    commands: [
+      { name: 'listCurrentFeatures', description: 'List all features with status', args: ['status?: all|backlog|in-progress|done|blocked'] },
+      { name: 'getFeature', description: 'Get detailed feature info', args: ['id: string'] },
+      { name: 'getNextTask', description: 'Get highest priority ready task', args: ['assignee?: string'] },
+      { name: 'getBlockers', description: 'Get all blocked items', args: [] },
+      { name: 'recordDecision', description: 'Record architectural decision (auto-generates ADR)', args: ['title, decision, context, status?, category?, alternatives?, relatedRequirements?, consequences?, rationale?'] },
+      { name: 'updateStatus', description: 'Update story status', args: ['storyId, status: backlog|ready|in-progress|in-review|done|blocked|cancelled'] },
+      { name: 'getContext', description: 'Get relevant context for a topic', args: ['topic?: string'] },
+      { name: 'sync', description: 'Check code vs docs drift', args: [] },
+      { name: 'addFeature', description: 'Add new feature with stories', args: ['title, description?, goal?, stories?: [{title, userStory, acceptanceCriteria?, priority?}]'] },
+      { name: 'trace', description: 'Trace requirement to code (stories, decisions, code refs)', args: ['id: string (requirement ID)'] },
+      { name: 'impact', description: 'Analyze impact of changing a requirement', args: ['id: string (requirement ID)'] },
+      { name: 'untraced', description: 'Find requirements with no code references', args: [] },
+      { name: 'dashboard', description: 'Start/stop web dashboard', args: ['action: start|stop|status'] },
+      { name: 'help', description: 'Show this help', args: [] },
+      { name: 'init', description: 'Initialize project with profile', args: ['profile?, name?, description?, variant?, force?'] },
+      { name: 'discover', description: 'Run phased discovery workflow', args: ['phase?, answers?'] },
+      { name: 'question', description: 'Get contextual questions for any phase', args: ['category?, limit?'] },
+      { name: 'plan', description: 'Generate PROJECT_PLAN.md', args: [] },
+      { name: 'standards', description: 'List applicable standards (with overrides)', args: ['category?'] },
+      { name: 'profile', description: 'Show profile details (tech stack, variants, questions)', args: ['name?'] },
+      { name: 'version', description: 'Show version info', args: [] },
+      { name: 'install', description: 'Install skill globally/locally', args: ['scope?: global|local, force?'] },
+      { name: 'setup', description: 'Auto-configure agent harness', args: ['agent: codex|claude|gemini|copilot|antigravity|all'] },
+      { name: 'decide', description: 'Shorthand for recordDecision', args: ['title, decision, context, ...'] },
+      { name: 'batchCreate', description: 'Bulk create features/stories/requirements/decisions', args: ['items: [{type: feature|story|requirement|decision, data: {...}}]'] }
+    ],
+    usage: 'echo \'{"command":"listCurrentFeatures","args":{}}\' | node skyhook-cmd.js'
+  };
+}
+
+export async function cmdGetContext(ctx, args) {
+  const topic = args.topic || 'general';
+  const project = ctx.readProjectYaml();
+  const backlog = ctx.readBacklog();
+  const decisions = ctx.readDecisions();
+  const funcReqs = ctx.readFunctionalReqs();
+  const nfReqs = ctx.readNonFunctionalReqs();
+  const techStack = ctx.readTechStack();
+  
+  let context = {
+    project: { id: project.id, name: project.name, type: project.type, profile: project.profile },
+    stats: {
+      epics: backlog.epics?.length || 0,
+      stories: backlog.stories?.length || 0,
+      decisions: decisions.decisions?.length || 0,
+      requirements: (funcReqs.requirements?.length || 0) + (nfReqs.requirements?.length || 0)
+    }
+  };
+  
+  if (topic === 'features') {
+    context.activeFeatures = backlog.epics?.filter(e => e.status !== 'done').map(e => ({
+      id: e.id, title: e.title, stories: e.childStories?.length || 0
+    })) || [];
+  } else if (topic === 'decisions') {
+    context.recentDecisions = decisions.decisions?.slice(-5).map(d => ({
+      id: d.id, title: d.title, status: d.status, category: d.category
+    })) || [];
+  } else if (topic === 'requirements') {
+    context.requirements = [
+      ...(funcReqs.requirements?.slice(-10) || []),
+      ...(nfReqs.requirements?.slice(-10) || [])
+    ];
+  } else if (topic === 'tech') {
+    context.techStack = techStack;
+  }
+  
+  return context;
+}
+
+export async function cmdInit(ctx, args) {
   const projectDir = process.cwd();
   const skyhookDir = path.join(projectDir, '.skyhook');
   
@@ -696,7 +348,7 @@ async function cmdInit(ctx, args) {
   };
 }
 
-async function cmdDiscover(ctx, args) {
+export async function cmdDiscover(ctx, args) {
   const skyhookDir = ctx.skyhookDir;
   const projectYaml = readYaml(path.join(skyhookDir, 'project.yaml'));
   const profile = loadProfile(projectYaml?.profile || 'web-app');
@@ -757,7 +409,7 @@ async function cmdDiscover(ctx, args) {
   return results;
 }
 
-async function cmdQuestion(ctx, args) {
+export async function cmdQuestion(ctx, args) {
   const skyhookDir = ctx.skyhookDir;
   const projectYaml = readYaml(path.join(skyhookDir, 'project.yaml'));
   const profile = loadProfile(projectYaml?.profile || 'web-app');
@@ -780,7 +432,7 @@ async function cmdQuestion(ctx, args) {
   return { questions: questions.slice(0, limit), total: questions.length };
 }
 
-async function cmdPlan(ctx, args) {
+export async function cmdPlan(ctx, args) {
   const skyhookDir = ctx.skyhookDir;
   const projectYaml = readYaml(path.join(skyhookDir, 'project.yaml'));
   const profile = loadProfile(projectYaml?.profile || 'web-app');
@@ -908,7 +560,7 @@ overridesList + '\n\n' +
   };
 }
 
-async function cmdStandards(ctx, args) {
+export async function cmdStandards(ctx, args) {
   const skyhookDir = ctx.skyhookDir;
   const projectYaml = readYaml(path.join(skyhookDir, 'project.yaml'));
   const profile = loadProfile(projectYaml?.profile || 'web-app');
@@ -936,44 +588,7 @@ async function cmdStandards(ctx, args) {
   return { standards: result };
 }
 
-async function cmdProfile(ctx, args) {
-  const name = args.name || 'web-app';
-  const profile = loadProfile(name);
-  
-  if (!profile) {
-    const profilesDir = path.join(SKYHOOK_ROOT, 'profiles');
-    const available = fs.readdirSync(profilesDir)
-      .filter(f => f.endsWith('.yaml'))
-      .map(f => f.replace('.yaml', ''));
-    return { error: 'Profile not found: ' + name, available };
-  }
-  
-  return {
-    profile: {
-      id: profile.id,
-      name: profile.name,
-      description: profile.description,
-      category: profile.category,
-      extends: profile.extends,
-      techStack: profile.techStack,
-      variants: profile.variants?.map(v => ({ id: v.id, name: v.name, description: v.description })) || [],
-      questionsCount: Object.values(profile.questions || {}).flat().length,
-      standards: profile.standards,
-      defaultRequirements: profile.defaultRequirements
-    }
-  };
-}
-
-async function cmdVersion(ctx, args) {
-  return {
-    version: SKYHOOK_VERSION,
-    protocol: 'skyhook-stdio-v1',
-    node: process.version,
-    platform: process.platform
-  };
-}
-
-async function cmdInstall(ctx, args) {
+export async function cmdInstall(ctx, args) {
   const scope = args.scope || 'global';
   const force = args.force || false;
   
@@ -999,7 +614,7 @@ async function cmdInstall(ctx, args) {
   return { error: 'Unknown scope. Use "global" or "local".' };
 }
 
-async function cmdSetup(ctx, args) {
+export async function cmdSetup(ctx, args) {
   const agent = args.agent || 'codex';
   const cwd = process.cwd();
   
@@ -1155,7 +770,7 @@ async function cmdSetup(ctx, args) {
       const settingsPath = path.join(cwd, '.gemini', 'settings.json');
       let settings = { functions: {}, permissions: { allow: [] } };
       if (fs.existsSync(settingsPath)) {
-        try { settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8')); } catch {}
+        try { settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8')); } catch (e) { console.error(e); }
       }
       settings.functions.skyhook = '.gemini/functions/skyhook.js';
       settings.permissions.allow = [...new Set([...(settings.permissions.allow || []), 'skyhook_*'])];
@@ -1197,12 +812,15 @@ async function cmdSetup(ctx, args) {
       if (!fs.existsSync(vscodeDir)) fs.mkdirSync(vscodeDir, { recursive: true });
       
       const tasksJson = {
-        version: "2.0.0",
+        version: '2.0.0',
         tasks: [
-          { label: "Skyhook: Next Task", type: "shell", command: "echo '{\"command\":\"getNextTask\",\"args\":{}}' | skyhook-cmd", presentation: { reveal: "always", panel: "new" } },
-          { label: "Skyhook: List Features", type: "shell", command: "echo '{\"command\":\"listCurrentFeatures\",\"args\":{}}' | skyhook-cmd", presentation: { reveal: "always", panel: "new" } },
-          { label: "Skyhook: Check Drift", type: "shell", command: "echo \'{\"command\":\"sync\",\"args\":{}}\' | skyhook-cmd", presentation: { reveal: "always", panel: "new" } },
-          { label: "Skyhook: Start Dashboard", type: "shell", command: "skyhook-cmd dashboard start", presentation: { reveal: "always", panel: "new" } }
+          {
+            label: 'Skyhook: Start Dashboard',
+            type: 'shell',
+            command: 'skyhook-cmd dashboard start',
+            isBackground: true,
+            presentation: { reveal: 'never' }
+          }
         ]
       };
       fs.writeFileSync(path.join(vscodeDir, 'tasks.json'), JSON.stringify(tasksJson, null, 2));
@@ -1216,7 +834,7 @@ async function cmdSetup(ctx, args) {
       if (!fs.existsSync(pluginsDir)) fs.mkdirSync(pluginsDir, { recursive: true });
       
       const targetLink = path.join(pluginsDir, 'skyhook-plugin');
-      try { fs.rmSync(targetLink, { recursive: true, force: true }); } catch (e) {}
+      try { fs.rmSync(targetLink, { recursive: true, force: true }); } catch (e) { /* ignore */ }
       
       const antigravityPluginDir = path.join(skyhookRoot, 'antigravity-plugin');
       fs.symlinkSync(antigravityPluginDir, targetLink, 'junction');
@@ -1237,185 +855,3 @@ async function cmdSetup(ctx, args) {
   }
 }
 
-async function cmdDecide(ctx, args) {
-  const required = ['title', 'decision', 'context'];
-  for (const field of required) {
-    if (!args[field]) return { error: 'Missing required field: ' + field };
-  }
-  
-  const id = ctx.writeDecision({
-    title: args.title,
-    decision: args.decision,
-    context: args.context,
-    status: args.status || 'accepted',
-    category: args.category || 'architecture',
-    alternatives: args.alternatives,
-    relatedRequirements: args.relatedRequirements,
-    consequences: args.consequences,
-    rationale: args.rationale,
-    implementationNotes: args.implementationNotes
-  });
-  
-  return { decisionId: id, message: 'Decision recorded successfully with auto-generated ADR' };
-}
-
-async function cmdBatchCreate(ctx, args) {
-  const items = args.items || [];
-  const results = [];
-  
-  for (const item of items) {
-    try {
-      let result;
-      switch (item.type) {
-        case 'feature':
-          result = ctx.addFeature(item.data);
-          break;
-        case 'story':
-          // Add story to existing epic
-          const backlog = ctx.readBacklog();
-          const storyId = generateULID();
-          if (!backlog.stories) backlog.stories = [];
-          backlog.stories.push({ ...item.data, id: storyId, createdAt: getTimestamp(), updatedAt: getTimestamp() });
-          ctx.writeBacklog(backlog);
-          result = { storyId };
-          break;
-        case 'requirement':
-          // Add to functional requirements
-          const funcReqs = ctx.readFunctionalReqs();
-          const reqId = generateULID();
-          if (!funcReqs.requirements) funcReqs.requirements = [];
-          funcReqs.requirements.push({ ...item.data, id: reqId, createdAt: getTimestamp(), updatedAt: getTimestamp() });
-          writeYaml(path.join(ctx.skyhookDir, 'requirements', 'functional.yaml'), funcReqs);
-          result = { requirementId: reqId };
-          break;
-        case 'decision':
-          const decisionId = ctx.writeDecision(item.data);
-          result = { decisionId: decisionId };
-          break;
-        default:
-          result = { error: 'Unknown type: ' + item.type };
-      }
-      results.push({ type: item.type, success: !result.error, ...result });
-    } catch (e) {
-      results.push({ type: item.type, success: false, error: e.message });
-    }
-  }
-  
-  return { results, success: results.filter(r => r.success).length, failed: results.filter(r => !r.success).length };
-}
-
-async function cmdHelp(ctx, args) {
-  return {
-    commands: [
-      { name: 'listCurrentFeatures', description: 'List all features with status', args: ['status?: all|backlog|in-progress|done|blocked'] },
-      { name: 'getFeature', description: 'Get detailed feature info', args: ['id: string'] },
-      { name: 'getNextTask', description: 'Get highest priority ready task', args: ['assignee?: string'] },
-      { name: 'getBlockers', description: 'Get all blocked items', args: [] },
-      { name: 'recordDecision', description: 'Record architectural decision (auto-generates ADR)', args: ['title, decision, context, status?, category?, alternatives?, relatedRequirements?, consequences?, rationale?'] },
-      { name: 'updateStatus', description: 'Update story status', args: ['storyId, status: backlog|ready|in-progress|in-review|done|blocked|cancelled'] },
-      { name: 'getContext', description: 'Get relevant context for a topic', args: ['topic?: string'] },
-      { name: 'sync', description: 'Check code vs docs drift', args: [] },
-      { name: 'addFeature', description: 'Add new feature with stories', args: ['title, description?, goal?, stories?: [{title, userStory, acceptanceCriteria?, priority?}]'] },
-      { name: 'trace', description: 'Trace requirement to code (stories, decisions, code refs)', args: ['id: string (requirement ID)'] },
-      { name: 'impact', description: 'Analyze impact of changing a requirement', args: ['id: string (requirement ID)'] },
-      { name: 'untraced', description: 'Find requirements with no code references', args: [] },
-      { name: 'dashboard', description: 'Start/stop web dashboard', args: ['action: start|stop|status'] },
-      { name: 'help', description: 'Show this help', args: [] },
-      { name: 'init', description: 'Initialize project with profile', args: ['profile?, name?, description?, variant?, force?'] },
-      { name: 'discover', description: 'Run phased discovery workflow', args: ['phase?, answers?'] },
-      { name: 'question', description: 'Get contextual questions for any phase', args: ['category?, limit?'] },
-      { name: 'plan', description: 'Generate PROJECT_PLAN.md', args: [] },
-      { name: 'standards', description: 'List applicable standards (with overrides)', args: ['category?'] },
-      { name: 'profile', description: 'Show profile details (tech stack, variants, questions)', args: ['name?'] },
-      { name: 'version', description: 'Show version info', args: [] },
-      { name: 'install', description: 'Install skill globally/locally', args: ['scope?: global|local, force?'] },
-      { name: 'setup', description: 'Auto-configure agent harness', args: ['agent: codex|claude|gemini|copilot|antigravity|all'] },
-      { name: 'decide', description: 'Shorthand for recordDecision', args: ['title, decision, context, ...'] },
-      { name: 'batchCreate', description: 'Bulk create features/stories/requirements/decisions', args: ['items: [{type: feature|story|requirement|decision, data: {...}}]'] }
-    ],
-    usage: 'echo \'{"command":"listCurrentFeatures","args":{}}\' | node skyhook-cmd.js'
-  };
-}
-
-// ==================== MAIN ====================
-
-async function main() {
-  const skyhookDir = findSkyhookDir();
-  if (!skyhookDir) {
-    console.error(JSON.stringify({ error: 'No .skyhook directory found. Run skyhook init first.' }));
-    process.exit(1);
-  }
-  
-  const ctx = new SkyhookContext(skyhookDir);
-  
-  let input = { command: 'help', args: {} };
-  
-  const args = process.argv.slice(2);
-  if (args.length > 0) {
-    input.command = args[0];
-    input.args = {};
-    for (let i = 1; i < args.length; i++) {
-      if (args[i].startsWith('--')) {
-        const [key, value] = args[i].slice(2).split('=');
-        input.args[key] = value === 'true' ? true : value === 'false' ? false : value;
-      }
-    }
-  } else {
-    const stdin = await new Promise(resolve => {
-      let data = '';
-      process.stdin.on('data', chunk => data += chunk);
-      process.stdin.on('end', () => resolve(data));
-    });
-    try {
-      input = JSON.parse(stdin.trim());
-    } catch {
-      console.error(JSON.stringify({ error: 'Invalid JSON input' }));
-      process.exit(1);
-    }
-  }
-  
-  const commands = {
-    listCurrentFeatures: cmdListCurrentFeatures,
-    getFeature: cmdGetFeature,
-    getNextTask: cmdGetNextTask,
-    getBlockers: cmdGetBlockers,
-    recordDecision: cmdRecordDecision,
-    updateStatus: cmdUpdateStatus,
-    getContext: cmdGetContext,
-    sync: cmdSync,
-    addFeature: cmdAddFeature,
-    trace: cmdTrace,
-    impact: cmdImpact,
-    untraced: cmdUntraced,
-    dashboard: cmdDashboard,
-    help: cmdHelp,
-    // New commands
-    init: cmdInit,
-    discover: cmdDiscover,
-    question: cmdQuestion,
-    plan: cmdPlan,
-    standards: cmdStandards,
-    profile: cmdProfile,
-    version: cmdVersion,
-    install: cmdInstall,
-    setup: cmdSetup,
-    decide: cmdDecide,
-    batchCreate: cmdBatchCreate
-  };
-  
-  const handler = commands[input.command];
-  if (!handler) {
-    console.error(JSON.stringify({ error: 'Unknown command: ' + input.command }));
-    process.exit(1);
-  }
-  
-  try {
-    const result = await handler(ctx, input.args);
-    console.log(JSON.stringify(result, null, 2));
-  } catch (error) {
-    console.error(JSON.stringify({ error: error.message }));
-    process.exit(1);
-  }
-}
-
-main();

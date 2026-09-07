@@ -2,9 +2,9 @@
  * Skyhook Auto-ADR Generation - Creates complete ADRs from decision data
  */
 
-const fs = require('fs');
-const path = require('path');
-const { parseYaml } = require('./simple-yaml.js');
+import fs from 'fs';
+import path from 'path';
+import { readYaml, findSkyhookDir, getTimestamp, generateULID } from './utils.js';
 
 // ==================== AUTO-ADR GENERATOR ====================
 
@@ -340,40 +340,6 @@ function generateValidationCriteria(decisionData, context) {
 
 // ==================== HELPERS ====================
 
-function generateULID() {
-  const chars = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
-  let id = '';
-  for (let i = 0; i < 26; i++) {
-    id += chars[Math.floor(Math.random() * chars.length)];
-  }
-  return id;
-}
-
-function getTimestamp() {
-  return new Date().toISOString();
-}
-
-function findSkyhookDir(projectDir) {
-  let dir = projectDir;
-  while (dir !== path.parse(dir).root) {
-    if (fs.existsSync(path.join(dir, '.skyhook'))) {
-      return path.join(dir, '.skyhook');
-    }
-    dir = path.dirname(dir);
-  }
-  return null;
-}
-
-function readYaml(filePath) {
-  try {
-    const content = fs.readFileSync(filePath, 'utf-8');
-    const { parseYaml } = require('./simple-yaml.js');
-    return parseYaml(content);
-  } catch {
-    return null;
-  }
-}
-
 function generateContextDetails(context, decisionData) {
   let details = '';
   
@@ -417,9 +383,6 @@ function generateDecisionRationale(decisionData, context) {
   return rationale;
 }
 
-function decisionMentions(decisionData, keywords) {
-  const text = `${decisionData.title} ${decisionData.decision} ${decisionData.context}`.toLowerCase();
-  return keywords.some(k => text.includes(k.toLowerCase()));
-}
+// Removed duplicate decisionMentions
 
-module.exports = { generateADR };
+export { generateADR };

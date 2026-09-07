@@ -3,8 +3,8 @@
  * No external dependencies, pure Node.js
  */
 
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
 
 // ==================== MAIN EXPORT ====================
 
@@ -207,7 +207,7 @@ function inferFromPrisma(projectDir, facts) {
           const modelNames = models.map(m => m.replace(/model\s+(\w+)\s*{/, '$1'));
           facts.features.push(...modelNames.map(m => `model:${m.toLowerCase()}`));
         }
-      } catch (e) {}
+      } catch (e) { /* ignore */ }
       break;
     }
   }
@@ -249,7 +249,7 @@ function inferFromMiddleware(projectDir, facts) {
         if (content.includes('jwt') || content.includes('JWT')) {
           facts.features.push('jwt');
         }
-      } catch (e) {}
+      } catch (e) { /* ignore */ }
     }
   }
 }
@@ -365,7 +365,7 @@ function inferMonorepo(projectDir, facts) {
         facts.monorepo = true;
         facts.confidence.monorepo = 0.9;
       }
-    } catch (e) {}
+    } catch (e) { /* ignore */ }
   }
 }
 
@@ -382,4 +382,4 @@ function calculateConfidence(facts) {
   }
 }
 
-module.exports = { inferFromRepo };
+export { inferFromRepo };
