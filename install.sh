@@ -29,6 +29,9 @@ cp -r "$TMP_DIR/skyhook/skyhook" "$INSTALL_DIR"
 cp "$TMP_DIR/skyhook/package.json" "$INSTALL_DIR/"
 chmod +x "$INSTALL_DIR/cli/skyhook.js"
 
+echo "📦 Installing dependencies..."
+(cd "$INSTALL_DIR" && npm install --production --silent)
+
 # Create skyhook wrapper (no .js extension) for direct PATH execution
 cat > "$INSTALL_DIR/cli/skyhook" << 'WRAPPER_EOF'
 #!/usr/bin/env bash
