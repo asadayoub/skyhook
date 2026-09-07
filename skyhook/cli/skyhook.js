@@ -23,7 +23,7 @@ import { execSync } from 'child_process';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SKYHOOK_ROOT = path.resolve(__dirname, '..');
-const SKYHOOK_VERSION = '1.3.6';
+const SKYHOOK_VERSION = '1.3.7';
 
 // Colors for output
 const colors = {
@@ -83,7 +83,9 @@ function parseSimpleYaml(content) {
       currentKey = key.trim();
       arrayKey = null;
       
-      if (value === '' || value === '[]') {
+      if (value === '') {
+      } else if (value === '[]') {
+        result[currentKey] = [];
       } else if (value.startsWith('"') && value.endsWith('"')) {
         result[currentKey] = value.slice(1, -1);
       } else if (value === 'true') {

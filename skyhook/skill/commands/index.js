@@ -13,7 +13,7 @@ const { generateADR } = require('./adr.js');
 const { inferFromRepo } = require('../lib/inference.js');
 
 const SKYHOOK_ROOT = path.resolve(__dirname, '..', '..');
-const SKYHOOK_VERSION = '1.3.6';
+const SKYHOOK_VERSION = '1.3.7';
 
 // ==================== UTILITIES ====================
 
@@ -137,7 +137,11 @@ class SkyhookContext {
   }
 
   readBacklog() {
-    return readYaml(path.join(this.skyhookDir, 'backlog', 'epics.yaml')) || { epics: [], stories: [], tasks: [] };
+    const data = readYaml(path.join(this.skyhookDir, 'backlog', 'epics.yaml')) || { epics: [], stories: [], tasks: [] };
+    if (!data.epics) data.epics = [];
+    if (!data.stories) data.stories = [];
+    if (!data.tasks) data.tasks = [];
+    return data;
   }
   
   writeBacklog(data) {
