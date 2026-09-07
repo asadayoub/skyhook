@@ -106,12 +106,18 @@ export async function cmdGraph(ctx, args) {
   const nonFuncReqs = ctx.readNonFunctionalReqs().requirements || [];
   const allReqs = [...funcReqs, ...nonFuncReqs];
 
+  // Helper to sanitize labels for Mermaid (strip quotes and special chars)
+  function sanitize(str) {
+    return str.replace(/["<>{}|#&]/g, '').replace(/\\/g, '/');
+  }
+
   let mermaid = `\`\`\`mermaid\ngraph TD\n`;
   
   // 1. Render Requirements
   mermaid += `    %% Requirements\n`;
   allReqs.forEach(req => {
-    mermaid += `    ${req.id}("${req.id}: ${req.title}") :::requirement\n`;
+    const label = sanitize(`${req.id}: ${req.title}`);
+    mermaid += `    ${req.id}["${label}"]:::requirement\n`;
   });
   
   // 2. Render Files and Symbols
@@ -121,13 +127,15 @@ export async function cmdGraph(ctx, args) {
   allSymbols.forEach((sym, index) => {
     const fileId = "F_" + sym.file.replace(/[^a-zA-Z0-9]/g, '_');
     if (!fileNodes.has(fileId)) {
-      mermaid += `    ${fileId}["${sym.file}"] :::file\n`;
+      const fileLabel = sanitize(sym.file);
+      mermaid += `    ${fileId}["${fileLabel}"]:::file\n`;
       fileNodes.add(fileId);
     }
     
     const symId = "S_" + index;
     const styleClass = sym.traced ? "traced" : "untraced";
-    mermaid += `    ${symId}{"${sym.symbolType} ${sym.symbolName}"} :::${styleClass}\n`;
+    const symLabel = sanitize(`${sym.symbolType} ${sym.symbolName}`);
+    mermaid += `    ${symId}["${symLabel}"]:::${styleClass}\n`;
     
     // Connect File to Symbol
     mermaid += `    ${fileId} --- ${symId}\n`;
@@ -154,4 +162,5 @@ export async function cmdGraph(ctx, args) {
     path: outputPath
   };
 }
+
 

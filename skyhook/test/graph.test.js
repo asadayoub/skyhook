@@ -53,14 +53,14 @@ test('cmdGraph generates a correct Mermaid Markdown file', async () => {
       assert.ok(content.includes('graph TD'), 'Uses TD layout');
       
       // Verify Requirement node
-      assert.ok(content.includes('REQ-001("REQ-001: Login System") :::requirement'), 'Contains requirement node');
+      assert.ok(content.includes('REQ-001["REQ-001: Login System"]:::requirement'), 'Contains requirement node');
       
       // Verify File node
-      assert.ok(content.includes('["auth.js"] :::file'), 'Contains file node');
+      assert.ok(content.includes('["auth.js"]:::file'), 'Contains file node');
       
       // Verify Symbols
-      assert.ok(content.includes('{"class AuthService"} :::traced'), 'Contains traced symbol node');
-      assert.ok(content.includes('{"function legacyHelper"} :::untraced'), 'Contains untraced symbol node');
+      assert.ok(content.includes('["class AuthService"]:::traced'), 'Contains traced symbol node');
+      assert.ok(content.includes('["function legacyHelper"]:::untraced'), 'Contains untraced symbol node');
       
       // Verify relationships
       assert.ok(content.includes('REQ-001 -->'), 'Requirement links to symbol');
