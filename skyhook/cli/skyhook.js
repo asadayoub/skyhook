@@ -830,11 +830,11 @@ main();
 async function cmdSetup(args) {
   const target = args.agent || args._[0];
   if (!target) {
-    log('error', 'Usage: skyhook setup <codex|claude|gemini|copilot|all>');
+    log('error', 'Usage: skyhook setup <codex|claude|gemini|copilot|antigravity|all>');
     return;
   }
 
-  const agents = target === 'all' ? ['codex', 'claude', 'gemini', 'copilot'] : [target];
+  const agents = target === 'all' ? ['codex', 'claude', 'gemini', 'copilot', 'antigravity'] : [target];
   
   for (const agent of agents) {
     await setupAgent(agent);
@@ -1080,6 +1080,19 @@ Then use:
       fs.writeFileSync(path.join(vscodeDir, 'tasks.json'), JSON.stringify(tasksJson, null, 2));
       
       log('success', `Created .github/copilot-instructions.md and .vscode/tasks.json`);
+      break;
+    }
+    
+    case 'antigravity': {
+      const home = process.env.HOME || process.env.USERPROFILE;
+      const pluginsDir = path.join(home, '.gemini', 'config', 'plugins');
+      if (!fs.existsSync(pluginsDir)) fs.mkdirSync(pluginsDir, { recursive: true });
+      
+      const targetLink = path.join(pluginsDir, 'skyhook-plugin');
+      try { fs.rmSync(targetLink, { recursive: true, force: true }); } catch (e) {}
+      
+      fs.symlinkSync(SKYHOOK_ROOT, targetLink, 'junction');
+      log('success', `Linked Skyhook plugin to ${targetLink}`);
       break;
     }
   }

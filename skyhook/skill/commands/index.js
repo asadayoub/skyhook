@@ -1206,9 +1206,21 @@ async function cmdSetup(ctx, args) {
       return { success: true, files: ['.github/copilot-instructions.md', '.vscode/tasks.json'] };
     }
     
+    case 'antigravity': {
+      const home = process.env.HOME || process.env.USERPROFILE;
+      const pluginsDir = path.join(home, '.gemini', 'config', 'plugins');
+      if (!fs.existsSync(pluginsDir)) fs.mkdirSync(pluginsDir, { recursive: true });
+      
+      const targetLink = path.join(pluginsDir, 'skyhook-plugin');
+      try { fs.rmSync(targetLink, { recursive: true, force: true }); } catch (e) {}
+      
+      fs.symlinkSync(skyhookRoot, targetLink, 'junction');
+      return { success: true, message: `Linked Skyhook plugin to ${targetLink}` };
+    }
+    
     case 'all': {
       const results = [];
-      for (const a of ['codex', 'claude', 'gemini', 'copilot']) {
+      for (const a of ['codex', 'claude', 'gemini', 'copilot', 'antigravity']) {
         const result = await cmdSetup(ctx, { agent: a });
         results.push({ agent: a, ...result });
       }
@@ -1312,7 +1324,7 @@ async function cmdHelp(ctx, args) {
       { name: 'profile', description: 'Show profile details (tech stack, variants, questions)', args: ['name?'] },
       { name: 'version', description: 'Show version info', args: [] },
       { name: 'install', description: 'Install skill globally/locally', args: ['scope?: global|local, force?'] },
-      { name: 'setup', description: 'Auto-configure agent harness', args: ['agent: codex|claude|gemini|copilot|all'] },
+      { name: 'setup', description: 'Auto-configure agent harness', args: ['agent: codex|claude|gemini|copilot|antigravity|all'] },
       { name: 'decide', description: 'Shorthand for recordDecision', args: ['title, decision, context, ...'] },
       { name: 'batchCreate', description: 'Bulk create features/stories/requirements/decisions', args: ['items: [{type: feature|story|requirement|decision, data: {...}}]'] }
     ],
