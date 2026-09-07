@@ -140,6 +140,8 @@ function parseYaml(content) {
 }
 
 function parseValue(value) {
+  if (value === '[]') return [];
+  if (value === '{}') return {};
   if ((value.startsWith('"') && value.endsWith('"')) || 
       (value.startsWith("'") && value.endsWith("'"))) {
     return value.slice(1, -1);
