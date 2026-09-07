@@ -50,20 +50,22 @@ test('cmdGraph generates a correct Mermaid Markdown file', async () => {
       
       // Verify basic syntax
       assert.ok(content.startsWith('\`\`\`mermaid'), 'Starts with mermaid block');
-      assert.ok(content.includes('graph TD'), 'Uses TD layout');
+      assert.ok(content.includes('flowchart TB'), 'Uses TB layout');
       
-      // Verify Requirement node
+      // Verify Requirement subgraph
+      assert.ok(content.includes('subgraph REQS'), 'Contains requirements subgraph');
       assert.ok(content.includes('REQ-001["REQ-001: Login System"]:::requirement'), 'Contains requirement node');
       
-      // Verify File node
-      assert.ok(content.includes('["auth.js"]:::file'), 'Contains file node');
+      // Verify File subgraph
+      assert.ok(content.includes('subgraph F_'), 'Contains file subgraph');
+      assert.ok(content.includes('auth.js'), 'Contains file label');
       
       // Verify Symbols
-      assert.ok(content.includes('["class AuthService"]:::traced'), 'Contains traced symbol node');
-      assert.ok(content.includes('["function legacyHelper"]:::untraced'), 'Contains untraced symbol node');
+      assert.ok(content.includes('class AuthService"]:::traced'), 'Contains traced symbol node');
+      assert.ok(content.includes('function legacyHelper"]:::untraced'), 'Contains untraced symbol node');
       
-      // Verify relationships
-      assert.ok(content.includes('REQ-001 -->'), 'Requirement links to symbol');
+      // Verify traceability links
+      assert.ok(content.includes('REQ-001 ==>'), 'Requirement links to symbol');
       
     } finally {
       process.chdir(originalCwd);

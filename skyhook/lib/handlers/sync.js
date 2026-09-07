@@ -111,47 +111,68 @@ export async function cmdGraph(ctx, args) {
     return str.replace(/["<>{}|#&]/g, '').replace(/\\/g, '/');
   }
 
-  let mermaid = `\`\`\`mermaid\ngraph TD\n`;
-  
-  // 1. Render Requirements
-  mermaid += `    %% Requirements\n`;
-  allReqs.forEach(req => {
-    const label = sanitize(`${req.id}: ${req.title}`);
-    mermaid += `    ${req.id}["${label}"]:::requirement\n`;
-  });
-  
-  // 2. Render Files and Symbols
-  mermaid += `\n    %% Files and Symbols\n`;
-  const fileNodes = new Set();
-  
+  // Group symbols by file
+  const fileMap = new Map();
   allSymbols.forEach((sym, index) => {
     const fileId = "F_" + sym.file.replace(/[^a-zA-Z0-9]/g, '_');
-    if (!fileNodes.has(fileId)) {
-      const fileLabel = sanitize(sym.file);
-      mermaid += `    ${fileId}["${fileLabel}"]:::file\n`;
-      fileNodes.add(fileId);
+    if (!fileMap.has(fileId)) {
+      fileMap.set(fileId, { file: sym.file, symbols: [] });
     }
-    
-    const symId = "S_" + index;
-    const styleClass = sym.traced ? "traced" : "untraced";
-    const symLabel = sanitize(`${sym.symbolType} ${sym.symbolName}`);
-    mermaid += `    ${symId}["${symLabel}"]:::${styleClass}\n`;
-    
-    // Connect File to Symbol
-    mermaid += `    ${fileId} --- ${symId}\n`;
-    
-    // Connect Requirement to Symbol
+    fileMap.get(fileId).symbols.push({ ...sym, _index: index });
+  });
+
+  let mermaid = `\`\`\`mermaid\nflowchart TB\n`;
+
+  // 1. Render Requirements layer
+  if (allReqs.length > 0) {
+    mermaid += `\n    %% ── Requirements ──\n`;
+    mermaid += `    subgraph REQS["📋 Requirements"]\n`;
+    mermaid += `        direction TB\n`;
+    allReqs.forEach(req => {
+      const label = sanitize(`${req.id}: ${req.title}`);
+      mermaid += `        ${req.id}["${label}"]:::requirement\n`;
+    });
+    mermaid += `    end\n`;
+  }
+
+  // 2. Render each file as a subgraph containing its symbols
+  mermaid += `\n    %% ── Source Files ──\n`;
+  for (const [fileId, data] of fileMap) {
+    const fileLabel = sanitize(data.file);
+    mermaid += `    subgraph ${fileId}["📄 ${fileLabel}"]\n`;
+    mermaid += `        direction TB\n`;
+    data.symbols.forEach(sym => {
+      const symId = "S_" + sym._index;
+      const styleClass = sym.traced ? "traced" : "untraced";
+      const icon = sym.traced ? "✅" : "❌";
+      const symLabel = sanitize(`${icon} ${sym.symbolType} ${sym.symbolName}`);
+      mermaid += `        ${symId}["${symLabel}"]:::${styleClass}\n`;
+    });
+    mermaid += `    end\n\n`;
+  }
+
+  // 3. Render edges: Requirement --> traced symbol
+  mermaid += `    %% ── Traceability Links ──\n`;
+  allSymbols.forEach((sym, index) => {
     if (sym.traced && sym.requirementId) {
-      mermaid += `    ${sym.requirementId} --> ${symId}\n`;
+      const symId = "S_" + index;
+      mermaid += `    ${sym.requirementId} ==> ${symId}\n`;
     }
   });
-  
-  // 3. Styling
-  mermaid += `\n    %% Styling\n`;
-  mermaid += `    classDef requirement fill:#2d3748,color:#fff,stroke:#4fd1c5,stroke-width:4px\n`;
-  mermaid += `    classDef file fill:#edf2f7,color:#1a202c,stroke:#a0aec0\n`;
-  mermaid += `    classDef traced fill:#c6f6d5,color:#22543d,stroke:#38a169\n`;
-  mermaid += `    classDef untraced fill:#fed7d7,color:#742a2a,stroke:#e53e3e\n`;
+
+  // 4. Styling
+  mermaid += `\n    %% ── Styling ──\n`;
+  mermaid += `    classDef requirement fill:#2d3748,color:#fff,stroke:#4fd1c5,stroke-width:3px,font-size:14px\n`;
+  mermaid += `    classDef file fill:#edf2f7,color:#1a202c,stroke:#a0aec0,font-size:12px\n`;
+  mermaid += `    classDef traced fill:#c6f6d5,color:#22543d,stroke:#38a169,stroke-width:2px,font-size:13px\n`;
+  mermaid += `    classDef untraced fill:#fed7d7,color:#742a2a,stroke:#e53e3e,stroke-width:2px,font-size:13px\n`;
+
+  // Subgraph styling
+  mermaid += `\n    style REQS fill:#1a202c,stroke:#4fd1c5,stroke-width:2px,color:#fff,font-size:16px\n`;
+  for (const [fileId] of fileMap) {
+    mermaid += `    style ${fileId} fill:#f7fafc,stroke:#cbd5e0,stroke-width:1px,color:#2d3748\n`;
+  }
+
   mermaid += `\`\`\`\n`;
   
   const outputPath = path.join(ctx.skyhookDir, 'trace-graph.md');
@@ -162,5 +183,6 @@ export async function cmdGraph(ctx, args) {
     path: outputPath
   };
 }
+
 
 
