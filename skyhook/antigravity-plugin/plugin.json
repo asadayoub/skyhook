@@ -1,7 +1,7 @@
 {
   "name": "skyhook-plugin",
   "description": "Universal Project Intelligence for AI Agents",
-  "version": "1.3.3",
+  "version": "1.3.4",
   "slash_commands": [
     {
       "name": "skyhook-init",
@@ -31,7 +31,7 @@
     {
       "name": "skyhook-decide",
       "description": "Record an architectural or design decision",
-      "instruction": "Run `skyhook decide` in the terminal. Provide title, decision, and context."
+      "instruction": "Run `skyhook decide` or use JSON: `echo '{\"command\":\"recordDecision\", \"args\":{\"title\":\"...\", \"decision\":\"...\", \"context\":\"...\"}}' | skyhook-cmd`"
     },
     {
       "name": "skyhook-sync",
@@ -46,7 +46,57 @@
     {
       "name": "skyhook-batch-create",
       "description": "Bulk create features, stories, or requirements",
-      "instruction": "Run `skyhook batchCreate` using the JSON protocol."
+      "instruction": "Run JSON protocol: `echo '{\"command\":\"batchCreate\", \"args\":{\"items\":[...]}}' | skyhook-cmd`"
+    },
+    {
+      "name": "skyhook-list-features",
+      "description": "List all current features in the project",
+      "instruction": "Run JSON protocol: `echo '{\"command\":\"listCurrentFeatures\"}' | skyhook-cmd`"
+    },
+    {
+      "name": "skyhook-get-next-task",
+      "description": "Get the next highest-priority task",
+      "instruction": "Run JSON protocol: `echo '{\"command\":\"getNextTask\"}' | skyhook-cmd`"
+    },
+    {
+      "name": "skyhook-get-blockers",
+      "description": "List all blocked tasks and features",
+      "instruction": "Run JSON protocol: `echo '{\"command\":\"getBlockers\"}' | skyhook-cmd`"
+    },
+    {
+      "name": "skyhook-update-status",
+      "description": "Update the status of a feature or task",
+      "instruction": "Run JSON protocol: `echo '{\"command\":\"updateStatus\", \"args\":{\"id\":\"...\", \"status\":\"...\"}}' | skyhook-cmd`"
+    },
+    {
+      "name": "skyhook-get-context",
+      "description": "Retrieve the full project context and background",
+      "instruction": "Run JSON protocol: `echo '{\"command\":\"getContext\"}' | skyhook-cmd`"
+    },
+    {
+      "name": "skyhook-add-feature",
+      "description": "Add a new feature to the backlog",
+      "instruction": "Run JSON protocol: `echo '{\"command\":\"addFeature\", \"args\":{\"title\":\"...\", \"description\":\"...\"}}' | skyhook-cmd`"
+    },
+    {
+      "name": "skyhook-trace",
+      "description": "Trace a requirement's implementation in code",
+      "instruction": "Run JSON protocol: `echo '{\"command\":\"trace\", \"args\":{\"id\":\"...\"}}' | skyhook-cmd`"
+    },
+    {
+      "name": "skyhook-impact",
+      "description": "Analyze impact of changing a requirement",
+      "instruction": "Run JSON protocol: `echo '{\"command\":\"impact\", \"args\":{\"id\":\"...\"}}' | skyhook-cmd`"
+    },
+    {
+      "name": "skyhook-untraced",
+      "description": "Find all requirements that have not been traced",
+      "instruction": "Run JSON protocol: `echo '{\"command\":\"untraced\"}' | skyhook-cmd`"
+    },
+    {
+      "name": "skyhook-dashboard",
+      "description": "Start the interactive Skyhook dashboard",
+      "instruction": "Run `skyhook-cmd dashboard start` in the terminal."
     }
   ]
 }
