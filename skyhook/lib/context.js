@@ -159,4 +159,11 @@ class SkyhookContext {
     return parseYaml(path.join(this.skyhookDir, 'project.yaml')) || {};
   }
 }
+
+export function createSkyhookContext(projectDir) {
+  const skyhookDir = path.join(projectDir, '.skyhook');
+  if (!fs.existsSync(skyhookDir)) return null;
+  return new SkyhookContext(skyhookDir);
+}
+
 export { SkyhookContext };
