@@ -4,7 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { cmdGraph } from '../lib/handlers/sync.js';
-import { stringifyYaml } from '../lib/yaml.js';
+import { writeYaml } from '../lib/utils.js';
 
 test('cmdGraph generates a correct Mermaid Markdown file', async () => {
   const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'skyhook-graph-test-'));
@@ -17,7 +17,7 @@ test('cmdGraph generates a correct Mermaid Markdown file', async () => {
       { id: 'REQ-001', title: 'Login System', status: 'implemented' }
     ]
   };
-  stringifyYaml(path.join(skyhookDir, 'requirements', 'functional.yaml'), functional);
+  writeYaml(path.join(skyhookDir, 'requirements', 'functional.yaml'), functional);
 
   // Mock a JS file with a mapped and unmapped symbol
   fs.writeFileSync(path.join(testDir, 'auth.js'), `

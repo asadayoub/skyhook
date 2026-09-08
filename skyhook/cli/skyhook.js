@@ -113,6 +113,7 @@ async function main() {
     'verify-adr': 'cmdVerifyADR',
     'draft-adr': 'cmdDraftADR',
     'watch-adr': 'cmdWatchADR',
+    'bootstrap-adr': 'cmdBootstrapADR',
     'hook-install': 'cmdHookInstall',
     'hook-uninstall': 'cmdHookUninstall',
     'hook-status': 'cmdHookStatus'
@@ -126,9 +127,12 @@ async function main() {
     else if (sub === 'verify' || sub === 'check') effectiveCommand = 'verify-adr';
     else if (sub === 'draft') effectiveCommand = 'draft-adr';
     else if (sub === 'watch') effectiveCommand = 'watch-adr';
+    else if (sub === 'bootstrap') effectiveCommand = 'bootstrap-adr';
     else effectiveCommand = 'help';
   } else if (command === 'watch') {
     effectiveCommand = 'watch-adr';
+  } else if (command === 'bootstrap-adr') {
+    effectiveCommand = 'bootstrap-adr';
   } else if (command === 'hook') {
     const sub = parsedArgs._.shift() || 'install';
     if (sub === 'install') effectiveCommand = 'hook-install';

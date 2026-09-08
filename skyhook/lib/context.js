@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { parseYaml, stringifyYaml } from './yaml.js';
 import { validateBacklog } from './schema.js';
-import { generateULID, getTimestamp, appendChangelog } from './utils.js';
+import { generateULID, getTimestamp, appendChangelog, readYaml, writeYaml, loadProfile } from './utils.js';
 import { generateADR } from './adr-generator.js';
 
 class SkyhookContext {
@@ -10,20 +10,32 @@ class SkyhookContext {
     this.skyhookDir = skyhookDir;
   }
 
+  readYaml(filePath) {
+    return readYaml(filePath);
+  }
+
+  writeYaml(filePath, data) {
+    return writeYaml(filePath, data);
+  }
+
+  readProfile(profileName) {
+    return loadProfile(profileName);
+  }
+
   readFunctionalReqs() {
-    return parseYaml(path.join(this.skyhookDir, 'requirements', 'functional.yaml')) || { requirements: [] };
+    return readYaml(path.join(this.skyhookDir, 'requirements', 'functional.yaml')) || { requirements: [] };
   }
   
   readNonFunctionalReqs() {
-    return parseYaml(path.join(this.skyhookDir, 'requirements', 'non-functional.yaml')) || { requirements: [] };
+    return readYaml(path.join(this.skyhookDir, 'requirements', 'non-functional.yaml')) || { requirements: [] };
   }
   
   readConstraints() {
-    return parseYaml(path.join(this.skyhookDir, 'requirements', 'constraints.yaml')) || { constraints: [] };
+    return readYaml(path.join(this.skyhookDir, 'requirements', 'constraints.yaml')) || { constraints: [] };
   }
 
   readDecisions() {
-    return parseYaml(path.join(this.skyhookDir, 'decisions', 'index.yaml')) || { decisions: [] };
+    return readYaml(path.join(this.skyhookDir, 'decisions', 'index.yaml')) || { decisions: [] };
   }
   
   readDecisionDetail(id) {
@@ -48,7 +60,7 @@ class SkyhookContext {
     
     // Generate full ADR with auto-fill
     const projectDir = process.cwd();
-    const projectYaml = parseYaml(path.join(this.skyhookDir, 'project.yaml')) || {};
+    const projectYaml = readYaml(path.join(this.skyhookDir, 'project.yaml')) || {};
     const context = {
       projectDir,
       projectType: projectYaml.type,
@@ -61,7 +73,7 @@ class SkyhookContext {
     
     // Update index
     const indexPath = path.join(this.skyhookDir, 'decisions', 'index.yaml');
-    const index = parseYaml(indexPath) || { schemaVersion: "1.0.0", decisions: [] };
+    const index = readYaml(indexPath) || { schemaVersion: "1.0.0", decisions: [] };
     if (!Array.isArray(index.decisions)) index.decisions = [];
 
     const existingIdx = index.decisions.findIndex(d => d.id === id);
@@ -81,14 +93,14 @@ class SkyhookContext {
       index.decisions.push(entry);
     }
 
-    stringifyYaml(indexPath, index);
+    writeYaml(indexPath, index);
     appendChangelog(this.skyhookDir, '- Recorded decision: ' + data.title + ' (' + id + ')');
     
     return id;
   }
 
   readBacklog() {
-    const data = parseYaml(path.join(this.skyhookDir, 'backlog', 'epics.yaml')) || { epics: [], stories: [], tasks: [] };
+    const data = readYaml(path.join(this.skyhookDir, 'backlog', 'epics.yaml')) || { epics: [], stories: [], tasks: [] };
     if (!data.epics) data.epics = [];
     if (!data.stories) data.stories = [];
     if (!data.tasks) data.tasks = [];
@@ -96,7 +108,7 @@ class SkyhookContext {
   }
   
   writeBacklog(data) {
-    stringifyYaml(path.join(this.skyhookDir, 'backlog', 'epics.yaml'), data);
+    writeYaml(path.join(this.skyhookDir, 'backlog', 'epics.yaml'), data);
   }
   
   updateStoryStatus(storyId, status) {
@@ -165,19 +177,19 @@ class SkyhookContext {
   }
 
   readTechStack() {
-    return parseYaml(path.join(this.skyhookDir, 'tech-stack.yaml')) || { technologies: [], patterns: [], constraints: [] };
+    return readYaml(path.join(this.skyhookDir, 'tech-stack.yaml')) || { technologies: [], patterns: [], constraints: [] };
   }
   
   writeTechStack(data) {
-    stringifyYaml(path.join(this.skyhookDir, 'tech-stack.yaml'), data);
+    writeYaml(path.join(this.skyhookDir, 'tech-stack.yaml'), data);
   }
 
   readStandards() {
-    return parseYaml(path.join(this.skyhookDir, 'standards', 'index.yaml')) || { overrides: [], adoptions: [] };
+    return readYaml(path.join(this.skyhookDir, 'standards', 'index.yaml')) || { overrides: [], adoptions: [] };
   }
 
   readProjectYaml() {
-    return parseYaml(path.join(this.skyhookDir, 'project.yaml')) || {};
+    return readYaml(path.join(this.skyhookDir, 'project.yaml')) || {};
   }
 }
 

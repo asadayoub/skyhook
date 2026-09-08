@@ -62,6 +62,7 @@ const commandMap = {
   verifyAdr: 'cmdVerifyADR',
   draftAdr: 'cmdDraftADR',
   watchAdr: 'cmdWatchADR',
+  bootstrapAdr: 'cmdBootstrapADR',
   hookInstall: 'cmdHookInstall',
   hookUninstall: 'cmdHookUninstall',
   hookStatus: 'cmdHookStatus',

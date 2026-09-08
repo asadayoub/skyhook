@@ -1,9 +1,35 @@
+import fs from 'fs';
+
 /**
  * Minimal YAML parser for Skyhook - no external deps
  * Handles our specific use case: nested objects, arrays, strings, numbers, booleans
  */
 
+export function readYaml(filePath) {
+  try {
+    const content = fs.readFileSync(filePath, 'utf-8');
+    return parseYaml(content);
+  } catch {
+    return null;
+  }
+}
+
+export function writeYaml(filePath, data) {
+  fs.writeFileSync(filePath, stringifyYaml(data), 'utf-8');
+}
+
 export function parseYaml(content) {
+  if (typeof content !== 'string') return {};
+  if (!content.includes('\n') && (content.endsWith('.yaml') || content.endsWith('.yml'))) {
+    try {
+      if (fs.existsSync(content)) {
+        content = fs.readFileSync(content, 'utf-8');
+      }
+    } catch {
+      // Fallback to direct parsing
+    }
+  }
+
   const lines = content.split('\n');
   const root = {};
   // Stack frames: { obj, indent, isArray, inArrayItem }
@@ -159,6 +185,11 @@ function parseValue(value) {
 }
 
 export function stringifyYaml(obj, indent = 0) {
+  if (typeof obj === 'string' && (obj.endsWith('.yaml') || obj.endsWith('.yml')) && typeof indent === 'object' && indent !== null) {
+    writeYaml(obj, indent);
+    return stringifyYaml(indent);
+  }
+
   const spaces = '  '.repeat(indent);
   let result = '';
   

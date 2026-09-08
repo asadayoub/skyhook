@@ -177,3 +177,30 @@ export async function cmdWatchADR(ctx, args = {}) {
     watcher
   };
 }
+
+/**
+ * Bootstrap baseline ADRs for all discovered technologies in an existing project
+ */
+export async function cmdBootstrapADR(ctx, args = {}) {
+  if (!ctx.skyhookDir) {
+    return { error: 'Not in a Skyhook project' };
+  }
+
+  const synthesizer = new ADRSynthesizer(ctx);
+  const bootstrapped = await synthesizer.bootstrapBaselineADRs(process.cwd(), {
+    status: args.status || 'accepted',
+    overwrite: !!args.force
+  });
+
+  if (bootstrapped.length === 0) {
+    return {
+      message: 'No unrecorded baseline technologies to bootstrap. All discovered technologies already have corresponding ADRs.',
+      bootstrapped: []
+    };
+  }
+
+  return {
+    message: `Successfully bootstrapped ${bootstrapped.length} baseline Architecture Decision Record(s).`,
+    bootstrapped
+  };
+}

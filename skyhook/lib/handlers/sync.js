@@ -8,7 +8,7 @@ import { ADRSyncEngine } from '../adr/ADRSyncEngine.js';
 
 export async function cmdSync(ctx, args = {}) {
   const projectDir = process.cwd();
-  
+
   // 1. Run Bi-Directional ADR Synchronization
   let adrSyncResult = null;
   if (ctx.skyhookDir) {
@@ -25,35 +25,35 @@ export async function cmdSync(ctx, args = {}) {
 
   // 2. Run Modular Inference Engine
   const facts = await inferFromRepo(projectDir);
-  
+
   // 3. Load Desired State
   const project = ctx.readProjectYaml();
   const techStack = ctx.readTechStack();
   const profile = project.profile ? loadProfile(project.profile) : null;
-  
+
   // 4. Analyze Drift
   const driftResult = detectDrift(facts, techStack, profile);
-  
+
   // 5. Handle auto-adopt
   if (driftResult.detected && (args.adopt || args['auto-adopt'])) {
     console.log('\n🔄 Adopting detected architecture changes...');
     if (!techStack.technologies) techStack.technologies = [];
-    
+
     // Add missing technologies
     if (facts.orm) techStack.technologies.push({ name: facts.orm, category: 'Database & ORM' });
     if (facts.database) techStack.technologies.push({ name: facts.database, category: 'Database' });
     if (facts.styling) techStack.technologies.push({ name: facts.styling, category: 'Styling' });
-    
+
     // Write back to disk
     ctx.writeTechStack(techStack);
-    
+
     console.log('✅ Successfully updated .skyhook/tech-stack.yaml');
-    
+
     // Re-run drift analysis after adoption
     const postAdoptDrift = detectDrift(facts, techStack, profile);
     return { drift: postAdoptDrift, facts, adopted: true, adrSync: adrSyncResult };
   }
-  
+
   // 6. Format CLI output for drift
   if (driftResult.detected) {
     console.log('\n⚠️ Architecture Drift Detected:');
@@ -62,7 +62,7 @@ export async function cmdSync(ctx, args = {}) {
       console.log(`     Issue: ${v.message}`);
       console.log(`     Fix:   ${v.recommendation}`);
     });
-    
+
     // Check if CI mode is enabled
     if (args['ci-check'] || args.ciCheck) {
       console.error('\n❌ Drift detected in CI mode. Exiting with failure.');
@@ -71,7 +71,7 @@ export async function cmdSync(ctx, args = {}) {
   } else {
     console.log('\n✅ No architecture drift detected. Codebase matches declared tech stack.');
   }
-  
+
   return { drift: driftResult, facts, adrSync: adrSyncResult };
 }
 
@@ -101,7 +101,7 @@ export async function cmdMapLegacy(ctx, args) {
   const projectDir = process.cwd();
   const allSymbols = await indexCodebase(projectDir);
   const legacySymbols = allSymbols.filter(s => !s.traced);
-  
+
   return {
     message: `Found ${legacySymbols.length} un-mapped legacy symbols across the codebase.`,
     legacySymbols: legacySymbols.map(s => ({
@@ -116,7 +116,7 @@ export async function cmdMapLegacy(ctx, args) {
 export async function cmdGraph(ctx, args) {
   const projectDir = process.cwd();
   const allSymbols = await indexCodebase(projectDir);
-  
+
   const funcReqs = ctx.readFunctionalReqs().requirements || [];
   const nonFuncReqs = ctx.readNonFunctionalReqs().requirements || [];
   const allReqs = [...funcReqs, ...nonFuncReqs];
@@ -153,20 +153,20 @@ export async function cmdGraph(ctx, args) {
   for (const [fileId, data] of fileMap) {
     const fileLabel = sanitize(data.file);
     mermaid += `    ${fileId}["📄 ${fileLabel}"]:::file\n`;
-    
+
     // Force vertical stacking by linking this file to the previous file invisibly
     if (prevFileId) {
       mermaid += `    ${prevFileId} ~~~ ${fileId}\n`;
     }
     prevFileId = fileId;
-    
+
     data.symbols.forEach(sym => {
       const symId = "S_" + sym._index;
       const styleClass = sym.traced ? "traced" : "untraced";
       const icon = sym.traced ? "✅" : "❌";
       const symLabel = sanitize(`${icon} ${sym.symbolType} ${sym.symbolName}`);
       mermaid += `    ${symId}["${symLabel}"]:::${styleClass}\n`;
-      
+
       // Connect file to its symbol
       mermaid += `    ${fileId} --> ${symId}\n`;
     });
@@ -230,10 +230,10 @@ export async function cmdGraph(ctx, args) {
   mermaid += `    classDef adrDraft fill:#fefcbf,color:#744210,stroke:#d69e2e,stroke-width:2px,font-size:13px,rx:8,ry:8\n`;
 
   mermaid += `\`\`\`\n`;
-  
+
   const outputPath = path.join(ctx.skyhookDir, 'trace-graph.md');
   fs.writeFileSync(outputPath, mermaid, 'utf-8');
-  
+
   return {
     message: 'Mermaid graph generated successfully.',
     path: outputPath
