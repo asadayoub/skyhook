@@ -9,6 +9,7 @@ import { fileURLToPath } from 'url';
 import { createSkyhookContext } from '../lib/context.js';
 import * as backlogHandlers from '../lib/handlers/backlog.js';
 import * as adrHandlers from '../lib/handlers/adr.js';
+import * as hookHandlers from '../lib/handlers/hook.js';
 import { cmdSync, cmdTrace, cmdImpact, cmdUntraced, cmdCoverage, cmdMapLegacy, cmdGraph } from '../lib/handlers/sync.js';
 import * as generalHandlers from '../lib/handlers/general.js';
 
@@ -76,6 +77,7 @@ async function main() {
   const handlers = {
     ...backlogHandlers,
     ...adrHandlers,
+    ...hookHandlers,
     cmdSync,
     cmdTrace,
     cmdImpact,
@@ -109,17 +111,30 @@ async function main() {
     dashboard: 'cmdDashboard',
     'sync-adr': 'cmdSyncADR',
     'verify-adr': 'cmdVerifyADR',
-    'draft-adr': 'cmdDraftADR'
+    'draft-adr': 'cmdDraftADR',
+    'watch-adr': 'cmdWatchADR',
+    'hook-install': 'cmdHookInstall',
+    'hook-uninstall': 'cmdHookUninstall',
+    'hook-status': 'cmdHookStatus'
   };
 
-  // Support `skyhook adr <subcommand>` e.g. `skyhook adr sync`, `skyhook adr verify`, `skyhook adr draft`
+  // Support subcommands
   let effectiveCommand = command;
   if (command === 'adr') {
     const sub = parsedArgs._.shift() || 'help';
     if (sub === 'sync') effectiveCommand = 'sync-adr';
     else if (sub === 'verify' || sub === 'check') effectiveCommand = 'verify-adr';
     else if (sub === 'draft') effectiveCommand = 'draft-adr';
+    else if (sub === 'watch') effectiveCommand = 'watch-adr';
     else effectiveCommand = 'help';
+  } else if (command === 'watch') {
+    effectiveCommand = 'watch-adr';
+  } else if (command === 'hook') {
+    const sub = parsedArgs._.shift() || 'install';
+    if (sub === 'install') effectiveCommand = 'hook-install';
+    else if (sub === 'uninstall') effectiveCommand = 'hook-uninstall';
+    else if (sub === 'status') effectiveCommand = 'hook-status';
+    else effectiveCommand = 'hook-install';
   }
 
   const handlerName = commandMap[effectiveCommand];

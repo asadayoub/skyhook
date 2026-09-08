@@ -10,6 +10,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 import { SkyhookContext } from '../lib/context.js';
 import * as backlogHandlers from '../lib/handlers/backlog.js';
 import * as adrHandlers from '../lib/handlers/adr.js';
+import * as hookHandlers from '../lib/handlers/hook.js';
 import { cmdSync, cmdTrace, cmdImpact, cmdUntraced, cmdCoverage, cmdMapLegacy, cmdGraph } from '../lib/handlers/sync.js';
 import * as generalHandlers from '../lib/handlers/general.js';
 
@@ -17,6 +18,7 @@ import * as generalHandlers from '../lib/handlers/general.js';
 const handlers = {
   ...backlogHandlers,
   ...adrHandlers,
+  ...hookHandlers,
   cmdSync,
   cmdTrace,
   cmdImpact,
@@ -59,6 +61,10 @@ const commandMap = {
   syncAdr: 'cmdSyncADR',
   verifyAdr: 'cmdVerifyADR',
   draftAdr: 'cmdDraftADR',
+  watchAdr: 'cmdWatchADR',
+  hookInstall: 'cmdHookInstall',
+  hookUninstall: 'cmdHookUninstall',
+  hookStatus: 'cmdHookStatus',
   help: 'cmdHelp'
 };
 

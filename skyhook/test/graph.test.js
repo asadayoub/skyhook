@@ -27,11 +27,17 @@ test('cmdGraph generates a correct Mermaid Markdown file', async () => {
     function legacyHelper() {}
   `);
 
-  // We have to mock the SkyhookContext because cmdGraph needs it to read functional reqs
+  // We have to mock the SkyhookContext because cmdGraph needs it to read functional reqs and decisions
   const mockCtx = {
     skyhookDir,
     readFunctionalReqs: () => functional,
-    readNonFunctionalReqs: () => ({ requirements: [] })
+    readNonFunctionalReqs: () => ({ requirements: [] }),
+    readDecisions: () => ({
+      decisions: [
+        { id: 'ADR-1', title: 'Use Auth Service', status: 'superseded' },
+        { id: 'ADR-2', title: 'Use Passkeys', status: 'accepted', supersedes: ['ADR-1'], relatedRequirements: ['REQ-001'] }
+      ]
+    })
   };
 
   try {
@@ -65,6 +71,13 @@ test('cmdGraph generates a correct Mermaid Markdown file', async () => {
       // Verify traceability links
       assert.ok(content.includes('REQ-001 == "satisfies" ==>'), 'Requirement links to symbol');
       assert.ok(content.includes('-->'), 'File links to symbol');
+
+      // Verify Decision DAG
+      assert.ok(content.includes('Architectural Decisions (DAG)'), 'Contains ADR section');
+      assert.ok(content.includes('ADR_ADR_1'), 'Contains ADR-1 node');
+      assert.ok(content.includes('ADR_ADR_2'), 'Contains ADR-2 node');
+      assert.ok(content.includes('ADR_ADR_1 == "superseded by" ==> ADR_ADR_2'), 'Contains supersession link');
+      assert.ok(content.includes('ADR_ADR_2 -. "governs" .-> REQ-001'), 'Contains governance link');
       
     } finally {
       process.chdir(originalCwd);

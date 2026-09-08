@@ -182,12 +182,52 @@ export async function cmdGraph(ctx, args) {
     }
   });
 
-  // 4. Styling
+  // 4. Render Architectural Decisions (DAG) layer
+  const decisionsData = (typeof ctx.readDecisions === 'function' ? ctx.readDecisions() : {}) || { decisions: [] };
+  const allDecisions = decisionsData.decisions || [];
+
+  if (allDecisions.length > 0) {
+    mermaid += `\n    %% ── Architectural Decisions (DAG) ──\n`;
+    let prevAdrId = null;
+    allDecisions.forEach(d => {
+      const safeId = "ADR_" + d.id.replace(/[^a-zA-Z0-9]/g, '_');
+      const statusIcon = d.status === 'accepted' ? '🏛️' : d.status === 'superseded' ? '⚠️' : '📝';
+      const label = sanitize(`${statusIcon} ${d.id}: ${d.title} (${d.status || 'accepted'})`);
+      const styleClass = d.status === 'superseded' ? 'adrSuperseded' : d.status === 'draft' ? 'adrDraft' : 'adrAccepted';
+      mermaid += `    ${safeId}["${label}"]:::${styleClass}\n`;
+
+      if (prevAdrId) {
+        mermaid += `    ${prevAdrId} ~~~ ${safeId}\n`;
+      }
+      prevAdrId = safeId;
+    });
+
+    // Render superseding and governance links
+    allDecisions.forEach(d => {
+      const safeId = "ADR_" + d.id.replace(/[^a-zA-Z0-9]/g, '_');
+      if (d.supersedes && Array.isArray(d.supersedes)) {
+        d.supersedes.forEach(supId => {
+          const safeSupId = "ADR_" + supId.replace(/[^a-zA-Z0-9]/g, '_');
+          mermaid += `    ${safeSupId} == "superseded by" ==> ${safeId}\n`;
+        });
+      }
+      if (d.relatedRequirements && Array.isArray(d.relatedRequirements)) {
+        d.relatedRequirements.forEach(reqId => {
+          mermaid += `    ${safeId} -. "governs" .-> ${reqId}\n`;
+        });
+      }
+    });
+  }
+
+  // 5. Styling
   mermaid += `\n    %% ── Styling ──\n`;
   mermaid += `    classDef requirement fill:#2b6cb0,color:#fff,stroke:#2c5282,stroke-width:3px,font-size:14px,rx:10,ry:10\n`;
   mermaid += `    classDef file fill:#edf2f7,color:#2d3748,stroke:#a0aec0,stroke-width:2px,font-size:13px\n`;
   mermaid += `    classDef traced fill:#c6f6d5,color:#22543d,stroke:#38a169,stroke-width:2px,font-size:13px\n`;
   mermaid += `    classDef untraced fill:#fed7d7,color:#742a2a,stroke:#e53e3e,stroke-width:2px,font-size:13px\n`;
+  mermaid += `    classDef adrAccepted fill:#e6fffa,color:#234e52,stroke:#319795,stroke-width:2px,font-size:13px,rx:8,ry:8\n`;
+  mermaid += `    classDef adrSuperseded fill:#edf2f7,color:#718096,stroke:#a0aec0,stroke-width:2px,stroke-dasharray: 5 5,font-size:13px,rx:8,ry:8\n`;
+  mermaid += `    classDef adrDraft fill:#fefcbf,color:#744210,stroke:#d69e2e,stroke-width:2px,font-size:13px,rx:8,ry:8\n`;
 
   mermaid += `\`\`\`\n`;
   

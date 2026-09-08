@@ -4,6 +4,7 @@ import { generateADR } from '../adr-generator.js';
 import { ADRSyncEngine } from '../adr/ADRSyncEngine.js';
 import { ADRPolicyGuard } from '../adr/ADRPolicyGuard.js';
 import { ADRSynthesizer } from '../adr/ADRSynthesizer.js';
+import { ADRWatcher } from '../adr/ADRWatcher.js';
 
 export async function cmdRecordDecision(ctx, args) {
   const required = ['title', 'decision', 'context'];
@@ -142,5 +143,37 @@ export async function cmdDraftADR(ctx, args = {}) {
   return {
     message: `Synthesized ${drafts.length} draft ADR(s) from detected codebase shifts.`,
     drafts
+  };
+}
+
+/**
+ * Start live background file watcher for ADR markdown files
+ */
+export async function cmdWatchADR(ctx, args = {}) {
+  if (!ctx.skyhookDir) {
+    return { error: 'Not in a Skyhook project' };
+  }
+
+  const watcher = new ADRWatcher(ctx.skyhookDir, {
+    onChange: ({ filename, syncResult }) => {
+      console.log(`\n⚡ [Skyhook Live ADR Watcher] Detected edit in: ${filename}`);
+      console.log(`   Updated: ${syncResult.updatedFromMarkdown} decision(s), Indexed: ${syncResult.addedToIndex}`);
+    }
+  });
+
+  const startRes = watcher.start(ctx);
+  console.log(`\n👀 Skyhook Live ADR Watcher active on: ${startRes.directory}`);
+  console.log('   Edit any .md file in your editor; index.yaml will update automatically.');
+  console.log('   Press Ctrl+C to stop.\n');
+
+  // Keep process alive if called from interactive CLI
+  if (args.interactive !== false && !args.testMode) {
+    await new Promise(() => {}); // runs until SIGINT
+  }
+
+  return {
+    message: 'ADR Live Watcher initialized.',
+    watching: true,
+    watcher
   };
 }
