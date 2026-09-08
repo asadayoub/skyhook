@@ -1,6 +1,9 @@
 import fs from 'fs';
 import path from 'path';
 import { generateADR } from '../adr-generator.js';
+import { ADRSyncEngine } from '../adr/ADRSyncEngine.js';
+import { ADRPolicyGuard } from '../adr/ADRPolicyGuard.js';
+import { ADRSynthesizer } from '../adr/ADRSynthesizer.js';
 
 export async function cmdRecordDecision(ctx, args) {
   const required = ['title', 'decision', 'context'];
@@ -18,14 +21,18 @@ export async function cmdRecordDecision(ctx, args) {
     relatedRequirements: args.relatedRequirements,
     consequences: args.consequences,
     rationale: args.rationale,
-    implementationNotes: args.implementationNotes
+    implementationNotes: args.implementationNotes,
+    supersedes: args.supersedes,
+    enforcement: args.enforcement,
+    diagram: args.diagram
   });
   
-  const decisionData = ctx.readDecisions().decisions.find(d => d.id === id) || { id, ...args };
+  const readDecisions = (typeof ctx.readDecisions === 'function' ? ctx.readDecisions() : {}) || { decisions: [] };
+  const decisionData = (readDecisions.decisions || []).find(d => d.id === id) || { id, ...args };
   
-  const projectContext = ctx.readProjectYaml() || {};
-  const profile = ctx.readProfile(projectContext.profile || 'web-app') || {};
-  const techStack = ctx.readTechStack() || { technologies: [] };
+  const projectContext = (typeof ctx.readProjectYaml === 'function' ? ctx.readProjectYaml() : {}) || {};
+  const profile = (typeof ctx.readProfile === 'function' ? ctx.readProfile(projectContext.profile || 'web-app') : {}) || {};
+  const techStack = (typeof ctx.readTechStack === 'function' ? ctx.readTechStack() : { technologies: [] }) || { technologies: [] };
   
   const fullContext = {
     projectType: profile.name,
@@ -34,7 +41,7 @@ export async function cmdRecordDecision(ctx, args) {
     projectDir: process.cwd()
   };
   
-  const adrContent = generateADR(decisionData, fullContext);
+  const adrContent = generateADR({ ...decisionData, ...args, id }, fullContext);
   const adrDir = path.join(ctx.skyhookDir, 'decisions', 'records');
   if (!fs.existsSync(adrDir)) {
     fs.mkdirSync(adrDir, { recursive: true });
@@ -42,10 +49,98 @@ export async function cmdRecordDecision(ctx, args) {
   
   const adrFile = path.join(adrDir, `${id}.md`);
   fs.writeFileSync(adrFile, adrContent, 'utf-8');
+
+  // Trigger sync engine to ensure two-way alignment
+  if (ctx.skyhookDir) {
+    const syncEngine = new ADRSyncEngine(ctx.skyhookDir);
+    syncEngine.sync(ctx);
+  }
   
-  return { decisionId: id, message: 'Decision recorded successfully with auto-generated ADR', file: adrFile };
+  return {
+    decisionId: id,
+    message: 'Decision recorded successfully with auto-generated ADR and diagram',
+    file: adrFile,
+    status: args.status || 'accepted'
+  };
 }
 
 export async function cmdDecide(ctx, args) {
   return cmdRecordDecision(ctx, args);
+}
+
+/**
+ * Bi-directionally synchronize ADR markdown files with decisions/index.yaml
+ */
+export async function cmdSyncADR(ctx, args = {}) {
+  if (!ctx.skyhookDir) {
+    return { error: 'Not in a Skyhook project (missing .skyhook directory)' };
+  }
+
+  const syncEngine = new ADRSyncEngine(ctx.skyhookDir);
+  const results = syncEngine.sync(ctx);
+
+  return {
+    message: 'ADRs synchronized bi-directionally successfully.',
+    ...results
+  };
+}
+
+/**
+ * Verify codebase compliance against accepted ADR enforcement policies
+ */
+export async function cmdVerifyADR(ctx, args = {}) {
+  if (!ctx.skyhookDir) {
+    return { error: 'Not in a Skyhook project' };
+  }
+
+  const decisionsData = (typeof ctx.readDecisions === 'function' ? ctx.readDecisions() : {}) || { decisions: [] };
+  const guard = new ADRPolicyGuard(ctx.skyhookDir, process.cwd());
+  const result = await guard.verifyPolicies(decisionsData.decisions || []);
+
+  return result;
+}
+
+/**
+ * Proactively synthesize and draft an ADR based on codebase changes or parameters
+ */
+export async function cmdDraftADR(ctx, args = {}) {
+  if (!ctx.skyhookDir) {
+    return { error: 'Not in a Skyhook project' };
+  }
+
+  const synthesizer = new ADRSynthesizer(ctx);
+
+  if (args.title || args.name) {
+    const drafted = synthesizer.draftForShift({
+      name: args.name || args.title,
+      title: args.title,
+      decision: args.decision,
+      context: args.context,
+      category: args.category || 'technology'
+    });
+    return {
+      message: 'Draft ADR synthesized successfully.',
+      ...drafted
+    };
+  }
+
+  // Detect shifts automatically
+  const shifts = await synthesizer.detectShifts(process.cwd());
+  if (shifts.length === 0) {
+    return {
+      message: 'No unrecorded architectural or technology shifts detected.',
+      drafts: []
+    };
+  }
+
+  const drafts = [];
+  for (const shift of shifts) {
+    const drafted = synthesizer.draftForShift(shift);
+    drafts.push(drafted);
+  }
+
+  return {
+    message: `Synthesized ${drafts.length} draft ADR(s) from detected codebase shifts.`,
+    drafts
+  };
 }

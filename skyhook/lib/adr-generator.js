@@ -5,6 +5,7 @@
 import fs from 'fs';
 import path from 'path';
 import { readYaml, findSkyhookDir, getTimestamp, generateULID } from './utils.js';
+import { generateADRDiagram } from './adr/ADRDiagramGenerator.js';
 
 // ==================== AUTO-ADR GENERATOR ====================
 
@@ -29,6 +30,19 @@ function generateADR(decisionData, context) {
   
   // Find related decisions
   const relatedDecisions = findRelatedDecisions(decisionData, context);
+
+  // Generate automated architecture diagram
+  const diagram = decisionData.diagram || generateADRDiagram(decisionData, context);
+
+  // Format enforcement policy block if present
+  let enforcementSection = '';
+  if (decisionData.enforcement) {
+    enforcementSection = `\n## Enforcement Policy\n\n\`\`\`json:enforcement\n${JSON.stringify(decisionData.enforcement, null, 2)}\n\`\`\`\n`;
+  }
+
+  const supersedesMeta = decisionData.supersedes && decisionData.supersedes.length > 0
+    ? `\n**Supersedes**: ${Array.isArray(decisionData.supersedes) ? decisionData.supersedes.join(', ') : decisionData.supersedes}`
+    : '';
   
   const adr = `# Decision: ${decisionData.title}
 
@@ -36,7 +50,7 @@ function generateADR(decisionData, context) {
 **Status**: ${decisionData.status || 'proposed'}
 **Category**: ${decisionData.category || 'architecture'}
 **Date**: ${timestamp}
-**Author**: ${decisionData.author || 'AI Agent + Human'}
+**Author**: ${decisionData.author || 'AI Agent + Human'}${supersedesMeta}
 
 ## Context
 
@@ -50,6 +64,10 @@ ${decisionData.decision || 'No decision stated.'}
 
 ${generateDecisionRationale(decisionData, context)}
 
+## Architecture Diagram
+
+${diagram}
+${enforcementSection}
 ## Consequences
 
 ### Positive

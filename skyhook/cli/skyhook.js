@@ -106,10 +106,23 @@ async function main() {
     install: 'cmdInstall',
     profile: 'cmdProfile',
     help: 'cmdHelp',
-    dashboard: 'cmdDashboard'
+    dashboard: 'cmdDashboard',
+    'sync-adr': 'cmdSyncADR',
+    'verify-adr': 'cmdVerifyADR',
+    'draft-adr': 'cmdDraftADR'
   };
 
-  const handlerName = commandMap[command];
+  // Support `skyhook adr <subcommand>` e.g. `skyhook adr sync`, `skyhook adr verify`, `skyhook adr draft`
+  let effectiveCommand = command;
+  if (command === 'adr') {
+    const sub = parsedArgs._.shift() || 'help';
+    if (sub === 'sync') effectiveCommand = 'sync-adr';
+    else if (sub === 'verify' || sub === 'check') effectiveCommand = 'verify-adr';
+    else if (sub === 'draft') effectiveCommand = 'draft-adr';
+    else effectiveCommand = 'help';
+  }
+
+  const handlerName = commandMap[effectiveCommand];
   if (!handlerName || !handlers[handlerName]) {
     log('error', `Unknown command: ${command}`);
     process.exit(1);
@@ -117,19 +130,19 @@ async function main() {
 
   // Handle 'init' gracefully without requiring existing .skyhook dir
   let ctx = null;
-  if (command !== 'init' && command !== 'version' && command !== 'help' && command !== 'setup' && command !== 'install') {
+  if (effectiveCommand !== 'init' && effectiveCommand !== 'version' && effectiveCommand !== 'help' && effectiveCommand !== 'setup' && effectiveCommand !== 'install') {
     ctx = createSkyhookContext(process.cwd());
     if (!ctx) {
       log('error', 'Not a Skyhook project. Run `skyhook init` first.');
       process.exit(1);
     }
-  } else if (command === 'init' || command === 'setup') {
+  } else if (effectiveCommand === 'init' || effectiveCommand === 'setup') {
     // For init and setup, we pass a temporary context or allow creation inside the handler
     ctx = { skyhookDir: path.join(process.cwd(), '.skyhook') };
   }
 
   // Remap some positional args
-  if (command === 'decide' && parsedArgs._.length > 0) {
+  if (effectiveCommand === 'decide' && parsedArgs._.length > 0) {
     parsedArgs.title = parsedArgs._.join(' ');
   }
   

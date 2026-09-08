@@ -3,6 +3,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { parseYaml, stringifyYaml } from './yaml.js';
 
+export { parseYaml, stringifyYaml };
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const CLI_ROOT = path.resolve(__dirname, '..');
 export const SKYHOOK_ROOT = path.resolve(__dirname, '..', '..');

@@ -56,6 +56,9 @@ const commandMap = {
   mapLegacy: 'cmdMapLegacy',
   graph: 'cmdGraph',
   dashboard: 'cmdDashboard',
+  syncAdr: 'cmdSyncADR',
+  verifyAdr: 'cmdVerifyADR',
+  draftAdr: 'cmdDraftADR',
   help: 'cmdHelp'
 };
 

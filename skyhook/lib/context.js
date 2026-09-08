@@ -27,6 +27,10 @@ class SkyhookContext {
   }
   
   readDecisionDetail(id) {
+    const recordPath = path.join(this.skyhookDir, 'decisions', 'records', id + '.md');
+    if (fs.existsSync(recordPath)) {
+      return fs.readFileSync(recordPath, 'utf-8');
+    }
     const detailPath = path.join(this.skyhookDir, 'decisions', id + '.md');
     if (fs.existsSync(detailPath)) {
       return fs.readFileSync(detailPath, 'utf-8');
@@ -35,8 +39,12 @@ class SkyhookContext {
   }
   
   writeDecision(data) {
-    const id = generateULID();
-    const detailPath = path.join(this.skyhookDir, 'decisions', id + '.md');
+    const id = data.id || generateULID();
+    const recordsDir = path.join(this.skyhookDir, 'decisions', 'records');
+    if (!fs.existsSync(recordsDir)) {
+      fs.mkdirSync(recordsDir, { recursive: true });
+    }
+    const detailPath = path.join(recordsDir, id + '.md');
     
     // Generate full ADR with auto-fill
     const projectDir = process.cwd();
@@ -49,18 +57,31 @@ class SkyhookContext {
     };
     
     const adrContent = generateADR({ ...data, id }, context);
-    
     fs.writeFileSync(detailPath, adrContent, 'utf-8');
     
     // Update index
     const indexPath = path.join(this.skyhookDir, 'decisions', 'index.yaml');
     const index = parseYaml(indexPath) || { schemaVersion: "1.0.0", decisions: [] };
-    index.decisions.push({
-      id, title: data.title, status: data.status || 'accepted',
-      category: data.category || 'architecture', createdAt: getTimestamp()
-    });
+    if (!Array.isArray(index.decisions)) index.decisions = [];
+
+    const existingIdx = index.decisions.findIndex(d => d.id === id);
+    const entry = {
+      id,
+      title: data.title,
+      status: data.status || 'accepted',
+      category: data.category || 'architecture',
+      createdAt: getTimestamp(),
+      supersedes: data.supersedes || [],
+      enforcement: data.enforcement || null
+    };
+
+    if (existingIdx >= 0) {
+      index.decisions[existingIdx] = { ...index.decisions[existingIdx], ...entry };
+    } else {
+      index.decisions.push(entry);
+    }
+
     stringifyYaml(indexPath, index);
-    
     appendChangelog(this.skyhookDir, '- Recorded decision: ' + data.title + ' (' + id + ')');
     
     return id;

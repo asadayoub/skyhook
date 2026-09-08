@@ -4,22 +4,37 @@ import { loadProfile } from '../utils.js';
 import { inferFromRepo } from '../inference/InferenceEngine.js';
 import { detectDrift } from '../drift-analyzer.js';
 import { traceRequirement, analyzeImpact, findUntracedRequirements, generateCoverageHeatmap, indexCodebase } from '../tracer.js';
+import { ADRSyncEngine } from '../adr/ADRSyncEngine.js';
 
-export async function cmdSync(ctx, args) {
+export async function cmdSync(ctx, args = {}) {
   const projectDir = process.cwd();
   
-  // 1. Run Modular Inference Engine
+  // 1. Run Bi-Directional ADR Synchronization
+  let adrSyncResult = null;
+  if (ctx.skyhookDir) {
+    try {
+      const adrEngine = new ADRSyncEngine(ctx.skyhookDir);
+      adrSyncResult = adrEngine.sync(ctx);
+      if (adrSyncResult.updatedFromMarkdown > 0 || adrSyncResult.addedToIndex > 0) {
+        console.log(`\n📝 ADR Sync: Updated ${adrSyncResult.updatedFromMarkdown} decision(s) from Markdown, added ${adrSyncResult.addedToIndex} to index.`);
+      }
+    } catch (err) {
+      // Non-fatal if decisions folder doesn't exist yet
+    }
+  }
+
+  // 2. Run Modular Inference Engine
   const facts = await inferFromRepo(projectDir);
   
-  // 2. Load Desired State
+  // 3. Load Desired State
   const project = ctx.readProjectYaml();
   const techStack = ctx.readTechStack();
   const profile = project.profile ? loadProfile(project.profile) : null;
   
-  // 3. Analyze Drift
+  // 4. Analyze Drift
   const driftResult = detectDrift(facts, techStack, profile);
   
-  // 4. Handle auto-adopt
+  // 5. Handle auto-adopt
   if (driftResult.detected && (args.adopt || args['auto-adopt'])) {
     console.log('\n🔄 Adopting detected architecture changes...');
     if (!techStack.technologies) techStack.technologies = [];
@@ -36,10 +51,10 @@ export async function cmdSync(ctx, args) {
     
     // Re-run drift analysis after adoption
     const postAdoptDrift = detectDrift(facts, techStack, profile);
-    return { drift: postAdoptDrift, facts, adopted: true };
+    return { drift: postAdoptDrift, facts, adopted: true, adrSync: adrSyncResult };
   }
   
-  // 5. Format CLI output for drift
+  // 6. Format CLI output for drift
   if (driftResult.detected) {
     console.log('\n⚠️ Architecture Drift Detected:');
     driftResult.violations.forEach((v, idx) => {
@@ -57,7 +72,7 @@ export async function cmdSync(ctx, args) {
     console.log('\n✅ No architecture drift detected. Codebase matches declared tech stack.');
   }
   
-  return { drift: driftResult, facts };
+  return { drift: driftResult, facts, adrSync: adrSyncResult };
 }
 
 export async function cmdTrace(ctx, args) {
