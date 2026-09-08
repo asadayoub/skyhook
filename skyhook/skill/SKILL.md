@@ -2,11 +2,14 @@
 
 ## Purpose
 
-Skyhook gives AI agents a **persistent, structured, version-controlled understanding of a software project** that can be created during project discovery and continuously maintained throughout development.
+Skyhook gives AI agents a **persistent, structured, version-controlled understanding of a software project** that can be created during project discovery, enriched with automated Architecture Decision Records (ADRs), and continuously maintained throughout development with active Git pre-commit enforcement.
 
 ## Installation
 
 ```bash
+# One-liner install
+curl -fsSL https://raw.githubusercontent.com/asadayoub/skyhook/main/install.sh | bash
+
 # Install globally for use across projects
 skyhook install --global
 
@@ -20,6 +23,12 @@ skyhook install
 # In your project directory
 skyhook init
 
+# For existing projects, bootstrap foundational ADRs
+skyhook adr bootstrap
+
+# Install Git pre-commit architectural guard
+skyhook hook install
+
 # Or just say to your AI agent:
 # "Use Skyhook to help define and build this project."
 ```
@@ -31,8 +40,9 @@ When an agent detects Skyhook is available, it should:
 1. **Check for `.skyhook/`** in the project root
 2. **Read `SKILL.md`** (this file) to understand the protocol
 3. **Load project state** from `.skyhook/` if it exists
-4. **Run discovery workflow** if no project state exists
-5. **Follow the lifecycle** defined in `workflows/lifecycle.md`
+4. **Run discovery workflow** (`skyhook discover`) if no project state exists
+5. **Bootstrap baseline architecture** (`skyhook adr bootstrap`) if working on a brownfield codebase
+6. **Follow the lifecycle** defined in `workflows/lifecycle.md`
 
 ## Core Concepts
 
@@ -46,29 +56,26 @@ Each project gets its own `.skyhook/` directory containing only project-specific
 ├── context.md             # Project context & background
 ├── vision.md              # Product vision & goals
 ├── requirements/          # Structured requirements
-│   ├── functional.yaml
-│   ├── non-functional.yaml
-│   └── constraints.yaml
+│   ├── functional.yaml    # Functional reqs (REQ-001, user stories)
+│   ├── non-functional.yaml # Performance, security, accessibility
+│   └── constraints.yaml   # Technical, business, regulatory
 ├── decisions/             # Architectural & design decisions
-│   ├── index.yaml
-│   └── *.md
-├── backlog/               # Prioritized work items
-│   ├── epics.yaml
-│   ├── stories.yaml
-│   └── tasks.yaml
+│   ├── index.yaml         # Decision registry (status, category, supersedes)
+│   └── records/           # Living ADR Markdown files (<ULID>.md) with Mermaid diagrams
+├── backlog/               # Prioritized work items (WSJF)
+│   └── epics.yaml         # Epics, child stories, acceptance criteria, tasks
 ├── tech-stack.yaml        # Technology choices & rationale
 ├── ux/                    # UX & design specifications
-│   ├── styleguide.md
+│   ├── styleguide.md      # Design system & tokens
 │   ├── components.yaml
 │   └── patterns.yaml
 ├── standards/             # Project-specific standards overrides
 │   ├── software.md
 │   ├── security.md
 │   └── testing.md
-├── plan/                  # Generated project plans
-│   └── PROJECT_PLAN.md
+├── PROJECT_PLAN.md        # Generated project plan with milestones and risks
 ├── changelog.md           # History of significant changes
-└── .gitignore             # Tracks what should be versioned
+└── trace-graph.md         # Generated visual Decision DAG & traceability graph
 ```
 
 ### Built-in Standards
@@ -86,7 +93,7 @@ Skyhook includes opinionated but overridable standards:
 
 Pre-configured profiles for common project types:
 
-- `web-app` — Full-stack web applications
+- `web-app` — Full-stack web applications (Next.js, React, Tailwind, Prisma)
 - `api-service` — REST/GraphQL APIs
 - `cli-tool` — Command-line applications
 - `mobile-app` — React Native, Flutter, native
@@ -94,15 +101,13 @@ Pre-configured profiles for common project types:
 - `library` — Reusable packages/SDKs
 - `marketing-site` — Static sites, landing pages
 - `ecommerce` — Online stores
-- `saas` — Multi-tenant SaaS platforms
+- `saas` — Multi-tenant SaaS platforms (with `stripe-b2b`, `stripe-b2c` variants)
 - `ai-agent` — AI-powered applications
 
 ## Agent Workflow
 
 ### 1. Discovery Phase
-
 ```yaml
-# Agent should execute this workflow:
 discovery:
   - check_skyhook_installed
   - check_project_state_exists
@@ -123,94 +128,67 @@ discovery:
 ### 2. Implementation Phase
 
 During implementation, the agent should:
+- **Before each task**: Call `getNextTask` to fetch the highest-priority story (WSJF) with context
+- **Check for blockers**: Call `getBlockers` to surface blocked dependencies
+- **Check decisions**: Review `.skyhook/decisions/` for relevant architectural constraints
+- **After decisions**: Call `recordDecision` or `skyhook decide` to auto-generate rich ADRs
+- **When introducing new tech**: Run `skyhook adr draft` to document shifts
+- **Update status**: Call `updateStatus` when stories transition to `in-progress` or `done`
 
-- **Before each task**: Check `.skyhook/` for relevant context
-- **When blocked**: Identify missing information, ask targeted questions
-- **After decisions**: Record in `.skyhook/decisions/`
-- **When requirements change**: Update requirements, track history, regenerate plan
+### 3. Verification & Governance Phase
 
-### 3. Maintenance Phase
-
-Continuous synchronization:
-
-- Detect drift between code and documentation
-- Flag superseded decisions
-- Surface conflicts
-- Suggest plan updates
-
-## Questioning Philosophy
-
-**NEVER** ask every possible question upfront.
-
-**INSTEAD** follow this loop:
-
-```
-Discover → Identify Unknowns → Classify Importance → 
-Determine Current Relevance → Ask Only Necessary Questions
-```
-
-### Question Categories by Priority
-
-| Priority | When to Ask | Examples |
-|----------|-------------|----------|
-| **Critical** | Blocks current work | Auth method, database choice, deployment target |
-| **High** | Affects architecture | State management, API style, caching strategy |
-| **Medium** | Affects UX/quality | Color scheme, component library, error handling |
-| **Low** | Nice to have | Icon set, animation preferences, copy tone |
-
-## Standards as Defaults
-
-All built-in standards are **defaults, not restrictions**:
-
-- User-confirmed decisions **override** AI recommendations
-- Project-specific standards in `.skyhook/standards/` **override** built-ins
-- Agents should **recommend** but **never enforce** without confirmation
-
-## Portability Requirements
-
-- All project knowledge stored as **plain Markdown and YAML**
-- No proprietary formats
-- No cloud dependencies
-- Git-friendly (text-based, diffable)
-- Another agent can take over seamlessly
-
-## File Conventions
-
-- **YAML** for structured data (requirements, decisions, config)
-- **Markdown** for narrative content (context, vision, decisions detail)
-- **Naming**: kebab-case for files, PascalCase for YAML keys
-- **Timestamps**: ISO 8601 in UTC
-- **IDs**: ULID for traceability
-
-## Integration Points
-
-### For Codex Agents
-
-Add to `.codex/instructions.md` or invoke via skill system.
-
-### For Claude Code
-
-Reference in `CLAUDE.md` or use as a subagent.
-
-### For Gemini CLI
-
-Load via `@skyhook` reference in prompt.
-
-### For Generic Agents
-
-Read `SKILL.md` and follow the protocol.
+Continuous synchronization and compliance:
+- **Check compliance**: Run `skyhook adr verify` to ensure no prohibited imports or rule violations exist
+- **Enforce at commit**: Run `skyhook hook install` so Git rejects non-compliant commits
+- **Trace to code**: Add `// @skyhook-implements REQ-XXX` to implemented classes and functions
+- **Audit traceability**: Run `skyhook trace`, `skyhook impact`, and `skyhook untraced`
+- **Visualize DAG**: Run `skyhook graph` to inspect the full Decision DAG in `.skyhook/trace-graph.md`
 
 ## CLI Commands
 
 ```bash
-skyhook init              # Initialize .skyhook in current project
-skyhook discover          # Run discovery workflow
-skyhook question          # Generate contextual questions
-skyhook plan              # Generate/update project plan
-skyhook standards         # Show applicable standards
-skyhook decide            # Record a decision
-skyhook sync              # Sync code with documentation
-skyhook version           # Show version info
+# Project Setup & Lifecycle
+skyhook init [--profile=...] [--variant=...] [--force]
+skyhook setup <codex|claude|gemini|copilot|all>
+skyhook discover
+skyhook question [category]
+skyhook plan
+skyhook standards [category]
+skyhook version
+
+# Architecture Decision Records (ADR)
+skyhook adr bootstrap [--status=...] [--overwrite]
+skyhook adr draft
+skyhook adr sync
+skyhook adr verify [path]
+skyhook adr watch
+skyhook decide <title> <decision> <context>
+
+# Git Enforcement Hooks
+skyhook hook install
+skyhook hook uninstall
+skyhook hook status
+
+# Traceability & AST Engine
+skyhook graph
+skyhook trace <REQ-ID>
+skyhook impact <REQ-ID>
+skyhook untraced
+skyhook coverage
+skyhook map-legacy [--limit=N]
+skyhook sync
+
+# Web Dashboard
+skyhook dashboard <start|stop|status>
+```
+
+## Universal JSON Protocol (`skyhook-cmd`)
+
+All agents can invoke commands directly via stdio JSON:
+```bash
+echo '{"command":"getNextTask","args":{}}' | skyhook-cmd
+echo '{"command":"trace","args":{"id":"REQ-001"}}' | skyhook-cmd
+echo '{"command":"bootstrapAdr","args":{}}' | skyhook-cmd
 ```
 
 ## Configuration
@@ -223,10 +201,10 @@ defaults:
   questionThreshold: "contextual"
   autoPlan: true
   standardsLevel: "strict"
-  
+
 profiles:
   # Custom profile overrides
-  
+
 integrations:
   git: true
   github: false
@@ -236,14 +214,10 @@ integrations:
 
 ## Versioning & Compatibility
 
-- Skill version follows SemVer
-- Schema versions in each YAML file (`schemaVersion`)
+- Skill version: `v1.5.2` (SemVer)
+- Schema versions in each YAML file (`schemaVersion: "1.0.0"`)
 - Backward compatibility guaranteed within major version
-- Migration commands provided for breaking changes
-
-## Contributing
-
-See `CONTRIBUTING.md` for development setup, testing, and release process.
+- Plain text, Git-friendly Markdown & YAML
 
 ## License
 

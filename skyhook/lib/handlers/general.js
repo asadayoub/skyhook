@@ -211,7 +211,18 @@ export async function cmdHelp(ctx, args) {
       { name: 'install', description: 'Install skill globally/locally', args: ['scope?: global|local, force?'] },
       { name: 'setup', description: 'Auto-configure agent harness', args: ['agent: codex|claude|gemini|copilot|antigravity|all'] },
       { name: 'decide', description: 'Shorthand for recordDecision', args: ['title, decision, context, ...'] },
-      { name: 'batchCreate', description: 'Bulk create features/stories/requirements/decisions', args: ['items: [{type: feature|story|requirement|decision, data: {...}}]'] }
+      { name: 'batchCreate', description: 'Bulk create features/stories/requirements/decisions', args: ['items: [{type: feature|story|requirement|decision, data: {...}}]'] },
+      { name: 'syncAdr', description: 'Bi-directionally sync ADR markdown files with decisions/index.yaml', args: [] },
+      { name: 'verifyAdr', description: 'Verify codebase compliance against accepted ADR policies and prohibited imports', args: ['path?'] },
+      { name: 'draftAdr', description: 'Draft an ADR with alternatives and Mermaid diagram for unrecorded libraries or shifts', args: ['title?, decision?, context?'] },
+      { name: 'watchAdr', description: 'Watch decisions directory and auto-sync on markdown file save', args: [] },
+      { name: 'bootstrapAdr', description: 'Reverse-engineer baseline ADRs for existing/brownfield codebase technologies', args: ['status?, overwrite?'] },
+      { name: 'hookInstall', description: 'Install Git pre-commit hook to block commits that violate ADR policies', args: [] },
+      { name: 'hookUninstall', description: 'Uninstall Skyhook Git pre-commit hook', args: [] },
+      { name: 'hookStatus', description: 'Check Git pre-commit hook status', args: [] },
+      { name: 'graph', description: 'Generate visual Mermaid architecture graph & Decision DAG (trace-graph.md)', args: [] },
+      { name: 'mapLegacy', description: 'Map unmapped codebase symbols to existing requirements', args: ['limit?'] },
+      { name: 'coverage', description: 'Calculate requirements and code traceability coverage metrics', args: [] }
     ],
     usage: 'echo \'{"command":"listCurrentFeatures","args":{}}\' | node skyhook-cmd.js'
   };

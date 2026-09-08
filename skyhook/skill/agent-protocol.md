@@ -1,9 +1,11 @@
-# Skyhook Agent Protocol
+# Skyhook Agent Protocol (v1.5.2)
 
 ## Overview
 
 This document defines how AI agents discover, initialize, and interact with Skyhook.
-The protocol is designed to be agent-agnostic and work across Codex, Claude Code, Gemini CLI, and other agent harnesses.
+The protocol is agent-agnostic and runs across Codex, Claude Code, Gemini CLI, GitHub Copilot, Google Antigravity, and custom agent harnesses.
+
+---
 
 ## Discovery
 
@@ -14,6 +16,8 @@ Agents should check for Skyhook availability in this order:
 ```yaml
 detectionOrder:
   - projectLocal: ".skyhook/SKILL.md"          # Project-local skill override
+  - antigravityPlugin: ".agents/plugins/skyhook-plugin/" # Antigravity IDE plugin
+  - userConfigPlugin: "~/.gemini/config/plugins/skyhook-plugin/" # Global agent plugin
   - globalSkill: "~/.skyhook/skill/SKILL.md"   # User-installed global skill
   - workspaceSkill: ".codex/skills/skyhook/"   # Codex workspace skill
   - claudeSkill: ".claude/skills/skyhook/"     # Claude Code skill
@@ -27,25 +31,23 @@ projectStateCheck:
   - exists: ".skyhook/project.yaml"
     action: "load-existing-project"
   - exists: ".skyhook/"
-    action: "migrate-legacy-structure"
+    action: "verify-state-and-sync"
   - notExists:
     action: "run-initialization"
 ```
 
+---
+
 ## Initialization Protocol
 
-### Phase 1: Context Gathering
+### Phase 1: Context Gathering & Brownfield Detection
 
 ```yaml
 contextGathering:
   steps:
     - name: "read-repository"
       description: "Inspect repository structure, package files, configs"
-      outputs:
-        - "repoStructure"
-        - "packageManagers"
-        - "frameworks"
-        - "existingDocs"
+      outputs: ["repoStructure", "packageManagers", "frameworks", "existingDocs"]
     
     - name: "detect-project-type"
       description: "Analyze codebase to determine project type"
@@ -61,6 +63,11 @@ contextGathering:
       description: "Load built-in standards applicable to project type"
       inputs: ["projectType"]
       outputs: ["softwareStandards", "uxStandards", "securityStandards", "testingStandards"]
+
+    - name: "bootstrap-baseline-adrs"
+      description: "If brownfield project, reverse-engineer baseline ADRs for existing stack"
+      inputs: ["projectType", "techStack"]
+      action: "call-bootstrapAdr"
 ```
 
 ### Phase 2: Knowledge Assessment
@@ -87,7 +94,7 @@ knowledgeAssessment:
       outputs: ["questionsToAsk"]
 ```
 
-### Phase 3: Questioning
+### Phase 3: Contextual Questioning
 
 ```yaml
 questioning:
@@ -97,185 +104,97 @@ questioning:
     - "Offer sensible defaults based on standards/profile"
     - "Allow 'I don't know' / 'Use default' responses"
     - "Never ask about things inferable from context"
-  
-  questionFormat:
-    id: "ULID"
-    category: "authentication|database|deployment|ux|api|etc"
-    priority: "critical|high|medium|low"
-    question: "Natural language question"
-    context: "Why this matters for the project"
-    default: "Recommended default based on standards/profile"
-    options: ["Option A", "Option B", "Custom"]
-    dependsOn: ["question-id"]  # Only ask if dependency answered
-    tags: ["mvp", "phase-1", "security"]
 ```
 
-### Phase 4: Interpretation & Storage
+---
 
-```yaml
-interpretation:
-  steps:
-    - name: "parse-answer"
-      description: "Extract structured information from natural language"
-      techniques:
-        - "entity-extraction"
-        - "intent-classification"
-        - "constraint-identification"
-        - "preference-detection"
-    
-    - name: "validate-against-schema"
-      description: "Ensure interpreted data matches requirement/decision schemas"
-    
-    - name: "check-conflicts"
-      description: "Detect conflicts with existing decisions/requirements"
-    
-    - name: "store-structured"
-      description: "Save to appropriate .skyhook/ files"
-      targets:
-        - "requirements/functional.yaml"
-        - "requirements/non-functional.yaml"
-        - "requirements/constraints.yaml"
-        - "decisions/index.yaml"
-        - "tech-stack.yaml"
-        - "ux/styleguide.md"
-    
-    - name: "update-traceability"
-      description: "Link answers to requirements, decisions, questions"
+## Agent Programmatic Command Protocol (`skyhook-cmd`)
+
+Agents interact programmatically with Skyhook via standard input/output JSON:
+```bash
+echo '{"command":"<COMMAND_NAME>","args":{...}}' | skyhook-cmd
 ```
 
-## Ongoing Interaction Protocol
+### Full Command Dictionary (36 Commands)
 
-### Before Each Task
+#### 1. Task & Backlog Management
+- `getNextTask` (`assignee?: string`): Fetches highest priority ready story (WSJF) with full context (epic, requirements, stack).
+- `getBlockers` (): Retrieves all blocked tasks and blocker reasons.
+- `updateStatus` (`storyId: string, status: string`): Transitions task state (`backlog` -> `ready` -> `in-progress` -> `in-review` -> `done` -> `blocked` -> `cancelled`).
+- `listCurrentFeatures` (`status?: string`): Lists epics and child stories.
+- `getFeature` (`id: string`): Fetches feature details and child story array.
+- `addFeature` (`title: string, description?: string, goal?: string, stories?: array`): Creates epic and child stories.
 
+#### 2. Architecture Decisions (ADRs) & Living Sync
+- `recordDecision` / `decide` (`title, decision, context, status?, category?, alternatives?, relatedRequirements?, consequences?, rationale?, enforcement?`): Synthesizes rich ADR with Mermaid diagrams.
+- `bootstrapAdr` (`status?: string, overwrite?: boolean`): Scans brownfield repo and creates baseline ADRs for discovered technologies.
+- `draftAdr` (`title?, decision?, context?`): Automatically drafts ADR for newly introduced technologies or detected stack shifts.
+- `syncAdr` (): Bi-directionally synchronizes `.skyhook/decisions/records/*.md` with `.skyhook/decisions/index.yaml`.
+- `verifyAdr` (`path?: string`): Runs AST policy guard to detect prohibited imports or rule violations.
+- `watchAdr` (): Launches real-time background file watcher.
+
+#### 3. Git Governance & Pre-Commit Enforcement
+- `hookInstall` (): Installs `.git/hooks/pre-commit` script to enforce ADR compliance.
+- `hookUninstall` (): Uninstalls the Git pre-commit hook.
+- `hookStatus` (): Inspects Git repository and hook status.
+
+#### 4. AST Code Traceability & Impact Analysis
+- `trace` (`id: string`): Resolves requirement ID to child stories, decisions, and AST-parsed code references.
+- `impact` (`id: string`): Computes blast radius, risk level, affected stories, decisions, and files.
+- `untraced` (): Finds requirements marked implemented but lacking code references.
+- `coverage` (): Returns traceability coverage statistics.
+- `mapLegacy` (`limit?: number`): Recommends requirement mappings for untagged code symbols.
+- `graph` (): Generates visual Mermaid architecture graph & Decision DAG (`trace-graph.md`).
+- `sync` (): Checks codebase vs documentation drift.
+
+#### 5. Discovery, Planning & Lifecycle
+- `getContext` (`topic?: string`): Retrieves project context summary.
+- `plan` (): Generates comprehensive `PROJECT_PLAN.md`.
+- `discover` (`phase?, answers?`): Runs interactive requirements gathering.
+- `question` (`category?, limit?`): Generates contextual questions.
+- `standards` (`category?`): Lists applicable standards and project overrides.
+- `profile` (`name?`): Shows profile configuration and defaults.
+- `dashboard` (`action: start|stop|status`): Manages the web dashboard HTTP server.
+- `batchCreate` (`items: array`): Performs bulk creation of features, stories, requirements, or decisions.
+- `init` (`profile?, name?, description?, variant?, force?`): Initializes `.skyhook/`.
+- `setup` (`agent: string`): Configures native agent slash commands.
+- `version` (): Returns version and environment information.
+- `help` (): Returns command schema and documentation.
+
+---
+
+## Agent Task Execution Lifecycle
+
+### 1. Pre-Task Phase
 ```yaml
 preTask:
-  - loadRelevantContext: "Read .skyhook/ files related to task"
-  - checkDecisions: "Verify no conflicting decisions"
-  - identifyGaps: "Find missing info needed for task"
-  - askIfCritical: "Only ask if gap blocks current work"
+  - loadNextTask: "Execute getNextTask to receive top-priority story with context"
+  - checkBlockers: "Execute getBlockers to ensure dependencies are resolved"
+  - checkDecisions: "Verify no active ADR conflicts with proposed approach"
 ```
 
-### During Implementation
-
+### 2. Implementation Phase
 ```yaml
 duringImplementation:
-  - recordDecisions: "Save architectural/design decisions as made"
-  - updateRequirements: "Refine requirements based on discoveries"
-  - trackTradeoffs: "Document why alternatives were rejected"
-  - flagAssumptions: "Mark assumptions that need validation"
+  - annotateCode: "Tag implemented functions/classes with // @skyhook-implements REQ-XXX"
+  - recordArchitecturalShifts: "Call recordDecision or draftAdr when introducing new libraries"
+  - respectPolicies: "Comply with ADR prohibited imports"
 ```
 
-### After Task Completion
-
+### 3. Verification & Governance Phase
 ```yaml
 postTask:
-  - verifyAlignment: "Check implementation matches requirements"
-  - updateStatus: "Mark requirements/tasks as implemented/verified"
-  - regeneratePlan: "Update PROJECT_PLAN.md if significant changes"
-  - syncDocumentation: "Ensure docs reflect reality"
+  - verifyADRCompliance: "Execute verifyAdr to ensure zero architectural violations"
+  - auditTraceability: "Execute trace REQ-XXX to verify code symbols are mapped"
+  - updateStatus: "Execute updateStatus to mark story 'done'"
+  - refreshGraph: "Execute graph to compile updated Decision DAG"
 ```
 
-## Project Lifecycle Integration
-
-### Standard Lifecycle Phases
-
-```yaml
-lifecyclePhases:
-  - id: "init"
-    name: "Initialize"
-    description: "Set up .skyhook, detect project type, load profile"
-    triggers: ["new-project", "first-run"]
-    
-  - id: "capture-idea"
-    name: "Capture Idea"
-    description: "Record initial concept, problem statement, target users"
-    triggers: ["init-complete", "user-provides-idea"]
-    
-  - id: "context"
-    name: "Context"
-    description: "Gather business context, constraints, stakeholders"
-    triggers: ["idea-captured"]
-    
-  - id: "vision"
-    name: "Vision"
-    description: "Define product vision, goals, success metrics"
-    triggers: ["context-established"]
-    
-  - id: "requirements"
-    name: "Requirements"
-    description: "Elicit and structure functional/non-functional requirements"
-    triggers: ["vision-defined"]
-    
-  - id: "backlog"
-    name: "Backlog"
-    description: "Create prioritized epics, stories, tasks"
-    triggers: ["requirements-baselined"]
-    
-  - id: "tech-stack"
-    name: "Tech Stack"
-    description: "Select and document technology choices"
-    triggers: ["backlog-created", "architecture-decisions-needed"]
-    
-  - id: "ux-style"
-    name: "UX/Style"
-    description: "Define design system, style guide, patterns"
-    triggers: ["requirements-known", "ui-work-upcoming"]
-    
-  - id: "standards"
-    name: "Standards"
-    description: "Configure project-specific standards overrides"
-    triggers: ["tech-stack-selected", "team-preferences-known"]
-    
-  - id: "scaffold"
-    name: "Scaffold"
-    description: "Generate starter code, configs, folder structure"
-    triggers: ["tech-stack-finalized", "standards-set"]
-    
-  - id: "project-plan"
-    name: "Project Plan"
-    description: "Generate comprehensive PROJECT_PLAN.md"
-    triggers: ["scaffold-complete", "backlog-prioritized"]
-    
-  - id: "build"
-    name: "Build"
-    description: "Implement features following plan"
-    triggers: ["plan-approved"]
-    ongoing: true
-    
-  - id: "discover"
-    name: "Discover New Information"
-    description: "Continuously learn during implementation"
-    triggers: ["implementation-blocked", "new-edge-case", "user-feedback"]
-    ongoing: true
-    
-  - id: "update-requirements"
-    name: "Update Requirements"
-    description: "Modify requirements based on discoveries"
-    triggers: ["discovery-made", "scope-change"]
-    ongoing: true
-    
-  - id: "track-decisions"
-    name: "Track Decisions"
-    description: "Record architectural and design decisions"
-    triggers: ["decision-made", "alternative-chosen"]
-    ongoing: true
-    
-  - id: "handle-changes"
-    name: "Handle Changes"
-    description: "Manage requirement/scope changes with traceability"
-    triggers: ["requirement-changed", "priority-shift", "pivot"]
-    ongoing: true
-    
-  - id: "recompile-plan"
-    name: "Recompile Project Plan"
-    description: "Regenerate plan from current state"
-    triggers: ["significant-changes", "milestone", "on-demand"]
-    ongoing: true
-```
+---
 
 ## Agent Handoff Protocol
 
-When a new agent takes over:
+When an agent session concludes and another agent takes over:
 
 ```yaml
 handoff:
@@ -285,45 +204,39 @@ handoff:
     - ".skyhook/vision.md"
     - ".skyhook/requirements/*.yaml"
     - ".skyhook/decisions/index.yaml"
+    - ".skyhook/decisions/records/*.md"
     - ".skyhook/tech-stack.yaml"
-    - ".skyhook/ux/styleguide.md"
-    - ".skyhook/plan/PROJECT_PLAN.md"
+    - ".skyhook/PROJECT_PLAN.md"
     - ".skyhook/changelog.md"
+    - ".skyhook/trace-graph.md"
   
   quickStart:
-    - "Read PROJECT_PLAN.md for current state"
-    - "Check backlog for next priority work"
-    - "Review recent decisions in changelog"
+    - "Call getNextTask to pick up the next ready story"
+    - "Review recent changelog.md entries for recent decisions"
     - "Run skyhook sync to verify alignment"
 ```
+
+---
 
 ## Error Handling
 
 ```yaml
 errorHandling:
   missingSkyhook:
-    action: "Guide user to install Skyhook skill"
+    action: "Guide user to run skyhook init"
+  
+  adrViolation:
+    action: "Surface exact line and violation message; refactor code to comply with ADR standard"
+  
+  untracedRequirements:
+    action: "Add // @skyhook-implements REQ-XXX annotations to relevant source files"
   
   corruptedState:
-    action: "Offer repair/migration, preserve history"
-  
-  schemaMismatch:
-    action: "Auto-migrate if compatible, else prompt"
-  
-  conflictingDecisions:
-    action: "Surface conflict, ask for resolution"
-  
-  unreachableQuestion:
-    action: "Mark as deferred, continue with defaults"
+    action: "Offer repair/migration, preserve changelog"
 ```
 
-## Extensibility
+---
 
-Agents can extend the protocol by:
+## License
 
-1. **Custom question generators** - Add domain-specific questions
-2. **Custom interpreters** - Handle domain-specific answer formats
-3. **Custom validators** - Enforce project-specific rules
-4. **Custom plan generators** - Output different plan formats
-
-Extension points are discovered via `.skyhook/extensions/` directory.
+MIT — See `LICENSE` file.
