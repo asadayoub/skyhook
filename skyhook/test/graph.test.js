@@ -50,7 +50,7 @@ test('cmdGraph generates a correct Mermaid Markdown file', async () => {
       
       // Verify basic syntax
       assert.ok(content.startsWith('\`\`\`mermaid'), 'Starts with mermaid block');
-      assert.ok(content.includes('flowchart LR'), 'Uses LR layout');
+      assert.ok(content.includes('flowchart TB'), 'Uses TB layout');
       
       // Verify Requirement node
       assert.ok(content.includes('REQ-001["🎯 REQ-001: Login System"]:::requirement'), 'Contains requirement node');

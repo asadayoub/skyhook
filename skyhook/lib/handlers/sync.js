@@ -121,7 +121,7 @@ export async function cmdGraph(ctx, args) {
     fileMap.get(fileId).symbols.push({ ...sym, _index: index });
   });
 
-  let mermaid = `\`\`\`mermaid\nflowchart LR\n`;
+  let mermaid = `\`\`\`mermaid\nflowchart TB\n`;
 
   // 1. Render Requirements layer
   if (allReqs.length > 0) {
@@ -134,9 +134,16 @@ export async function cmdGraph(ctx, args) {
 
   // 2. Render each file and its symbols
   mermaid += `\n    %% ── Source Files & Symbols ──\n`;
+  let prevFileId = null;
   for (const [fileId, data] of fileMap) {
     const fileLabel = sanitize(data.file);
     mermaid += `    ${fileId}["📄 ${fileLabel}"]:::file\n`;
+    
+    // Force vertical stacking by linking this file to the previous file invisibly
+    if (prevFileId) {
+      mermaid += `    ${prevFileId} ~~~ ${fileId}\n`;
+    }
+    prevFileId = fileId;
     
     data.symbols.forEach(sym => {
       const symId = "S_" + sym._index;
@@ -145,7 +152,7 @@ export async function cmdGraph(ctx, args) {
       const symLabel = sanitize(`${icon} ${sym.symbolType} ${sym.symbolName}`);
       mermaid += `    ${symId}["${symLabel}"]:::${styleClass}\n`;
       
-      // Connect file to its symbol to force hierarchy
+      // Connect file to its symbol
       mermaid += `    ${fileId} --> ${symId}\n`;
     });
     mermaid += `\n`;
