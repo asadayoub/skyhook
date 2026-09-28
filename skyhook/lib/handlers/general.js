@@ -6,146 +6,61 @@ import { readYaml, writeYaml, getTimestamp, generateULID, loadProfile, SKYHOOK_R
 import { inferFromRepo } from '../inference/InferenceEngine.js';
 import { PlanCompiler } from '../plan/PlanCompiler.js';
 import { GanttGenerator } from '../plan/GanttGenerator.js';
+import { SkyhookServer } from '../server/SkyhookServer.js';
 
-let projectsCache = [];
-let projectsCacheTime = 0;
+let activeSkyhookServer = null;
 let dashboardServer = null;
 const DASHBOARD_PORT = 31415;
 
-async function scanProjects() {
-  const home = process.env.HOME || process.env.USERPROFILE;
-  const skyhookHome = path.join(home, '.skyhook');
-  if (!fs.existsSync(skyhookHome)) return [];
-  return fs.readdirSync(skyhookHome)
-    .filter(f => fs.statSync(path.join(skyhookHome, f)).isDirectory())
-    .map(f => {
-      const projData = readYaml(path.join(skyhookHome, f, 'project.yaml'));
-      return projData ? { id: f, name: projData.name || f } : { id: f, name: f };
-    });
-}
-
-export async function cmdDashboard(ctx, args) {
-  const action = args.action || 'status';
+export async function cmdDashboard(ctx, args = {}) {
+  const action = (typeof args === 'string' ? args : args.action || (Array.isArray(args) ? args[0] : null)) || 'status';
   
   if (action === 'start') {
-    if (dashboardServer) {
-      return { message: 'Dashboard already running at http://localhost:' + DASHBOARD_PORT };
+    if (activeSkyhookServer) {
+      return { 
+        message: 'Dashboard already running at http://localhost:' + activeSkyhookServer.currentPort,
+        port: activeSkyhookServer.currentPort,
+        url: 'http://localhost:' + activeSkyhookServer.currentPort
+      };
     }
     
     try {
-      const server = http.createServer(async (req, res) => {
-        res.setHeader('Access-Control-Allow-Origin', '*');
-        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-        res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-        
-        if (req.method === 'OPTIONS') {
-          res.writeHead(204);
-          res.end();
-          return;
-        }
-        
-        if (req.url === '/api/projects') {
-          const now = Date.now();
-          if (!projectsCache || now - projectsCacheTime > 30000) {
-            projectsCache = await scanProjects();
-            projectsCacheTime = now;
-          }
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ projects: projectsCache }));
-          return;
-        }
-        
-        if (req.url.startsWith('/api/data/')) {
-          const projectId = req.url.split('/api/data/')[1];
-          const home = process.env.HOME || process.env.USERPROFILE;
-          const projDir = path.join(home, '.skyhook', projectId);
-          
-          if (!fs.existsSync(projDir)) {
-            res.writeHead(404, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: 'Project not found' }));
-            return;
-          }
-          
-          const data = {
-            project: readYaml(path.join(projDir, 'project.yaml')),
-            backlog: readYaml(path.join(projDir, 'backlog', 'epics.yaml')),
-            decisions: readYaml(path.join(projDir, 'decisions', 'index.yaml')),
-            requirements: {
-              functional: readYaml(path.join(projDir, 'requirements', 'functional.yaml')),
-              nonFunctional: readYaml(path.join(projDir, 'requirements', 'non-functional.yaml')),
-              constraints: readYaml(path.join(projDir, 'requirements', 'constraints.yaml'))
-            },
-            techStack: readYaml(path.join(projDir, 'tech-stack.yaml')),
-            standards: readYaml(path.join(projDir, 'standards', 'index.yaml'))
-          };
-          
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify(data));
-          return;
-        }
-        
-        // Serve static files
-        const publicDir = path.join(SKYHOOK_ROOT, 'dashboard', 'public');
-        let filePath = path.join(publicDir, req.url === '/' ? 'index.html' : req.url);
-        
-        // Prevent directory traversal
-        if (!filePath.startsWith(publicDir)) {
-          res.writeHead(403);
-          res.end('Forbidden');
-          return;
-        }
-        
-        try {
-          const content = fs.readFileSync(filePath);
-          const ext = path.extname(filePath);
-          const mimeTypes = {
-            '.html': 'text/html',
-            '.js': 'application/javascript',
-            '.css': 'text/css',
-            '.json': 'application/json',
-            '.png': 'image/png',
-            '.svg': 'image/svg+xml',
-            '.ico': 'image/x-icon'
-          };
-          res.writeHead(200, { 'Content-Type': mimeTypes[ext] || 'text/plain' });
-          res.end(content);
-        } catch (e) {
-          res.writeHead(404);
-          res.end('Not found');
-        }
+      const workspaceDir = ctx?.skyhookDir ? path.dirname(ctx.skyhookDir) : process.cwd();
+      const serverInstance = new SkyhookServer({
+        port: args.port ? Number(args.port) : DASHBOARD_PORT,
+        workspaceDir
       });
-      
-      return new Promise((resolve) => {
-        server.listen(DASHBOARD_PORT, '127.0.0.1', () => {
-          dashboardServer = server;
-          resolve({ message: 'Dashboard started at http://localhost:' + DASHBOARD_PORT, port: DASHBOARD_PORT });
-        });
-        server.on('error', (e) => {
-          resolve({ error: 'Failed to start dashboard: ' + e.message });
-        });
-      });
+
+      const result = await serverInstance.start();
+      activeSkyhookServer = serverInstance;
+      dashboardServer = serverInstance.server; // Maintain backward compatibility for test checks
+
+      return { 
+        message: 'Dashboard started at ' + result.url,
+        port: result.port,
+        url: result.url
+      };
     } catch (e) {
       return { error: 'Failed to start dashboard: ' + e.message };
     }
   }
   
   if (action === 'stop') {
-    if (dashboardServer) {
-      if (dashboardServer.closeAllConnections) {
-        dashboardServer.closeAllConnections();
-      }
-      dashboardServer.close();
+    if (activeSkyhookServer) {
+      await activeSkyhookServer.stop();
+      activeSkyhookServer = null;
       dashboardServer = null;
-      projectsCache = null;
       return { message: 'Dashboard stopped' };
     }
     return { message: 'Dashboard not running' };
   }
   
+  const currentRunning = !!activeSkyhookServer;
+  const currentPort = activeSkyhookServer ? activeSkyhookServer.currentPort : DASHBOARD_PORT;
   return { 
-    running: !!dashboardServer, 
-    port: DASHBOARD_PORT,
-    url: dashboardServer ? 'http://localhost:' + DASHBOARD_PORT : null
+    running: currentRunning,
+    port: currentPort,
+    url: currentRunning ? 'http://localhost:' + currentPort : null
   };
 }
 
@@ -273,8 +188,8 @@ export async function cmdGetContext(ctx, args) {
 }
 
 export async function cmdInit(ctx, args) {
-  const projectDir = process.cwd();
-  const skyhookDir = path.join(projectDir, '.skyhook');
+  const projectDir = (ctx && ctx.projectDir) || (ctx && ctx.skyhookDir ? path.dirname(ctx.skyhookDir) : process.cwd());
+  const skyhookDir = (ctx && ctx.skyhookDir) || path.join(projectDir, '.skyhook');
   
   if (fs.existsSync(skyhookDir) && !args.force) {
     return { error: '.skyhook already exists. Use --force to reinitialize.' };
