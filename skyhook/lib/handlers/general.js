@@ -222,7 +222,10 @@ export async function cmdHelp(ctx, args) {
       { name: 'hookStatus', description: 'Check Git pre-commit hook status', args: [] },
       { name: 'graph', description: 'Generate visual Mermaid architecture graph & Decision DAG (trace-graph.md)', args: [] },
       { name: 'mapLegacy', description: 'Map unmapped codebase symbols to existing requirements', args: ['limit?'] },
-      { name: 'coverage', description: 'Calculate requirements and code traceability coverage metrics', args: [] }
+      { name: 'coverage', description: 'Calculate requirements and code traceability coverage metrics', args: [] },
+      { name: 'backlogEvents', description: 'View append-only audit trail and lead/cycle time agility metrics', args: ['limit?'] },
+      { name: 'releaseLease', description: 'Release an active task lease assigned to an agent', args: ['storyId, agent?, force?'] },
+      { name: 'backlogReplay', description: 'Replay events.jsonl to project and reconstruct backlog state', args: ['save?'] }
     ],
     usage: 'echo \'{"command":"listCurrentFeatures","args":{}}\' | node skyhook-cmd.js'
   };

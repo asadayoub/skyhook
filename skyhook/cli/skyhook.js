@@ -116,7 +116,15 @@ async function main() {
     'bootstrap-adr': 'cmdBootstrapADR',
     'hook-install': 'cmdHookInstall',
     'hook-uninstall': 'cmdHookUninstall',
-    'hook-status': 'cmdHookStatus'
+    'hook-status': 'cmdHookStatus',
+    'backlog-events': 'cmdBacklogEvents',
+    'backlog-release': 'cmdReleaseLease',
+    'backlog-replay': 'cmdBacklogReplay',
+    'get-next-task': 'cmdGetNextTask',
+    'update-status': 'cmdUpdateStatus',
+    'get-blockers': 'cmdGetBlockers',
+    'list-features': 'cmdListCurrentFeatures',
+    'add-feature': 'cmdAddFeature'
   };
 
   // Support subcommands
@@ -129,6 +137,15 @@ async function main() {
     else if (sub === 'watch') effectiveCommand = 'watch-adr';
     else if (sub === 'bootstrap') effectiveCommand = 'bootstrap-adr';
     else effectiveCommand = 'help';
+  } else if (command === 'backlog') {
+    const sub = parsedArgs._.shift() || 'list';
+    if (sub === 'events') effectiveCommand = 'backlog-events';
+    else if (sub === 'release') effectiveCommand = 'backlog-release';
+    else if (sub === 'replay') effectiveCommand = 'backlog-replay';
+    else if (sub === 'next') effectiveCommand = 'get-next-task';
+    else if (sub === 'blockers') effectiveCommand = 'get-blockers';
+    else if (sub === 'update') effectiveCommand = 'update-status';
+    else effectiveCommand = 'list-features';
   } else if (command === 'watch') {
     effectiveCommand = 'watch-adr';
   } else if (command === 'bootstrap-adr') {

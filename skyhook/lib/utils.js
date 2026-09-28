@@ -65,7 +65,11 @@ export function getTimestamp() {
 }
 
 export function appendChangelog(skyhookDir, entry) {
+  if (!skyhookDir) return;
   const changelogPath = path.join(skyhookDir, 'changelog.md');
+  if (!fs.existsSync(changelogPath)) {
+    fs.writeFileSync(changelogPath, '# Changelog\n\n## [Unreleased]\n\n', 'utf-8');
+  }
   let content = fs.readFileSync(changelogPath, 'utf-8');
   const lines = content.split('\n');
   const insertIdx = lines.findIndex(l => l.includes('## [Unreleased]')) + 1;

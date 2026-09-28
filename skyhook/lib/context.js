@@ -4,6 +4,9 @@ import { parseYaml, stringifyYaml } from './yaml.js';
 import { validateBacklog } from './schema.js';
 import { generateULID, getTimestamp, appendChangelog, readYaml, writeYaml, loadProfile } from './utils.js';
 import { generateADR } from './adr-generator.js';
+import { BacklogLock } from './backlog/BacklogLock.js';
+import { BacklogStateMachine } from './backlog/BacklogStateMachine.js';
+import { EventLedger, EVENT_TYPES } from './backlog/EventLedger.js';
 
 class SkyhookContext {
   constructor(skyhookDir) {
@@ -108,72 +111,115 @@ class SkyhookContext {
   }
   
   writeBacklog(data) {
-    writeYaml(path.join(this.skyhookDir, 'backlog', 'epics.yaml'), data);
+    const backlogDir = path.join(this.skyhookDir, 'backlog');
+    if (!fs.existsSync(backlogDir)) {
+      fs.mkdirSync(backlogDir, { recursive: true });
+    }
+    writeYaml(path.join(backlogDir, 'epics.yaml'), data);
   }
   
-  updateStoryStatus(storyId, status) {
-    const backlog = this.readBacklog();
-    const story = backlog.stories.find(s => s.id === storyId);
-    if (story) {
+  updateStoryStatus(storyId, status, metadata = {}, options = {}) {
+    return BacklogLock.withLockSync(this.skyhookDir, () => {
+      const backlog = this.readBacklog();
+      const story = (backlog.stories || []).find(s => s.id === storyId);
+      if (!story) return false;
+
       const oldStatus = story.status;
-      story.status = status;
-      story.updatedAt = getTimestamp();
-      if (status === 'in-progress' && !story.startedAt) story.startedAt = getTimestamp();
-      if (status === 'done' && !story.completedAt) story.completedAt = getTimestamp();
+      const result = BacklogStateMachine.transition(backlog, storyId, status, metadata, options);
+
       this.writeBacklog(backlog);
+
+      if (this.skyhookDir) {
+        EventLedger.appendEvent(this.skyhookDir, {
+          type: EVENT_TYPES.STATE_TRANSITIONED,
+          actor: metadata.agentId || metadata.actor || 'system',
+          payload: {
+            storyId,
+            from: oldStatus,
+            to: status,
+            ...metadata
+          }
+        });
+
+        if (result.epicCompleted && story.epicId) {
+          EventLedger.appendEvent(this.skyhookDir, {
+            type: EVENT_TYPES.EPIC_COMPLETED,
+            actor: 'state-machine',
+            payload: { epicId: story.epicId }
+          });
+        }
+      }
+
       appendChangelog(this.skyhookDir, '- Story ' + storyId + ': ' + oldStatus + ' to ' + status);
       return true;
-    }
-    return false;
+    });
   }
   
   addFeature(featureData) {
-    const backlog = this.readBacklog();
-    const epicId = generateULID();
-    const storyIds = [];
-    
-    const epic = {
-      id: epicId,
-      title: featureData.title,
-      description: featureData.description || '',
-      goal: featureData.goal || featureData.title,
-      successMetrics: featureData.successMetrics || [],
-      childStories: [],
-      targetDate: featureData.targetDate || null,
-      status: 'backlog',
-      createdAt: getTimestamp(),
-      updatedAt: getTimestamp()
-    };
-    
-    if (featureData.stories && Array.isArray(featureData.stories)) {
-      for (const story of featureData.stories) {
-        const storyId = generateULID();
-        backlog.stories.push({
-          id: storyId,
-          epicId,
-          title: story.title,
-          userStory: story.userStory || '',
-          acceptanceCriteria: story.acceptanceCriteria || [],
-          priority: story.priority || 'medium',
-          status: 'backlog',
-          storyPoints: story.storyPoints || null,
-          dependsOn: story.dependsOn || [],
-          createdAt: getTimestamp(),
-          updatedAt: getTimestamp()
-        });
-        epic.childStories.push(storyId);
-        storyIds.push(storyId);
+    return BacklogLock.withLockSync(this.skyhookDir, () => {
+      const backlog = this.readBacklog();
+      const epicId = generateULID();
+      const storyIds = [];
+      
+      const epic = {
+        id: epicId,
+        title: featureData.title,
+        description: featureData.description || '',
+        goal: featureData.goal || featureData.title,
+        successMetrics: featureData.successMetrics || [],
+        childStories: [],
+        targetDate: featureData.targetDate || null,
+        status: 'backlog',
+        createdAt: getTimestamp(),
+        updatedAt: getTimestamp()
+      };
+      
+      if (featureData.stories && Array.isArray(featureData.stories)) {
+        for (const story of featureData.stories) {
+          const storyId = generateULID();
+          backlog.stories.push({
+            id: storyId,
+            epicId,
+            title: story.title,
+            userStory: story.userStory || '',
+            acceptanceCriteria: story.acceptanceCriteria || [],
+            priority: story.priority || 'medium',
+            status: 'backlog',
+            storyPoints: story.storyPoints || null,
+            dependsOn: story.dependsOn || [],
+            createdAt: getTimestamp(),
+            updatedAt: getTimestamp()
+          });
+          epic.childStories.push(storyId);
+          storyIds.push(storyId);
+
+          if (this.skyhookDir) {
+            EventLedger.appendEvent(this.skyhookDir, {
+              type: EVENT_TYPES.STORY_CREATED,
+              actor: 'system',
+              payload: { id: storyId, epicId, title: story.title, priority: story.priority || 'medium' }
+            });
+          }
+        }
       }
-    }
-    
-    backlog.epics.push(epic);
-    backlog.metadata = backlog.metadata || {};
-    backlog.metadata.updatedAt = getTimestamp();
-    this.writeBacklog(backlog);
-    
-    appendChangelog(this.skyhookDir, '- Added feature: ' + featureData.title + ' (' + epicId + ') with ' + storyIds.length + ' stories');
-    
-    return { epicId, storyIds };
+      
+      backlog.epics.push(epic);
+      backlog.metadata = backlog.metadata || {};
+      backlog.metadata.updatedAt = getTimestamp();
+      this.writeBacklog(backlog);
+      
+      if (this.skyhookDir) {
+        EventLedger.appendEvent(this.skyhookDir, {
+          type: EVENT_TYPES.EPIC_CREATED,
+          actor: 'system',
+          payload: { id: epicId, title: featureData.title, childStories: storyIds }
+        });
+      }
+
+      appendChangelog(this.skyhookDir, '- Added feature: ' + featureData.title + ' (' + epicId + ') with ' + storyIds.length + ' stories');
+      
+      return { epicId, storyIds };
+    });
   }
 
   readTechStack() {
