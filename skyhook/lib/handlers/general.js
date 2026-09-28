@@ -4,6 +4,8 @@ import { execSync } from 'child_process';
 import http from 'http';
 import { readYaml, writeYaml, getTimestamp, generateULID, loadProfile, SKYHOOK_ROOT, SKYHOOK_VERSION } from '../utils.js';
 import { inferFromRepo } from '../inference/InferenceEngine.js';
+import { PlanCompiler } from '../plan/PlanCompiler.js';
+import { GanttGenerator } from '../plan/GanttGenerator.js';
 
 let projectsCache = [];
 let projectsCacheTime = 0;
@@ -479,132 +481,89 @@ export async function cmdQuestion(ctx, args) {
   return { questions: questions.slice(0, limit), total: questions.length };
 }
 
-export async function cmdPlan(ctx, args) {
-  const skyhookDir = ctx.skyhookDir;
-  const projectYaml = readYaml(path.join(skyhookDir, 'project.yaml'));
-  const profile = loadProfile(projectYaml?.profile || 'web-app');
-  const backlog = ctx.readBacklog();
-  const funcReqs = ctx.readFunctionalReqs();
-  const nfReqs = ctx.readNonFunctionalReqs();
-  const decisions = ctx.readDecisions();
-  
-  const planPath = path.join(skyhookDir, 'plan', 'PROJECT_PLAN.md');
-  
-  let funcReqsList = 'No functional requirements defined.';
-  if (funcReqs.requirements && funcReqs.requirements.length > 0) {
-    funcReqsList = funcReqs.requirements.map(r => '- **' + (r.id || 'NEW') + '**: ' + (r.userStory || r.title) + ' [' + (r.priority || 'medium') + ']').join('\n');
-  }
-  
-  let nfReqsList = 'No non-functional requirements defined.';
-  if (nfReqs.requirements && nfReqs.requirements.length > 0) {
-    nfReqsList = nfReqs.requirements.map(r => '- **' + (r.id || 'NEW') + '**: ' + r.category + ' - ' + r.metric + ': ' + r.target + ' [' + (r.priority || 'medium') + ']').join('\n');
-  }
-  
-  let epicsList = 'No epics defined.';
-  if (backlog.epics && backlog.epics.length > 0) {
-    epicsList = backlog.epics.map(e => '- **' + e.id + '**: ' + e.title + ' (' + (e.childStories?.length || 0) + ' stories) [' + (e.status || 'backlog') + ']').join('\n');
-  }
-  
-  let storiesByPriority = '';
-  const byPriority = { critical: [], high: [], medium: [], low: [] };
-  for (const s of backlog.stories || []) {
-    let priority = s.priority || 'medium';
-    // Convert numeric priority to string
-    if (typeof priority === 'number') {
-      if (priority >= 90) priority = 'critical';
-      else if (priority >= 75) priority = 'high';
-      else if (priority >= 50) priority = 'medium';
-      else priority = 'low';
+export async function cmdPlan(ctx, args = {}) {
+  // Normalize args if array or object
+  let parsedArgs = args;
+  if (Array.isArray(args)) {
+    parsedArgs = { _: [] };
+    for (let i = 0; i < args.length; i++) {
+      const a = args[i];
+      if (a.startsWith('--')) {
+        const key = a.slice(2);
+        const next = args[i + 1];
+        if (next && !next.startsWith('-')) {
+          parsedArgs[key] = next;
+          i++;
+        } else {
+          parsedArgs[key] = true;
+        }
+      } else if (a.startsWith('-')) {
+        parsedArgs[a.slice(1)] = true;
+      } else {
+        parsedArgs._.push(a);
+      }
     }
-    if (!byPriority[priority]) priority = 'medium';
-    byPriority[priority].push(s);
+  } else if (!parsedArgs || typeof parsedArgs !== 'object') {
+    parsedArgs = {};
   }
-  for (const [p, stories] of Object.entries(byPriority)) {
-    if (stories.length > 0) {
-      storiesByPriority += '#### ' + p.charAt(0).toUpperCase() + p.slice(1) + ' (' + stories.length + ')\n';
-      storiesByPriority += stories.map(s => '- **' + s.id + '**: ' + s.title + ' [' + s.status + ']').join('\n');
-      storiesByPriority += '\n\n';
+
+  const projectDir = path.dirname(ctx.skyhookDir);
+
+  // Raw Mermaid format requested
+  if (parsedArgs.format === 'mermaid') {
+    const backlog = ctx.readBacklog();
+    const chart = GanttGenerator.generateGantt(backlog);
+    return { format: 'mermaid', chart };
+  }
+
+  // Scoped Requirement Plan
+  if (parsedArgs.req || parsedArgs.requirement) {
+    let reqId = parsedArgs.req || parsedArgs.requirement;
+    if (reqId === true && parsedArgs._ && parsedArgs._.length > 0) {
+      reqId = parsedArgs._[0];
     }
+    const result = PlanCompiler.compileScopedPlan(ctx, 'req', reqId, { projectDir });
+    return {
+      message: `Requirement plan generated for ${result.req.id}`,
+      path: result.path,
+      type: 'requirement',
+      id: result.req.id,
+      content: result.content
+    };
   }
-  if (!storiesByPriority) storiesByPriority = 'No stories defined.';
-  
-  let standardsList = 'No standards defined.';
-  if (profile?.standards) {
-    standardsList = Object.entries(profile.standards).map(([k, v]) => '- **' + k + '**: ' + v).join('\n');
-  }
-  
-  let overridesList = 'No overrides.';
-  if (projectYaml?.configuration?.standardsOverrides) {
-    overridesList = Object.entries(projectYaml.configuration.standardsOverrides).map(([k, v]) => '- **' + k + '**: ' + v + ' (override)').join('\n');
-  }
-  
-  let archDecisions = 'No architecture decisions recorded.';
-  if (decisions.decisions && decisions.decisions.length > 0) {
-    const arch = decisions.decisions.filter(d => d.category === 'architecture');
-    if (arch.length > 0) {
-      archDecisions = arch.map(d => '- **' + d.id + '**: ' + d.title + ' (' + d.status + ')').join('\n');
+
+  // Scoped Epic Plan
+  if (parsedArgs.epic) {
+    let epicId = parsedArgs.epic;
+    if (epicId === true && parsedArgs._ && parsedArgs._.length > 0) {
+      epicId = parsedArgs._[0];
     }
+    const result = PlanCompiler.compileScopedPlan(ctx, 'epic', epicId, { projectDir });
+    return {
+      message: `Epic plan generated for ${result.epic.id}`,
+      path: result.path,
+      type: 'epic',
+      id: result.epic.id,
+      content: result.content
+    };
   }
-  
-  const plan = '# Project Plan: ' + (projectYaml?.name || 'Untitled') + '\n\n' +
-'**Project ID**: ' + (projectYaml?.id || 'unknown') + '\n' +
-'**Profile**: ' + (projectYaml?.profile || 'unknown') + '\n' +
-'**Generated**: ' + getTimestamp() + '\n\n' +
-'## Executive Summary\n\n' +
-(projectYaml?.description || 'No description provided.') + '\n\n' +
-'## Phase 1: Foundation\n\n' +
-'### Architecture Decisions\n' +
-archDecisions + '\n\n' +
-'### Tech Stack\n' +
-'- **Language**: TypeScript\n' +
-'- **Framework**: ' + (profile?.techStack?.frontend?.framework?.default || 'TBD') + '\n' +
-'- **Database**: ' + (profile?.techStack?.backend?.database?.default || 'TBD') + '\n' +
-'- **ORM**: ' + (profile?.techStack?.backend?.orm?.default || 'TBD') + '\n' +
-'- **Auth**: ' + (profile?.techStack?.backend?.auth?.default || 'TBD') + '\n' +
-'- **Deployment**: ' + (profile?.techStack?.deployment?.platform?.default || 'TBD') + '\n\n' +
-'## Phase 2: Requirements\n\n' +
-'### Functional Requirements (' + (funcReqs.requirements?.length || 0) + ')\n' +
-funcReqsList + '\n\n' +
-'### Non-Functional Requirements (' + (nfReqs.requirements?.length || 0) + ')\n' +
-nfReqsList + '\n\n' +
-'## Phase 3: Backlog\n\n' +
-'### Epics (' + (backlog.epics?.length || 0) + ')\n' +
-epicsList + '\n\n' +
-'### Stories by Priority\n' +
-storiesByPriority + '\n' +
-'## Phase 4: Standards\n\n' +
-'### Adopted Standards\n' +
-standardsList + '\n\n' +
-'### Project Overrides\n' +
-overridesList + '\n\n' +
-'## Phase 5: Timeline & Milestones\n\n' +
-'| Milestone | Target Date | Status | Dependencies |\n' +
-'|-----------|-------------|--------|--------------|\n' +
-'| Project Initialized | ' + (projectYaml?.createdAt || 'TBD') + ' | Done | - |\n' +
-'| Requirements Complete | TBD | Pending | Discovery |\n' +
-'| Architecture Decisions | TBD | Pending | Requirements |\n' +
-'| MVP Development | TBD | Pending | Architecture |\n' +
-'| Beta Release | TBD | Pending | MVP |\n' +
-'| Production Launch | TBD | Pending | Beta |\n\n' +
-'## Phase 6: Risks & Mitigations\n\n' +
-'| Risk | Likelihood | Impact | Mitigation |\n' +
-'|------|------------|--------|------------|\n\n' +
-'---\n\n' +
-'*Generated by Skyhook. Edit this file to customize your plan.*';
-  
-  fs.writeFileSync(planPath, plan, 'utf-8');
-  
-  return { 
-    message: 'Project plan generated successfully',
-    path: planPath,
-    stats: {
-      epics: backlog.epics?.length || 0,
-      stories: backlog.stories?.length || 0,
-      functionalReqs: funcReqs.requirements?.length || 0,
-      nonFunctionalReqs: nfReqs.requirements?.length || 0,
-      decisions: decisions.decisions?.length || 0
-    }
-  };
+
+  // All plans (master plan + all scoped plans)
+  if (parsedArgs.all) {
+    const masterRes = await PlanCompiler.compileMasterPlan(ctx, { projectDir });
+    const scopedRes = PlanCompiler.compileScopedPlan(ctx, 'all', null, { projectDir });
+    return {
+      message: 'Master project plan and all scoped requirement/epic plans compiled successfully',
+      path: masterRes.path,
+      forecast: masterRes.forecast,
+      criticalPath: masterRes.criticalPath,
+      stats: masterRes.stats,
+      scopedPlans: scopedRes
+    };
+  }
+
+  // Default: compile master plan
+  return await PlanCompiler.compileMasterPlan(ctx, { projectDir });
 }
 
 export async function cmdStandards(ctx, args) {

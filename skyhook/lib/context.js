@@ -10,7 +10,12 @@ import { EventLedger, EVENT_TYPES } from './backlog/EventLedger.js';
 
 class SkyhookContext {
   constructor(skyhookDir) {
-    this.skyhookDir = skyhookDir;
+    if (skyhookDir && !skyhookDir.endsWith('.skyhook') && fs.existsSync(path.join(skyhookDir, '.skyhook'))) {
+      this.skyhookDir = path.join(skyhookDir, '.skyhook');
+    } else {
+      this.skyhookDir = skyhookDir;
+    }
+    this.projectDir = path.dirname(this.skyhookDir);
   }
 
   readYaml(filePath) {

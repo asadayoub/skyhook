@@ -44,7 +44,7 @@ export class EventLedger {
     const ledgerPath = this.getLedgerPath(skyhookDir);
     const event = {
       eventId: generateULID(),
-      timestamp: getTimestamp(),
+      timestamp: eventData.timestamp || getTimestamp(),
       type: eventData.type,
       actor: eventData.actor || 'system',
       payload: eventData.payload || {}

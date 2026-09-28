@@ -36,16 +36,33 @@ function formatResult(result) {
     return;
   }
   
+  if (result.chart) {
+    console.log(result.chart);
+    return;
+  }
+
   if (result.message) {
     log('success', result.message);
   }
   
+  if (result.path) {
+    log('info', `Plan location: ${result.path}`);
+  }
+
+  if (result.forecast) {
+    log('info', `Delivery Forecast: P50 -> ${result.forecast.projectedCompletionDateP50} | P90 -> ${result.forecast.projectedCompletionDateP90}`);
+  }
+
+  if (result.scopedPlans) {
+    log('info', `Scoped plans compiled: ${result.scopedPlans.requirementsCount} requirements, ${result.scopedPlans.epicsCount} epics.`);
+  }
+
   if (result.table) {
     console.table(result.table);
   }
   
   // Pretty print raw output if needed
-  if (!result.message && !result.table && Object.keys(result).length > 0) {
+  if (!result.message && !result.table && !result.path && Object.keys(result).length > 0) {
     console.log(JSON.stringify(result, null, 2));
   }
 }
@@ -180,6 +197,15 @@ async function main() {
   // Remap some positional args
   if (effectiveCommand === 'decide' && parsedArgs._.length > 0) {
     parsedArgs.title = parsedArgs._.join(' ');
+  } else if (effectiveCommand === 'plan' && parsedArgs._.length > 0) {
+    const first = parsedArgs._[0];
+    if (first.startsWith('REQ-') || first.startsWith('req-')) {
+      parsedArgs.req = first;
+    } else if (first === 'all') {
+      parsedArgs.all = true;
+    } else if (first.startsWith('EPIC-') || first.startsWith('epic-') || first.length >= 20) {
+      parsedArgs.epic = first;
+    }
   }
   
   try {

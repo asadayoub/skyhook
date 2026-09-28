@@ -5,6 +5,7 @@ import { inferFromRepo } from '../inference/InferenceEngine.js';
 import { detectDrift } from '../drift-analyzer.js';
 import { traceRequirement, analyzeImpact, findUntracedRequirements, generateCoverageHeatmap, indexCodebase } from '../tracer.js';
 import { ADRSyncEngine } from '../adr/ADRSyncEngine.js';
+import { PlanCompiler } from '../plan/PlanCompiler.js';
 
 export async function cmdSync(ctx, args = {}) {
   const projectDir = process.cwd();
@@ -72,7 +73,18 @@ export async function cmdSync(ctx, args = {}) {
     console.log('\n✅ No architecture drift detected. Codebase matches declared tech stack.');
   }
 
-  return { drift: driftResult, facts, adrSync: adrSyncResult };
+  // 7. Auto-recompile Living Project Plan if plan directory exists
+  let planSyncResult = null;
+  if (ctx.skyhookDir && fs.existsSync(path.join(ctx.skyhookDir, 'plan'))) {
+    try {
+      planSyncResult = await PlanCompiler.compileMasterPlan(ctx, { projectDir });
+      console.log('📋 Project Plan recompiled: .skyhook/plan/PROJECT_PLAN.md updated.');
+    } catch {
+      // Non-fatal if plan recompile encounters incomplete state
+    }
+  }
+
+  return { drift: driftResult, facts, adrSync: adrSyncResult, planSync: planSyncResult };
 }
 
 export async function cmdTrace(ctx, args) {
