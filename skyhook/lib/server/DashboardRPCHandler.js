@@ -32,33 +32,127 @@ import { HarnessInjector } from '../harness/HarnessInjector.js';
 
 export class DashboardRPCHandler {
   /**
-   * Discover projects from workspace and ~/.skyhook
+  /**
+   * Register a project directory into the global Skyhook catalog
+   * @param {string} targetDir
+   * @returns {Object}
+   */
+  static registerProject(targetDir) {
+    if (!targetDir) {
+      throw new Error('Project directory path is required');
+    }
+    const resolved = path.resolve(targetDir);
+    const localSkyhook = fs.existsSync(path.join(resolved, '.skyhook'))
+      ? path.join(resolved, '.skyhook')
+      : (fs.existsSync(path.join(resolved, 'project.yaml')) ? resolved : path.join(resolved, '.skyhook'));
+
+    if (!fs.existsSync(localSkyhook)) {
+      throw new Error(`No .skyhook directory found in "${resolved}". Run 'skyhook init' first or choose a valid Skyhook project.`);
+    }
+
+    const home = process.env.HOME || process.env.USERPROFILE || '';
+    const skyhookHome = path.join(home, '.skyhook');
+    if (!fs.existsSync(skyhookHome)) {
+      try { fs.mkdirSync(skyhookHome, { recursive: true }); } catch (_) {}
+    }
+
+    const registryFile = path.join(skyhookHome, 'projects.json');
+    let registry = [];
+    if (fs.existsSync(registryFile)) {
+      try {
+        registry = JSON.parse(fs.readFileSync(registryFile, 'utf8'));
+        if (!Array.isArray(registry)) registry = [];
+      } catch (_) {
+        registry = [];
+      }
+    }
+
+    const projYamlPath = path.join(localSkyhook, 'project.yaml');
+    const projYaml = fs.existsSync(projYamlPath) ? (readYaml(projYamlPath) || {}) : {};
+    const id = projYaml.id || path.basename(resolved);
+    const name = projYaml.name || id;
+    const profile = projYaml.profile || 'web-app';
+
+    const projectEntry = {
+      id,
+      name,
+      profile,
+      projectDir: path.basename(localSkyhook) === '.skyhook' ? path.dirname(localSkyhook) : localSkyhook,
+      skyhookDir: localSkyhook
+    };
+
+    const existingIdx = registry.findIndex(p => p.id === id || p.projectDir === projectEntry.projectDir);
+    if (existingIdx >= 0) {
+      registry[existingIdx] = { ...registry[existingIdx], ...projectEntry };
+    } else {
+      registry.push(projectEntry);
+    }
+
+    try {
+      fs.writeFileSync(registryFile, JSON.stringify(registry, null, 2), 'utf8');
+    } catch (_) {}
+
+    return projectEntry;
+  }
+
+  /**
+   * Discover projects from workspace, ~/.skyhook/projects.json, and ~/.skyhook catalog
    * @param {string} currentWorkspaceDir
    * @returns {Array<Object>}
    */
   static getProjects(currentWorkspaceDir = process.cwd()) {
     const projects = [];
     const seenDirs = new Set();
+    const home = process.env.HOME || process.env.USERPROFILE || '';
+    const skyhookHome = path.join(home, '.skyhook');
 
     // 1. Current workspace project (primary)
     const localSkyhook = path.join(currentWorkspaceDir, '.skyhook');
     if (fs.existsSync(localSkyhook) && fs.existsSync(path.join(localSkyhook, 'project.yaml'))) {
       const projYaml = readYaml(path.join(localSkyhook, 'project.yaml')) || {};
       const id = projYaml.id || path.basename(currentWorkspaceDir);
-      projects.push({
+      const curEntry = {
         id,
         name: projYaml.name || id,
         profile: projYaml.profile || 'web-app',
         skyhookDir: localSkyhook,
         projectDir: currentWorkspaceDir,
         isCurrentWorkspace: true
-      });
+      };
+      projects.push(curEntry);
       seenDirs.add(localSkyhook);
+
+      // Auto-register current workspace into global registry for future switching
+      try {
+        DashboardRPCHandler.registerProject(currentWorkspaceDir);
+      } catch (_) {}
     }
 
-    // 2. Global ~/.skyhook catalog
-    const home = process.env.HOME || process.env.USERPROFILE || '';
-    const skyhookHome = path.join(home, '.skyhook');
+    // 2. Global ~/.skyhook/projects.json registered projects
+    const registryFile = path.join(skyhookHome, 'projects.json');
+    if (fs.existsSync(registryFile)) {
+      try {
+        const registered = JSON.parse(fs.readFileSync(registryFile, 'utf8'));
+        if (Array.isArray(registered)) {
+          for (const reg of registered) {
+            if (!reg || !reg.skyhookDir || seenDirs.has(reg.skyhookDir)) continue;
+            if (fs.existsSync(reg.skyhookDir)) {
+              projects.push({
+                id: reg.id || path.basename(reg.projectDir || reg.skyhookDir),
+                name: reg.name || reg.id,
+                profile: reg.profile || 'web-app',
+                skyhookDir: reg.skyhookDir,
+                projectDir: reg.projectDir || path.dirname(reg.skyhookDir),
+                isCurrentWorkspace: false
+              });
+              seenDirs.add(reg.skyhookDir);
+            }
+          }
+        }
+      } catch (_) {}
+    }
+
+    // 3. Global ~/.skyhook catalog subdirectories
     if (fs.existsSync(skyhookHome)) {
       try {
         const entries = fs.readdirSync(skyhookHome);

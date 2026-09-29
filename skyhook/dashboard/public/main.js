@@ -83,10 +83,30 @@ async function bootstrap() {
 
   // 5. Initial Data Load
   try {
+    const urlParams = new URLSearchParams(window.location.search);
+    const queryProjId = urlParams.get('project') || urlParams.get('id');
+    const queryPath = urlParams.get('path');
+
+    if (queryPath) {
+      try {
+        await bridge.post('/api/projects/add', { path: queryPath });
+      } catch (_) {}
+    }
+
     const { projects } = await bridge.get('/api/projects');
     store.setState({ projects });
 
-    const activeProject = projects[0];
+    let activeProject = null;
+    if (queryProjId) {
+      activeProject = projects.find(p => p.id === queryProjId);
+    } else if (queryPath) {
+      activeProject = projects.find(p => p.projectDir === queryPath || p.skyhookDir === queryPath);
+    }
+
+    if (!activeProject && projects.length > 0) {
+      activeProject = projects[0];
+    }
+
     if (activeProject) {
       await loadProject(activeProject.id, bridge, store, router);
     }

@@ -22,22 +22,24 @@ export class KanbanView extends BaseView {
     ];
 
     return `
-      <div class="kanban-grid">
-        ${columns.map(col => {
-          const colStories = stories.filter(s => s.status === col.id);
-          return `
-            <div class="kanban-col">
-              <div class="col-header">
-                <span class="col-title">${col.icon} ${col.title}</span>
-                <span class="col-count">${colStories.length}</span>
+      <div class="kanban-scroll-wrapper">
+        <div class="kanban-grid" style="min-width: 1280px;">
+          ${columns.map(col => {
+            const colStories = stories.filter(s => s.status === col.id);
+            return `
+              <div class="kanban-col">
+                <div class="col-header">
+                  <span class="col-title">${col.icon} ${col.title}</span>
+                  <span class="col-count">${colStories.length}</span>
+                </div>
+                <div class="col-body" data-status="${col.id}">
+                  ${colStories.map(story => this.renderStoryCard(story, epicMap)).join('')}
+                  ${colStories.length === 0 ? '<div style="text-align: center; color: var(--text-dim); padding: 32px 0; font-size: 0.8rem;">No stories</div>' : ''}
+                </div>
               </div>
-              <div class="col-body" data-status="${col.id}">
-                ${colStories.map(story => this.renderStoryCard(story, epicMap)).join('')}
-                ${colStories.length === 0 ? '<div style="text-align: center; color: var(--text-dim); padding: 32px 0; font-size: 0.8rem;">No stories</div>' : ''}
-              </div>
-            </div>
-          `;
-        }).join('')}
+            `;
+          }).join('')}
+        </div>
       </div>
     `;
   }

@@ -18,15 +18,15 @@ export class TopologyView extends BaseView {
     const decisions = Array.isArray(d.decisions?.decisions) ? d.decisions.decisions : [];
 
     return `
-      <div class="glass-panel topology-container" id="topologyViewport" style="height: 680px; position: relative; overflow: hidden; border-radius: 12px;">
-        <div class="canvas-hud" style="position: absolute; top: 16px; left: 16px; z-index: 10; display: flex; gap: 12px; align-items: center;">
-          <button id="resetTopologyBtn" class="btn-secondary" style="padding: 6px 14px; font-size: 0.8rem;">Reset View</button>
-          <div style="font-family: var(--font-mono); font-size: 0.8rem; padding: 6px 12px; background: rgba(0,0,0,0.6); border-radius: 6px; border: 1px solid var(--border-dim);">
+      <div class="glass-panel topology-container topology-scroll-wrapper" id="topologyViewport" style="min-height: 700px; position: relative; overflow: auto; border-radius: 12px;">
+        <div class="canvas-hud" style="position: sticky; top: 16px; left: 16px; z-index: 10; display: inline-flex; gap: 12px; align-items: center; margin-bottom: -50px; pointer-events: none;">
+          <button id="resetTopologyBtn" class="btn-secondary" style="padding: 6px 14px; font-size: 0.8rem; pointer-events: auto;">Reset View</button>
+          <div style="font-family: var(--font-mono); font-size: 0.8rem; padding: 6px 12px; background: rgba(0,0,0,0.75); border-radius: 6px; border: 1px solid var(--border-dim); pointer-events: auto;">
             Nodes: ${reqs.length} Reqs &bull; ${epics.length} Epics &bull; ${stories.length} Stories &bull; ${symbols.length} Symbols &bull; ${decisions.length} ADRs
           </div>
         </div>
 
-        <svg id="topologySvg" width="100%" height="100%" style="cursor: grab;">
+        <svg id="topologySvg" viewBox="0 0 1460 760" width="100%" height="100%" style="min-width: 1200px; min-height: 680px; cursor: grab; display: block;">
           <defs>
             <linearGradient id="cyanGrad" x1="0%" y1="0%" x2="100%" y2="100%">
               <stop offset="0%" stop-color="#00f0ff" stop-opacity="0.8"/>

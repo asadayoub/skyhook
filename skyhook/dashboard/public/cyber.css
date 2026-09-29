@@ -68,13 +68,33 @@ header.hud-header {
   position: sticky;
   top: 0;
   z-index: 100;
-  background: rgba(6, 8, 13, 0.85);
+  background: rgba(6, 8, 13, 0.92);
   backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border-bottom: 1px solid var(--border-neon);
-  padding: 12px 28px;
+  padding: 10px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.header-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  width: 100%;
+}
+
+.header-nav-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.header-nav-wrapper::-webkit-scrollbar {
+  display: none;
 }
 
 .brand {
@@ -97,7 +117,7 @@ header.hud-header {
 
 .brand-title {
   font-family: var(--font-hud);
-  font-size: 1.5rem;
+  font-size: 1.4rem;
   font-weight: 700;
   letter-spacing: 1px;
   background: linear-gradient(135deg, #ffffff 40%, var(--neon-cyan));
@@ -119,20 +139,22 @@ header.hud-header {
 .hud-controls {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .project-select {
   background: var(--bg-surface);
   color: var(--text-primary);
   border: 1px solid var(--border-neon);
-  padding: 8px 16px;
+  padding: 7px 14px;
   border-radius: 8px;
   font-family: var(--font-mono);
   font-size: 0.85rem;
   outline: none;
   cursor: pointer;
   transition: all 0.2s ease;
+  max-width: 260px;
 }
 
 .project-select:focus {
@@ -170,14 +192,18 @@ header.hud-header {
 /* Nav Tabs */
 .nav-tabs {
   display: flex;
-  gap: 4px;
+  gap: 6px;
   background: var(--bg-surface);
   padding: 4px;
   border-radius: 10px;
   border: 1px solid var(--border-dim);
+  width: max-content;
+  min-width: 100%;
 }
 
 .tab-btn {
+  white-space: nowrap;
+  flex-shrink: 0;
   background: transparent;
   border: none;
   color: var(--text-secondary);
@@ -780,4 +806,111 @@ header.hud-header {
   padding: 24px;
   margin-top: 24px;
 }
+
+/* Horizontal Scroll Wrappers */
+.kanban-scroll-wrapper,
+.topology-scroll-wrapper,
+.table-scroll-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 8px;
+}
+
+/* --- Universal Responsive Breakpoints --- */
+@media (max-width: 1440px) {
+  .telemetry-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 1100px) {
+  #mainContent,
+  #telemetryContainer {
+    padding: 0 16px 36px 16px !important;
+  }
+  
+  .header-top {
+    gap: 10px;
+  }
+
+  .hud-controls {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .telemetry-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .drift-container {
+    grid-template-columns: 1fr;
+  }
+
+  .decisions-split-layout {
+    grid-template-columns: 1fr !important;
+  }
+
+  .harness-grid {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  header.hud-header {
+    padding: 8px 14px;
+  }
+
+  .brand-title {
+    font-size: 1.15rem;
+  }
+
+  .brand-version {
+    display: none;
+  }
+
+  .hud-controls {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .project-selector-wrapper {
+    flex-wrap: wrap;
+    width: 100%;
+  }
+
+  .project-selector-wrapper .project-select {
+    flex: 1;
+    min-width: 140px;
+  }
+
+  .telemetry-indicator {
+    justify-content: center;
+  }
+
+  .telemetry-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .stat-card {
+    padding: 14px 16px;
+  }
+
+  .stat-value {
+    font-size: 1.5rem;
+  }
+
+  .tab-btn {
+    padding: 6px 12px;
+    font-size: 0.82rem;
+  }
+
+  .modal-container {
+    width: 95vw !important;
+    max-height: 90vh !important;
+  }
+}
+
 

@@ -118,11 +118,36 @@ export class SkyhookServer {
           return;
         }
 
+        // POST /api/projects/add (register new project folder)
+        if (pathname === '/api/projects/add' && req.method === 'POST') {
+          const body = await SkyhookServer.parseJsonBody(req);
+          try {
+            const project = DashboardRPCHandler.registerProject(body.path);
+            const projects = DashboardRPCHandler.getProjects(this.workspaceDir);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: true, project, projects }));
+          } catch (e) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: e.message }));
+          }
+          return;
+        }
+
         // GET /api/project (data for project)
         if (pathname === '/api/project' && req.method === 'GET') {
           const id = url.searchParams.get('id');
+          const customPath = url.searchParams.get('path');
+          
+          if (customPath) {
+            try {
+              DashboardRPCHandler.registerProject(customPath);
+            } catch (_) {}
+          }
+
           const projects = DashboardRPCHandler.getProjects(this.workspaceDir);
-          const target = id ? projects.find(p => p.id === id) : projects[0];
+          const target = customPath
+            ? projects.find(p => p.projectDir === path.resolve(customPath) || p.skyhookDir === path.resolve(customPath))
+            : (id ? projects.find(p => p.id === id) : projects[0]);
 
           if (!target) {
             res.writeHead(404, { 'Content-Type': 'application/json' });

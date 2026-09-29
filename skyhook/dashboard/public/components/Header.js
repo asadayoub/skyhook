@@ -3,6 +3,8 @@
  * Project switcher, editor preference, live WebSocket heartbeat indicator.
  */
 
+import { Toast } from './Toast.js';
+
 export class Header {
   /**
    * @param {Object} options
@@ -22,38 +24,48 @@ export class Header {
     if (!this.element) return;
 
     this.element.innerHTML = `
-      <div class="brand">
-        <div class="brand-icon">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#00f0ff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
-            <polyline points="2 17 12 22 22 17"></polyline>
-            <polyline points="2 12 12 17 22 12"></polyline>
-          </svg>
+      <div class="header-top">
+        <div class="brand">
+          <div class="brand-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#00f0ff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+              <polyline points="2 17 12 22 22 17"></polyline>
+              <polyline points="2 12 12 17 22 12"></polyline>
+            </svg>
+          </div>
+          <div>
+            <div class="brand-title">SKYHOOK // ARCHITECTURE RADAR</div>
+          </div>
+          <span class="brand-version">v1.9.1</span>
         </div>
-        <div>
-          <div class="brand-title">SKYHOOK // ARCHITECTURE RADAR</div>
+
+        <div class="hud-controls">
+          <div class="project-selector-wrapper" style="display: flex; align-items: center; gap: 8px;">
+            <label for="projectSelect" style="font-family: var(--font-hud); font-size: 0.8rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px;">PROJECT:</label>
+            <select id="projectSelect" class="project-select" aria-label="Project"></select>
+            <button id="addProjectBtn" class="btn-secondary" title="Open or Switch Project Folder" style="padding: 7px 12px; font-size: 0.8rem; font-family: var(--font-hud); display: flex; align-items: center; gap: 5px; cursor: pointer; white-space: nowrap;">
+              <span>📂</span> <span>OPEN FOLDER...</span>
+            </button>
+          </div>
+          
+          <select id="editorSelect" class="project-select" aria-label="Editor Preference" title="Preferred Editor for Deep Links">
+            <option value="vscode">VS Code (vscode://)</option>
+            <option value="cursor">Cursor (cursor://)</option>
+            <option value="sublime">Sublime Text (subl://)</option>
+            <option value="modal">In-Dashboard Viewer</option>
+          </select>
+
+          <div class="telemetry-indicator" title="Bidirectional WebSocket Event Stream">
+            <span id="connectionIndicator" class="pulse-dot"></span>
+            <span id="connectionStatusText">CONNECTING</span>
+            <span style="color: var(--text-dim);">|</span>
+            <span id="latencyDisplay" style="color: var(--neon-cyan);">-- ms</span>
+          </div>
         </div>
-        <span class="brand-version">v1.9.1</span>
       </div>
 
-      <div id="navContainer"></div>
-
-      <div class="hud-controls">
-        <select id="projectSelect" class="project-select" aria-label="Project"></select>
-        
-        <select id="editorSelect" class="project-select" aria-label="Editor Preference" title="Preferred Editor for Deep Links">
-          <option value="vscode">VS Code (vscode://)</option>
-          <option value="cursor">Cursor (cursor://)</option>
-          <option value="sublime">Sublime Text (subl://)</option>
-          <option value="modal">In-Dashboard Viewer</option>
-        </select>
-
-        <div class="telemetry-indicator" title="Bidirectional WebSocket Event Stream">
-          <span id="connectionIndicator" class="pulse-dot"></span>
-          <span id="connectionStatusText">CONNECTING</span>
-          <span style="color: var(--text-dim);">|</span>
-          <span id="latencyDisplay" style="color: var(--neon-cyan);">-- ms</span>
-        </div>
+      <div class="header-nav-wrapper">
+        <div id="navContainer"></div>
       </div>
     `;
 
@@ -64,6 +76,7 @@ export class Header {
   bindEvents() {
     const projectSelect = document.getElementById('projectSelect');
     const editorSelect = document.getElementById('editorSelect');
+    const addProjectBtn = document.getElementById('addProjectBtn');
 
     if (editorSelect) {
       editorSelect.value = this.store.getState().editorPreference;
@@ -80,6 +93,33 @@ export class Header {
       projectSelect.addEventListener('change', (e) => {
         if (this.onProjectChange) {
           this.onProjectChange(e.target.value);
+        }
+      });
+    }
+
+    if (addProjectBtn) {
+      addProjectBtn.addEventListener('click', async () => {
+        const inputPath = prompt('Enter the absolute path to your project directory containing .skyhook:\n\nExample: /Users/asad/Documents/my-project');
+        if (!inputPath || !inputPath.trim()) return;
+
+        try {
+          Toast.show('Registering and loading project...', 'info');
+          const resp = await this.bridge.post('/api/projects/add', { path: inputPath.trim() });
+          if (resp.error) {
+            Toast.show(`Failed to add project: ${resp.error}`, 'error');
+            return;
+          }
+
+          Toast.show(`Project "${resp.project?.name || resp.project?.id}" opened!`, 'success');
+          if (Array.isArray(resp.projects)) {
+            this.store.setState({ projects: resp.projects });
+          }
+
+          if (this.onProjectChange && resp.project?.id) {
+            await this.onProjectChange(resp.project.id);
+          }
+        } catch (err) {
+          Toast.show(`Error opening project: ${err.message}`, 'error');
         }
       });
     }
