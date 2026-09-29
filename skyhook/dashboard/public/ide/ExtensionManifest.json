@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "name": "skyhook-ide-webview",
-  "version": "1.9.0",
+  "version": "1.9.1",
   "description": "Native VS Code and Cursor Webview Panel Integration Manifest for Skyhook Modular Dashboard",
   "runtime": {
     "target": "vscode-webview",

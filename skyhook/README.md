@@ -1,25 +1,31 @@
-# Skyhook — Universal Project Intelligence for AI Agents
+# Skyhook — Universal Project Intelligence & Architecture Governance for AI Agents
 
-> **Give AI agents a persistent, structured, version-controlled understanding of your software project.**
+Persistent, structured, version-controlled project memory, active architectural governance, and real-time visual telemetry for AI agents and human engineering teams.
 
-[![Version](https://img.shields.io/badge/version-1.5.2-blue.svg)](https://github.com/asadayoub/skyhook/releases)
+**Repository:** https://github.com/asadayoub/skyhook  
+**Latest Release:** https://github.com/asadayoub/skyhook/releases/latest  
+
+[![Version](https://img.shields.io/badge/version-1.9.1-blue.svg)](https://github.com/asadayoub/skyhook/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Agent Compatibility](https://img.shields.io/badge/agents-Codex%20%7C%20Claude%20Code%20%7C%20Gemini%20CLI%20%7C%20Copilot%20%7C%20Antigravity-orange.svg)](#supported-agents)
+[![Tests](https://img.shields.io/badge/tests-148%20passing-brightgreen.svg)](TESTING.md)
+[![MCP](https://img.shields.io/badge/MCP-100%25%20Offline-cyan.svg)](docs/MCP_SERVER.md)
+[![Dashboard](https://img.shields.io/badge/dashboard-modular%20MMPA-purple.svg)](docs/DASHBOARD_AND_IDE.md)
+[![Agents](https://img.shields.io/badge/agents-Cursor%20%7C%20Claude%20%7C%20Copilot%20%7C%20Windsurf%20%7C%20Antigravity%20%7C%20Cline-orange.svg)](docs/AGENT_HARNESSES.md)
 
 ---
 
-## The Problem
+## ⚡ The Problem
 
-AI coding agents are powerful but **stateless**. Every conversation starts from zero. They:
+Autonomous AI coding agents are powerful but **stateless**. Every new prompt or context window starts from zero. They:
 - Forget architectural decisions made yesterday
-- Re-ask the same setup questions
-- Introduce conflicting or deprecated dependencies
-- Lose context when you switch agents
-- Can't maintain project knowledge across sessions
+- Introduce conflicting, banned, or unvetted libraries
+- Step on each other's toes with overlapping, concurrent changes
+- Break domain boundaries (e.g. importing database drivers into UI components)
+- Cannot maintain project knowledge across sessions or across different AI tools
 
-## The Solution
+## 🛡️ The Skyhook Solution
 
-**Skyhook gives AI agents persistent project memory and architectural governance.**
+**Skyhook gives AI agents persistent project memory, advisory task leasing, and active architectural governance.**
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -28,190 +34,130 @@ AI coding agents are powerful but **stateless**. Every conversation starts from 
 │  Agent: "What database?"  │  Agent reads .skyhook/          │
 │  User: "PostgreSQL"       │  Knows: PostgreSQL + Prisma     │
 │  ...later...              │  ...later...                    │
-│  Agent: "What database?"  │  Agent: "Using PostgreSQL,      │
-│  User: "PostgreSQL"       │  shall I add the User model?"   │
+│  Agent: "What database?"  │  Agent: "Using PostgreSQL with  │
+│  User: "PostgreSQL"       │  ADR-002; claiming STORY-002"   │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Key Capabilities
+## 🏛️ Core Capabilities
 
-### 🧠 Persistent Project Memory
-- All knowledge stored in `.skyhook/` as plain Markdown/YAML
-- Version controlled with your code
-- Survives agent restarts, context switches, team changes
+1. **🤖 100% Offline Model Context Protocol (MCP) Server**:
+   - Implements MCP Specification (2024-11-05) over stdio and loopback `127.0.0.1` SSE.
+   - Exposes **8 core tools** and **5 resources** (`skyhook://backlog`, `skyhook://plan`, `skyhook://decisions`, `skyhook://boundaries`, `skyhook://tech-stack`).
+   - Works natively with Cursor, Claude Desktop, Windsurf, and Cline without cloud relays.
 
-### 🏛️ Automated Architecture Decision Records (ADRs) with Living Sync
-- **Foundational Baseline Reverse-Engineering (`skyhook adr bootstrap`)**: Automatically reverse-engineers accepted ADRs for all discovered technologies in brownfield projects.
-- **Proactive Ingestion (`skyhook adr draft`)**: Auto-synthesizes draft ADRs when unrecorded packages or architectural shifts are detected.
-- **Living Bi-Directional Sync (`skyhook adr sync`)**: Edits in Markdown files (`decisions/records/*.md`) automatically propagate into `decisions/index.yaml`.
-- **Architectural Policy Guard (`skyhook adr verify`)**: AST inspection rejects prohibited imports or invariant violations.
-- **Background File Watcher (`skyhook adr watch` / `skyhook watch`)**: Instantly synchronizes changes on editor save.
+2. **🔌 Poly-Agent Harness Injector**:
+   - Atomic, non-destructive configuration of AI instruction files (`.cursor/rules/*.mdc`, `CLAUDE.md`, `.github/copilot-instructions.md`, `.windsurfrules`, `.clinerules`).
+   - Deep JSON merges for `mcp.json` and settings without clobbering user customizations.
 
-### 🪝 Active Git Pre-Commit Governance ("Decisions with Teeth")
-- `skyhook hook install` configures `.git/hooks/pre-commit` to prevent developers or agents from committing code that violates accepted ADR policies.
+3. **🖥️ Modular Cybernetic Web Dashboard & Native IDE Extension**:
+   - Modular Multi-Page Application (MMPA) with zero build tools (native browser ES modules).
+   - Deep-link client hash router (`#/kanban`, `#/topology`, `#/drift`, `#/decisions`, `#/mermaid`, `#/dark-matter`, `#/harness`, `#/settings`).
+   - Universal Platform Bridge runs identically in browsers and inside native VS Code / Cursor extension Webviews.
 
-### 📊 Decision DAG & Visual Architecture Graph
-- `skyhook graph` generates `.skyhook/trace-graph.md` featuring:
-  - Directed Acyclic Graph (DAG) of architectural decisions with status icons (🏛️ accepted, ⚠️ superseded, 📝 draft).
-  - Thick supersession arrows (`ADR-1 == "superseded by" ==> ADR-2`).
-  - Requirement governance links (`ADR-2 -. "governs" .-> REQ-001`).
-  - AST-scanned codebase symbols cascading downward cleanly in vertical subgraphs.
+4. **🔀 Multi-Agent Agile Backlog & Advisory Leases**:
+   - Finite state machine: `backlog ➔ ready ➔ in-progress ➔ in-review ➔ done`.
+   - Prevents concurrent agent collisions via time-boxed advisory leases (`skyhook get-next-task --agent="Cursor"`).
+   - Append-only event ledger (`events.jsonl`) with Lead/Cycle time metrics and replay.
 
-### 🔍 Babel AST Code Tracer Engine
-- Automatically parses functions, classes, and exported symbols.
-- Scans `// @skyhook-implements REQ-XXX` source annotations.
-- Provides `skyhook trace`, `skyhook impact`, `skyhook untraced`, `skyhook coverage`, and `skyhook map-legacy`.
+5. **🏛️ Automated ADR Engine & Active Policy Guard ("Decisions with Teeth")**:
+   - Reverse-engineers baseline ADRs for existing repositories (`skyhook adr bootstrap`).
+   - Complete ADR supersession lifecycle and visual Mermaid Decision DAG (`skyhook adr dag`).
+   - Compiles ADR text into AST import policies that reject prohibited packages before commit.
 
-### 📋 Structured Requirements Engineering
-- Functional requirements (user stories, acceptance criteria, actors, triggers)
-- Non-functional requirements (performance, security, accessibility)
-- Constraints (technical, business, regulatory)
-- Priority (WSJF), status tracking, and end-to-end traceability
+6. **🪝 Active Git Pre-Commit Governance**:
+   - `skyhook hook install` sets up `.git/hooks/pre-commit` to prevent developers or agents from committing code that violates accepted architectural decisions.
 
-### 🎯 Contextual Questioning
-- **Never asks everything upfront**
-- Asks only what is relevant to current work
-- Infers from codebase, uses standards as defaults
+7. **🔍 Polyglot AST Code Tracer & Dark Matter Radar**:
+   - Polyglot support for **JavaScript / TypeScript, Python, Go, Rust, and Java**.
+   - AST symbol lineage tracking with fuzzy refactoring recovery.
+   - Tarjan's algorithm detecting circular dependency cycles in import graphs.
+   - Dark Matter Radar reporting untraced codebase symbols with risk tiers.
 
-### 📐 Built-in Standards (Overridable)
-| Domain | Standard |
-|--------|----------|
-| Software | TypeScript strict, modular architecture, error handling |
-| UX/UI | Design tokens, components, dark mode, responsive |
-| Accessibility | WCAG 2.1 AA baseline |
-| Architecture | DDD, modular monolith, API design |
-| Security | OWASP Top 10, crypto, secrets management |
-| Testing | Test pyramid, patterns, coverage targets |
+8. **📋 Living Project Plan Compiler & Capacity Forecaster**:
+   - Compiles `PROJECT_PLAN.md` with client-side Mermaid Gantt charts.
+   - Historical capacity planning with statistical P50 and P90 completion forecasts.
 
 ---
 
-## Quick Start
-
-### 1. Install Skyhook
+## 🚀 Quick Install
 
 ```bash
 # One-liner installer (macOS/Linux/WSL)
 curl -fsSL https://raw.githubusercontent.com/asadayoub/skyhook/main/install.sh | bash
+
+# Add to PATH (if not already present)
+echo 'export PATH="$HOME/.skyhook/skill/cli:$PATH"' >> ~/.zshrc
+source ~/.zshrc
+
+# Verify installation
+skyhook version
 ```
 
-### 2. Initialize in Your Project
+---
+
+## ⚡ 5-Minute Quickstart
 
 ```bash
-cd your-project
+# 1. Initialize in your project
+skyhook init --name="Fintech Ledger" --profile=saas
 
-# Initialize Skyhook (detects tech stack and profiles)
-skyhook init
+# 2. Inject rules across all installed AI agents
+skyhook harness inject --all
 
-# For brownfield/existing projects: reverse-engineer baseline ADRs
-skyhook adr bootstrap
+# 3. Launch the 100% offline MCP server
+skyhook mcp --stdio &
 
-# Install Git pre-commit architectural protection
-skyhook hook install
+# 4. Start the Cybernetic Web Dashboard
+skyhook dashboard start --port 31415
+
+# 5. Add an architectural requirement
+skyhook add-feature "Double Entry Ledger" --points 5
+
+# 6. Claim task as an AI agent
+skyhook get-next-task --agent="Cursor-Cascade"
+
+# 7. Record an architectural decision
+skyhook decide "PostgreSQL with ACID Isolation" "Use PostgreSQL with Serializable Isolation"
+
+# 8. Verify codebase compliance against accepted ADRs
+skyhook adr verify
+
+# 9. Recompile living master plan
+skyhook plan
 ```
-
-### 3. Start Building
-
-Tell your AI agent (Codex, Claude Code, Gemini CLI, Antigravity):
-> "Use Skyhook to help define and build this project."
 
 ---
 
-## CLI Commands Reference
+## 📚 Complete Documentation Suite
 
+Comprehensive manuals and deep-dives are available in [`docs/`](docs/):
+
+- 🏛️ **[System Architecture (v1.9.1)](docs/ARCHITECTURE.md)**: System design, dataflow diagrams, and sub-system specifications.
+- 📖 **[CLI Reference Manual](docs/CLI_REFERENCE.md)**: Exhaustive reference for all 40+ commands, options, and JSON outputs.
+- 🤖 **[100% Offline MCP Server Guide](docs/MCP_SERVER.md)**: Setting up Cursor, Claude Desktop, Windsurf, and Cline.
+- 🖥️ **[Dashboard & Native IDE Extension Manual](docs/DASHBOARD_AND_IDE.md)**: MMPA architecture, hash routing, and VS Code extension packaging.
+- 🔌 **[Poly-Agent Harness Matrix](docs/AGENT_HARNESSES.md)**: Non-destructive merging and rule synchronization.
+- 🔍 **[Polyglot AST Traceability & Dark Matter](docs/TRACEABILITY_AND_AST.md)**: Multi-language parsers, symbol lineage, and coverage radar.
+- ⚖️ **[ADR Synthesis & Policy Governance](docs/ADR_AND_GOVERNANCE.md)**: Decision DAG, supersession, and AST import guards.
+- 🛠️ **Tutorials**:
+  - [Tutorial 1: Zero to Governed Repository in 5 Minutes](docs/TUTORIALS/01_QUICKSTART.md)
+  - [Tutorial 2: Multi-Agent Task Coordination Without Collisions](docs/TUTORIALS/02_MULTI_AGENT_WORKFLOW.md)
+  - [Tutorial 3: Authoring Custom Language Parsers](docs/TUTORIALS/03_CUSTOM_PARSERS.md)
+
+---
+
+## 🧪 Verification & Testing
+
+Skyhook is thoroughly tested with **148 automated tests across 49 test suites**:
 ```bash
-# Project Setup & Lifecycle
-skyhook init [--profile=...] [--variant=...] [--force] # Initialize .skyhook/
-skyhook setup <codex|claude|gemini|copilot|all>        # Configure agent harnesses
-skyhook discover                                      # Interactive requirements gathering
-skyhook question [category]                           # Contextual requirements questions
-skyhook plan                                          # Generate/update PROJECT_PLAN.md
-skyhook standards [category]                          # List engineering standards & overrides
-skyhook version                                       # Show version and runtime info
-
-# Architecture Decision Records (ADR)
-skyhook adr bootstrap [--status=...] [--overwrite]    # Reverse-engineer baseline ADRs
-skyhook adr draft                                     # Draft ADR for detected stack drift
-skyhook adr sync                                      # Sync records/*.md with index.yaml
-skyhook adr verify [path]                             # Enforce architectural rules
-skyhook adr watch                                     # Start background live file watcher
-skyhook decide <title> <decision> <context>           # Record decision + auto-generate ADR
-
-# Git Enforcement Hooks
-skyhook hook install                                  # Install Git pre-commit enforcement
-skyhook hook uninstall                                # Remove Git pre-commit enforcement
-skyhook hook status                                   # Check Git hook status
-
-# Traceability & AST Engine
-skyhook graph                                         # Generate Decision DAG (trace-graph.md)
-skyhook trace <REQ-ID>                                # Trace requirement to code & decisions
-skyhook impact <REQ-ID>                               # Analyze blast radius of changes
-skyhook untraced                                      # Find requirements lacking code references
-skyhook coverage                                      # Calculate requirement/code coverage
-skyhook map-legacy [--limit=N]                        # Map unmapped symbols to requirements
-skyhook sync                                          # Check tech stack & documentation drift
-
-# Web Dashboard
-skyhook dashboard <start|stop|status>                 # Start on-demand Web Dashboard (port 4343)
+npm test
 ```
 
 ---
 
-## Project Structure (`.skyhook/`)
+## 📄 License
 
-```
-your-project/
-├── .skyhook/                    # Commit this to Git!
-│   ├── project.yaml             # Project metadata & profile configuration
-│   ├── context.md               # Problem statement, solution, target audience
-│   ├── vision.md                # Vision, KPIs, personas, user journeys
-│   ├── requirements/
-│   │   ├── functional.yaml      # User stories, features (REQ-001...)
-│   │   ├── non-functional.yaml  # Performance, security, scalability
-│   │   └── constraints.yaml     # Technical, business, regulatory
-│   ├── decisions/
-│   │   ├── index.yaml           # Decision registry (status, supersedes, enforcement)
-│   │   └── records/             # Rich living ADR Markdown files (<ULID>.md)
-│   ├── backlog/
-│   │   └── epics.yaml           # Epics, stories, tasks, WSJF prioritization
-│   ├── tech-stack.yaml          # Auto-discovered & recorded technology stack
-│   ├── ux/
-│   │   └── styleguide.md        # Design system tokens and components
-│   ├── standards/               # Project-specific standards overrides
-│   ├── PROJECT_PLAN.md          # Generated comprehensive delivery plan
-│   ├── changelog.md             # Automated audit trail of all project changes
-│   └── trace-graph.md           # Generated visual Decision DAG & traceability graph
-└── (your application source files)
-```
-
----
-
-## Supported Agents
-
-| Agent | Integration | Setup Command |
-|-------|-------------|---------------|
-| **Codex** | `.codex/agents.md` native commands | `skyhook setup codex` |
-| **Claude Code** | `.claude/commands/skyhook-*.md` | `skyhook setup claude` |
-| **Gemini CLI** | `.gemini/functions/skyhook.js` tool declarations | `skyhook setup gemini` |
-| **GitHub Copilot** | `.github/copilot-instructions.md` + VS Code tasks | `skyhook setup copilot` |
-| **Google Antigravity** | Native Skill manifest & CLI integration | Pre-configured |
-| **Generic AI Agents** | Stdio JSON protocol (`skyhook-cmd`) | Supported out of the box |
-
----
-
-## Universal Protocol (`skyhook-cmd`)
-
-All agents can invoke Skyhook directly via stdio JSON:
-```bash
-echo '{"command":"getNextTask","args":{}}' | skyhook-cmd
-echo '{"command":"trace","args":{"id":"REQ-001"}}' | skyhook-cmd
-echo '{"command":"bootstrapAdr","args":{}}' | skyhook-cmd
-echo '{"command":"verifyAdr","args":{}}' | skyhook-cmd
-```
-
----
-
-## License
-
-MIT — See [LICENSE](LICENSE) file.
+MIT © [Asad Ayoub](https://github.com/asadayoub)

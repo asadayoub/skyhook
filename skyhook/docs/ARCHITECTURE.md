@@ -1,245 +1,299 @@
-# Skyhook Architecture (v1.5.2)
+# Skyhook Architecture (v1.9.1)
 
-Universal Project Intelligence & Architecture Governance for AI Agents.
+Universal Project Intelligence & Architecture Governance for Autonomous AI Agents and Engineering Teams.
 
 ---
 
-## High-Level Architecture
+## 1. System Overview & Philosophy
 
-```
-┌─────────────────────────────────────────────────────────────────────────────────────────────────┐
-│                                    AI AGENT HARNESS LAYER                                       │
-│          (Codex, Claude Code, Gemini CLI, GitHub Copilot, Antigravity IDE, Custom Agents)       │
-└───────────────────────────────────────────────┬─────────────────────────────────────────────────┘
-                                                │  stdio JSON protocol / CLI invocation
-                                                ▼
-┌─────────────────────────────────────────────────────────────────────────────────────────────────┐
-│                                     SKYHOOK ENGINE LAYER                                        │
-│  ┌───────────────────────────────────────────────────────────────────────────────────────────┐  │
-│  │  CLI Dispatcher (cli/skyhook.js)                                                          │  │
-│  │  Commands & Subcommands: init, setup, discover, question, plan, standards, decide, sync,  │  │
-│  │  trace, impact, untraced, coverage, mapLegacy, graph, dashboard, version, install, help   │  │
-│  │  Subcommands:                                                                             │  │
-│  │    • adr <bootstrap | draft | sync | verify | watch>                                      │  │
-│  │    • hook <install | uninstall | status>                                                  │  │
-│  └───────────────────────────────────────────────────────────────────────────────────────────┘  │
-│  ┌───────────────────────────────────────────────────────────────────────────────────────────┐  │
-│  │  Slash Command & Protocol Router (cli/skyhook-cmd.js)                                      │  │
-│  │  36 stdio JSON commands covering Features, Tasks, ADRs, Traceability, Git Hooks & Graph   │  │
-│  └───────────────────────────────────────────────────────────────────────────────────────────┘  │
-│  ┌───────────────────────────────────────────────────────────────────────────────────────────┐  │
-│  │  Core Architectural Sub-Systems & Engines                                                 │  │
-│  │  • AST Code Tracer (lib/tracer.js): Babel AST parser, symbol extractor & legacy mapper    │  │
-│  │  • ADR Synthesizer (lib/adr/ADRSynthesizer.js): Context-aware ADRs & dynamic Mermaid C4   │  │
-│  │  • Living Sync Engine (lib/adr/ADRSyncEngine.js): Bi-directional Markdown ⇄ YAML sync    │  │
-│  │  • Architectural Policy Guard (lib/adr/ADRPolicyGuard.js): AST prohibited-import enforcer │  │
-│  │  • Live File Watcher (lib/adr/ADRWatcher.js): Real-time background sync on editor save    │  │
-│  │  • Git Hook Manager (lib/git/GitHookManager.js): Pre-commit hook installer & governor    │  │
-│  │  • Inference Engine (lib/inference/): 6 providers (PackageJson, Prisma, Config, etc.)     │  │
-│  │  • Context Manager (lib/context.js & lib/yaml.js): State management & YAML persistence    │  │
-│  └───────────────────────────────────────────────────────────────────────────────────────────┘  │
-└───────────────────────────────────────────────┬─────────────────────────────────────────────────┘
-                                                │  reads / writes .skyhook/
-                                                ▼
-┌─────────────────────────────────────────────────────────────────────────────────────────────────┐
-│                                PROJECT SKYHOOK STATE (.skyhook/)                                │
-│  ┌────────────────────────┐  ┌────────────────────────┐  ┌───────────────────────────────────┐  │
-│  │  project.yaml          │  │  requirements/         │  │  decisions/                       │  │
-│  │  (type, profile, config)│  │  • functional.yaml      │  │  • index.yaml (registry)          │  │
-│  └────────────────────────┘  │  • non-functional.yaml  │  │  • records/<ULID>.md (rich ADRs)  │  │
-│  ┌────────────────────────┐  │  • constraints.yaml     │  └───────────────────────────────────┘  │
-│  │  tech-stack.yaml       │  └────────────────────────┘  ┌───────────────────────────────────┐  │
-│  │  (auto-detected stack) │  ┌────────────────────────┐  │  backlog/                         │  │
-│  └────────────────────────┘  │  standards/            │  │  • epics.yaml (epics, stories)    │  │
-│  ┌────────────────────────┐  │  (project overrides)   │  └───────────────────────────────────┘  │
-│  │  trace-graph.md        │  └────────────────────────┘  ┌───────────────────────────────────┐  │
-│  │  (Visual Decision DAG) │  ┌────────────────────────┐  │  changelog.md                     │  │
-│  └────────────────────────┘  │  PROJECT_PLAN.md       │  │  (automated audit trail)          │  │
-│                              └────────────────────────┘  └───────────────────────────────────┘  │
-└───────────────────────────────────────────────┬─────────────────────────────────────────────────┘
-                                                │  scans codebase symbols & annotations
-                                                ▼
-┌─────────────────────────────────────────────────────────────────────────────────────────────────┐
-│                                      APPLICATION CODEBASE                                       │
-│  // @skyhook-implements REQ-001 REQ-002                                                         │
-│  export class AuthService { ... }                                                               │
-│                                                                                                 │
-│  // AST Policy Guard blocks prohibited imports (e.g., import axios from 'axios')                │
-└─────────────────────────────────────────────────────────────────────────────────────────────────┘
+Skyhook operates on a foundational premise: **AI coding agents are powerful but stateless, while complex software engineering demands persistent architectural memory, continuous traceability, and strict boundary governance.**
+
+```mermaid
+flowchart TD
+    subgraph HostAgents["Autonomous AI Coding Agents & IDEs"]
+        Cursor["Cursor AI (.cursor/rules/*.mdc, mcp.json)"]
+        ClaudeDesk["Claude Desktop (claude_desktop_config.json)"]
+        ClaudeCode["Claude Code (CLAUDE.md, .claude/config.json)"]
+        Copilot["GitHub Copilot (.github/copilot-instructions.md)"]
+        Windsurf["Codeium Windsurf (.windsurfrules, mcp.json)"]
+        Antigravity["Google Antigravity (.agents/rules, .agents/mcp_config.json)"]
+        Cline["Cline / Roo Code (.clinerules, cline_mcp_settings.json)"]
+    end
+
+    subgraph Entrypoints["Universal Interface Layer"]
+        CLI["CLI Dispatcher<br/>(cli/skyhook.js)"]
+        Protocol["Agent JSON Protocol<br/>(cli/skyhook-cmd.js)"]
+        MCPServer["100% Offline MCP Server<br/>(cli/skyhook-mcp.js)"]
+        WebDash["Cybernetic MMPA Dashboard<br/>(dashboard/public/)"]
+    end
+
+    subgraph CoreEngines["Skyhook Internal Engine Layer (skyhook/lib/)"]
+        Tracer["Polyglot AST Tracer & Lineage<br/>(tracer/, parsers/)"]
+        FSM["Agile Backlog FSM & Leases<br/>(backlog/)"]
+        ADR["Automated ADR & Policy Guard<br/>(adr/)"]
+        Drift["DDD Boundaries & Semantic Rules<br/>(drift/)"]
+        Plan["Plan Compiler & Capacity Forecaster<br/>(plan/)"]
+        Server["Embedded Server & WebSocket Gateway<br/>(server/)"]
+        Harness["Agent Harness Injector<br/>(harness/)"]
+    end
+
+    subgraph WorkspaceStore["Project Workspace State (.skyhook/)"]
+        ProjectYAML["project.yaml & tech-stack.yaml"]
+        EventLedger["backlog/events.jsonl (Append-Only)"]
+        BacklogYAML["backlog/epics.yaml & stories"]
+        ADRRecords["decisions/records/*.md & index.yaml"]
+        PlanMD["plan/PROJECT_PLAN.md & Gantt"]
+    end
+
+    subgraph TargetCodebase["Polyglot Application Codebase"]
+        SourceCode["Source Files<br/>(JS/TS, Python, Go, Rust, Java)"]
+        GitHooks[".git/hooks/pre-commit Guard"]
+    end
+
+    HostAgents -->|stdio / SSE| MCPServer
+    HostAgents -->|CLI Invocations| CLI
+    HostAgents -->|stdio JSON stream| Protocol
+    HostAgents -->|Web / IDE Webview| WebDash
+
+    CLI --> CoreEngines
+    Protocol --> CoreEngines
+    MCPServer --> CoreEngines
+    WebDash --> CoreEngines
+
+    CoreEngines <--> WorkspaceStore
+    Tracer <--> SourceCode
+    ADR --> GitHooks
 ```
 
----
-
-## Core Components
-
-### 1. CLI Layer (`skyhook/cli/skyhook.js`)
-
-Provides terminal ergonomics with formatted output, colorful badges, table views, and JSON fallback:
-
-| Command | Subcommands / Arguments | Purpose |
-|---------|-------------------------|---------|
-| `skyhook init` | `[--profile=...] [--variant=...] [--force]` | Initialize `.skyhook/` with auto-detected profile or custom template |
-| `skyhook adr` | `bootstrap` | **Reverse-engineer baseline ADRs** for all discovered technologies in an existing project |
-| | `draft` | Auto-detect architectural shifts or unrecorded dependencies and draft new ADRs |
-| | `sync` | Bi-directionally sync living Markdown ADRs (`decisions/records/*.md`) with `index.yaml` |
-| | `verify` | Check codebase compliance against accepted ADR policies and prohibited imports |
-| | `watch` | Start real-time background file watcher for instant sync on editor save |
-| `skyhook hook`| `install` | Install executable Git pre-commit hook in `.git/hooks/pre-commit` |
-| | `uninstall` | Remove Skyhook Git pre-commit hook non-destructively |
-| | `status` | Report Git hook status and configuration |
-| `skyhook graph` | — | Generate visual Mermaid architecture graph & Decision DAG (`trace-graph.md`) |
-| `skyhook trace` | `<REQ-ID>` | Trace requirement to stories, decisions, and AST-parsed code references |
-| `skyhook impact`| `<REQ-ID>` | Analyze risk level and blast radius of changing a requirement |
-| `skyhook untraced` | — | Surface implemented/in-progress requirements with zero codebase references |
-| `skyhook coverage` | — | Calculate requirements and code traceability coverage percentages |
-| `skyhook map-legacy` | `[--limit=N]` | Map untagged codebase symbols to candidate requirements |
-| `skyhook sync` | — | Comprehensive drift detection across tech stack, requirements, and decisions |
-| `skyhook decide`| `<title> <decision> <context>` | Record an architectural decision with auto-generated ADR |
-| `skyhook plan` | — | Generate or refresh `PROJECT_PLAN.md` with milestones and risk analysis |
-| `skyhook discover` | `[phase]` | Interactive requirements gathering workflow |
-| `skyhook question` | `[category]` | Contextual questioning engine filtered by phase |
-| `skyhook standards` | `[category]` | Display applicable engineering standards with project overrides |
-| `skyhook dashboard` | `<start\|stop\|status>` | On-demand HTTP web dashboard (port 4343) |
-| `skyhook setup` | `<codex\|claude\|gemini\|copilot\|all>` | Auto-configure native slash commands for agent harnesses |
-| `skyhook profile` | `[name]` | Inspect profile details, variants, questions, and defaults |
-| `skyhook version` | — | Output version, protocol info, and environment runtime |
-| `skyhook help` | — | Comprehensive CLI help and command index |
+### Core Tenets
+1. **100% Offline & Local-First**: Zero external network requests, zero cloud relays, and zero telemetry. Operates completely air-gapped on `127.0.0.1`.
+2. **Zero Native Build Tools**: Zero `node-gyp`, Python compilation steps, or C++ dependencies. Skyhook uses pure ES modules and pure JavaScript AST parsers.
+3. **Dual-Environment Architecture**: The cybernetic dashboard runs identically in standard browsers via HTTP/WebSocket and inside VS Code / Cursor / Windsurf Webview panels via `window.postMessage`.
+4. **Advisory Multi-Agent Leases**: Prevents concurrent AI agent collisions through time-boxed advisory leases, automated prerequisite cascades, and dependency locks.
+5. **Continuous Markdown ⇄ YAML Synchronization**: Markdown files for humans and structured YAML/JSON for agents stay in bidirectional real-time sync.
 
 ---
 
-### 2. Slash Command & JSON Protocol Layer (`skyhook/cli/skyhook-cmd.js`)
+## 2. Core Engine Internals
 
-Provides stdio JSON protocol integration for all AI agent harnesses.
-Invocation pattern:
-```bash
-echo '{"command":"getNextTask","args":{}}' | skyhook-cmd
+### 2.1 AST Code Tracer & Polyglot Parsers
+- **Location**: [`skyhook/lib/tracer/`](file:///Users/asad/Documents/Codex/2026-08-29/wh/skyhook-repo/skyhook/lib/tracer/), [`skyhook/lib/parsers/`](file:///Users/asad/Documents/Codex/2026-08-29/wh/skyhook-repo/skyhook/lib/parsers/)
+- **Mechanism**:
+  - `ParserRegistry.js`: Coordinates language-specific parsers with dynamic priority matching. Allows runtime registration of custom user parsers placed in `.skyhook/parsers/`.
+  - **Polyglot Parsers**:
+    - **JavaScript / TypeScript**: Built with `@babel/parser` and `@babel/traverse`. Parses ES modules, CommonJS, React JSX/TSX, TypeScript interfaces, and docblock annotations (`// @skyhook-implements REQ-001`).
+    - **Python** (`PythonParser.js`): Extracts classes, methods, async defs, docstrings, decorators, and `# @skyhook-implements` tags.
+    - **Go** (`GoParser.js`): Extracts package functions, receiver methods, structs, interfaces, and comment tags.
+    - **Rust** (`RustParser.js`): Extracts structs, traits, `impl` blocks, and `/// @skyhook-implements` tags.
+    - **Java** (`JavaParser.js`): Extracts classes, records, interfaces, methods, and `@SkyhookImplements("REQ-001")` annotations.
+  - `SymbolLineageTracker.js`: Generates AST symbol fingerprints. When files are refactored or methods renamed, it computes Levenshtein distance and token similarity across candidate symbols to detect broken lineage and suggest recoveries.
+  - `ASTImportGraph.js`: Builds the directed module import graph and detects circular dependencies using **Tarjan's strongly connected components algorithm**.
+  - `DarkMatterAnalyzer.js`: Surfaces untraced codebase symbols, categorizing them into risk tiers (`Critical`, `High`, `Medium`, `Low`) and computing traceability coverage percentages.
+
+```mermaid
+flowchart LR
+    Source["Source Code Files<br/>(JS/TS, PY, GO, RS, JAVA)"] --> Registry["ParserRegistry"]
+    Registry --> Parsers["Language Parsers"]
+    Parsers --> ASTGraph["ASTImportGraph<br/>(Tarjan Cycles)"]
+    Parsers --> Lineage["SymbolLineageTracker<br/>(Fingerprinting)"]
+    Parsers --> DarkMatter["DarkMatterAnalyzer<br/>(Coverage Radar)"]
 ```
 
-**36 Protocol Commands:**
+---
 
-| Category | Commands |
-|----------|----------|
-| **Feature Management** | `listCurrentFeatures`, `getFeature`, `addFeature` |
-| **Task Management** | `getNextTask`, `getBlockers`, `updateStatus` |
-| **Decisions & ADRs** | `recordDecision`, `decide`, `syncAdr`, `verifyAdr`, `draftAdr`, `watchAdr`, `bootstrapAdr` |
-| **Git Governance** | `hookInstall`, `hookUninstall`, `hookStatus` |
-| **Traceability & AST** | `trace`, `impact`, `untraced`, `coverage`, `mapLegacy`, `graph` |
-| **Drift & Sync** | `sync` |
-| **Context & Plan** | `getContext`, `plan`, `standards`, `discover`, `question`, `profile` |
-| **Lifecycle & Setup** | `init`, `setup`, `install`, `version`, `batchCreate`, `dashboard`, `help` |
+### 2.2 Agile Backlog FSM, Leases & Event Ledger
+- **Location**: [`skyhook/lib/backlog/`](file:///Users/asad/Documents/Codex/2026-08-29/wh/skyhook-repo/skyhook/lib/backlog/)
+- **Mechanism**:
+  - `BacklogStateMachine.js`: Enforces the 5-stage task lifecycle:
+    $$\text{backlog} \longrightarrow \text{ready} \longrightarrow \text{in-progress} \longrightarrow \text{in-review} \longrightarrow \text{done}$$
+    Enforces prerequisite dependency satisfaction before allowing a story to enter `ready`. Cascades automatic unblocks to dependent stories when blockers reach `done`, and auto-completes parent Epics when all child stories are finished.
+  - `BacklogLeaseManager.js`: Grants advisory leases to agents (`assignee: "Cursor-Agent"`) with configurable TTL (default 60 minutes). Prevents concurrent agent collisions. Automatically reclaims expired leases.
+  - `EventLedger.js`: Append-only event ledger in `.skyhook/backlog/events.jsonl`. Replays events to reconstitute state at any historical timestamp, and calculates empirical **Lead Time** (creation to completion) and **Cycle Time** (in-progress to completion).
+  - `BacklogLock.js`: Cross-process advisory lock file (`.skyhook/backlog/.lock`) with stale-lock detection and automatic recovery.
+  - `GitLifecycleSync.js`: Monitors git branch checkouts (e.g. `feature/STORY-001-auth`) and commit messages (e.g. `fix: complete STORY-001 [closes STORY-001]`), automatically driving FSM state transitions.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Backlog
+    Backlog --> Ready: Dependencies Resolved
+    Ready --> InProgress: Agent Claims Lease (skyhook_get_next_task)
+    InProgress --> InReview: Code Authored & Tests Pass
+    InReview --> Done: Review Passed / Git Commit Sync
+    InProgress --> Ready: Lease Expired or Released
+    Done --> [*]
+```
 
 ---
 
-### 3. Automated ADR Sub-Systems (`skyhook/lib/adr/`)
+### 2.3 Automated ADR Engine & Boundary Guard
+- **Location**: [`skyhook/lib/adr/`](file:///Users/asad/Documents/Codex/2026-08-29/wh/skyhook-repo/skyhook/lib/adr/)
+- **Mechanism**:
+  - `ADRSynthesizer.js`: Generates structured architectural decision records with auto-generated Mermaid diagrams and comparative diffs.
+  - `ADRSupersessionEngine.js`: Manages the decision lifecycle:
+    $$\text{draft} \longrightarrow \text{under-review} \longrightarrow \text{accepted} \longrightarrow \text{superseded} \longrightarrow \text{deprecated}$$
+    Injects clear warning callouts into superseded ADR files, links target replacement ADRs, and recalculates the Mermaid Decision DAG.
+  - `ADRPolicyCompiler.js` & `ADRPolicyGuard.js`: Extracts enforceable boundary rules from ADR text (e.g., `Prohibit import 'axios' in 'services/'`). Scans the AST of all source files during verification and pre-commit hooks to halt violations.
+  - `ADRInterceptionDaemon.js`: Scans repository package manifests (`package.json`, `requirements.txt`, `Cargo.toml`, `go.mod`) and database migrations to detect unrecorded architectural changes and auto-drafts candidate ADRs.
+  - `ADRSyncEngine.js` & `ADRWatcher.js`: Maintains 2-way consistency between Markdown records in `decisions/records/*.md` and `.skyhook/decisions/index.yaml` with a 60ms debounced file watcher.
 
-Skyhook replaces write-once, forgotten ADRs with a living, active architectural lifecycle:
+```mermaid
+flowchart TD
+    subgraph ADRLifecycle["ADR Lifecycle & DAG"]
+        Draft["Draft"] --> Review["Under Review"]
+        Review --> Accepted["Accepted"]
+        Accepted --> Superseded["Superseded"]
+        Accepted --> Deprecated["Deprecated"]
+    end
 
-1. **`ADRSynthesizer.js` (Visual Synthesis & Drafting)**:
-   - Evaluates project profile, tech stack, and repository facts.
-   - Generates rich Markdown documents containing contextual **Mermaid diagrams**:
-     - C4 Component pipelines for Web Applications and APIs.
-     - Database persistence diagrams for ORMs (Prisma, Drizzle) and databases (PostgreSQL, MySQL).
-     - Sequence diagrams for Authentication flows.
-   - Injects alternatives comparison tables, positive/negative/neutral consequences, and enforcement invariants.
-2. **`ADRSyncEngine.js` (Bi-Directional Living Sync)**:
-   - Scans `.skyhook/decisions/records/*.md` and `.skyhook/decisions/index.yaml`.
-   - Parses Markdown frontmatter and headers using `ADRParser.js`.
-   - Propagates status changes (e.g. `accepted` -> `deprecated`) from Markdown to YAML index.
-   - Indexes newly created markdown files automatically.
-   - Reconstructs missing markdown files from index entries.
-3. **`ADRPolicyGuard.js` (Active Architectural Enforcement)**:
-   - Parses policy invariants declared in ADRs (e.g. `prohibitedImports: ["axios"]`).
-   - Scans JavaScript/TypeScript source files using AST parsing or regex.
-   - Identifies exact line numbers, snippets, and violation messages.
-   - Powers `skyhook adr verify` and Git pre-commit gating.
-4. **`ADRWatcher.js` (Real-Time File Watcher Daemon)**:
-   - Monitors `.skyhook/decisions/records/` using debounced filesystem watchers.
-   - Triggers `ADRSyncEngine` instantly on editor save (`Cmd+S`).
-5. **Baseline Reverse-Engineering (`bootstrapBaselineADRs`)**:
-   - Analyzes brownfield codebases via `InferenceEngine`.
-   - Generates foundational accepted ADRs for all discovered technologies (Next.js, Prisma, Tailwind, etc.).
-   - Guarantees strict idempotency so re-runs never duplicate records.
+    Accepted --> Compiler["ADRPolicyCompiler"]
+    Compiler --> Policies["Active AST Policies"]
+    Policies --> Guard["ADRPolicyGuard (Pre-Commit / CLI)"]
+    Guard --> Block["Block Forbidden Imports / Code"]
+```
 
 ---
 
-### 4. Git Pre-Commit Hook Manager (`skyhook/lib/git/GitHookManager.js`)
-
-Enforces "Decisions with Teeth":
-- Installs `.git/hooks/pre-commit` with executable permissions (`chmod +x`).
-- Runs `skyhook adr verify` before code is committed.
-- Rejects commits that introduce prohibited dependencies or violate architectural invariants.
-- Chains safely with existing pre-commit hooks non-destructively.
-
----
-
-### 5. AST Code Tracer & Symbol Indexer (`skyhook/lib/tracer.js`)
-
-Leverages `@babel/parser` and `@babel/traverse` to extract structural code intelligence:
-- **Annotation Extraction**: Scans comments for `// @skyhook-implements REQ-001 REQ-002`.
-- **Symbol Resolution**: Discovers functions, exported functions, classes, and methods.
-- **Bi-Directional Traceability**: Links requirements to code symbols, backlog stories, and ADRs.
-- **Impact Analysis**: Computes blast radius, risk level (low/medium/high), and affected files.
-- **Untraced Detection**: Identifies requirements marked implemented but lacking code annotations.
-- **Legacy Mapping (`map-legacy`)**: Suggests requirement mappings for existing untagged symbols.
+### 2.4 Architecture Drift, DDD Boundaries & Semantic Rules
+- **Location**: [`skyhook/lib/drift/`](file:///Users/asad/Documents/Codex/2026-08-29/wh/skyhook-repo/skyhook/lib/drift/)
+- **Mechanism**:
+  - `ModuleBoundaryGuard.js`: Enforces Domain-Driven Design (DDD) layer boundaries. Verifies that inner layers (`domain/`) never import from outer layers (`infrastructure/` or `ui/`).
+  - `SemanticRuleEngine.js`: Performs AST code hygiene checks:
+    - Flags direct `process.env` access outside configuration directories.
+    - Flags raw SQL / unparameterized queries in HTTP controller layers.
+    - Flags unstructured `console.log` statements in production services.
+  - `C4ArchitectureGenerator.js`: Reverse-engineers C4 Container and Component models from directory trees and import graphs, comparing them against the baseline in `project.yaml`.
+  - `DriftAutoFixer.js` & `DriftAggregator.js`: Computes an Architectural Compliance Health Score ($0-100\%$) and provides a 1-click adoption action to update `tech-stack.yaml` and draft an ADR.
 
 ---
 
-### 6. Visual Traceability & Decision DAG (`skyhook/lib/handlers/sync.js`)
-
-`skyhook graph` generates `.skyhook/trace-graph.md`:
-- **Mermaid Graph Architecture**:
-  - `subgraph Requirements`: Lists functional and non-functional requirements.
-  - `subgraph Decisions`: Renders the complete **Decision DAG** timeline:
-    - Status-specific styling (🏛️ accepted, ⚠️ superseded, 📝 draft).
-    - Thick supersession arrows: `ADR_1 == "superseded by" ==> ADR_2`.
-    - Governance arrows: `ADR_2 -. "governs" .-> REQ_001`.
-  - `subgraph Codebase`: Renders source files and symbol nodes.
-  - Traceability arrows connecting requirements to AST symbols: `REQ_001 --> S_0`.
-- **Vertical Layout Enforcement**: Uses `direction TB` and invisible links (`~~~`) between subgraphs to prevent horizontal sprawl.
+### 2.5 Project Plan Compiler & Capacity Forecaster
+- **Location**: [`skyhook/lib/plan/`](file:///Users/asad/Documents/Codex/2026-08-29/wh/skyhook-repo/skyhook/lib/plan/)
+- **Mechanism**:
+  - `PlanCompiler.js`: Compiles the master living plan `.skyhook/plan/PROJECT_PLAN.md`. Aggregates project vision, architecture overview, backlog epics/stories, delivery forecasts, and Gantt charts.
+  - `GanttGenerator.js`: Generates Mermaid Gantt syntax (`gantt ... dateFormat YYYY-MM-DD`) with sectioned epics, story durations, and milestone markers.
+  - `ScopedPlanGenerator.js`: Emits detailed individual requirement plans (`.skyhook/plan/requirements/REQ-*.md`) and epic plans (`.skyhook/plan/epics/EPIC-*.md`).
+  - `CapacityPlanner.js`: Evaluates historical event velocity from `events.jsonl`. Computes rolling velocity, remaining story points, scope creep metrics, and statistical P50 and P90 projected delivery dates.
 
 ---
 
-### 7. Inference Engine (`skyhook/lib/inference/`)
-
-Extracts project architecture without configuration across 6 specialized providers:
-- `PackageJsonProvider`: Detects dependencies, scripts, engines.
-- `PrismaProvider`: Detects schemas, database providers (PostgreSQL, MySQL, SQLite).
-- `ConfigProvider`: Detects Next.js, Vite, Tailwind, TypeScript configs.
-- `DeploymentProvider`: Detects Docker, Vercel, Netlify, Fly.io, Railway.
-- `MiddlewareProvider`: Detects auth pipelines, routing, logging.
-- `ASTPatternProvider`: Inspects code patterns via AST.
+### 2.6 Embedded Server, WebSocket Gateway & File RPC
+- **Location**: [`skyhook/lib/server/`](file:///Users/asad/Documents/Codex/2026-08-29/wh/skyhook-repo/skyhook/lib/server/)
+- **Mechanism**:
+  - `SkyhookServer.js`: Offline HTTP server with automatic port-hunting starting at 31415 (`31415`, `31416`, `31417`, ...). Serves static SPA dashboard assets and REST/RPC endpoints:
+    - `GET /api/projects`: Discovers local workspace and all global projects tracked in `~/.skyhook`.
+    - `GET /api/project?id=...`: Retrieves unified project state, capacity, backlog, and drift.
+    - `GET /api/file?path=...`: Securely serves project source files with strict directory traversal prevention (`403 Forbidden` if path escapes workspace).
+    - `GET /api/dark-matter`: Serves AST coverage metrics and untraced symbols.
+    - `GET /api/harness/detect`: Returns active and detected AI agent configurations.
+    - `POST /api/action/*`: Executes transactional actions (`update-status`, `release-lease`, `adopt-drift`, `recompile-plan`, `open-editor`, `inject-harness`, `remove-harness`).
+  - `WebSocketGateway.js`: Broadcasts real-time events over `ws://127.0.0.1:<port>/ws` with sub-5ms latency. Features unreferenced heartbeat ping/pongs that measure client connection latency and prevent dangling node processes.
+  - `DashboardWatcher.js`: Observes `.skyhook/` directory mutations with 60ms debouncing, pushing reactive updates to all connected browser and IDE clients.
 
 ---
 
-### 8. State Directory Layout (`.skyhook/`)
+### 2.7 Modular Multi-Page Cybernetic Dashboard (MMPA)
+- **Location**: [`skyhook/dashboard/public/`](file:///Users/asad/Documents/Codex/2026-08-29/wh/skyhook-repo/skyhook/dashboard/public/)
+- **Mechanism**:
+  - Built with **native browser ES Modules** (`<script type="module" src="/main.js">`). Requires **zero bundlers**, zero Webpack, and zero build commands.
+  - **Universal Platform Bridge** (`core/Bridge.js`, `BrowserBridge.js`, `VSCodeBridge.js`): Automatically detects whether it is running in a browser or inside a VS Code / Cursor Webview. Routes RPC calls through `fetch`/WebSocket or `acquireVsCodeApi().postMessage`.
+  - **Deep-Link Hash Router** (`core/Router.js`): Maps `#/kanban`, `#/topology`, `#/drift`, `#/decisions`, `#/mermaid`, `#/dark-matter`, `#/harness`, and `#/settings`. Parses query parameters (`#/decisions?id=ADR-001`) and gracefully falls back on 404 routes.
+  - **Lifecycle Engine** (`core/BaseView.js`): Orchestrates `mount()`, `postRender()`, `update()`, and `unmount()`. Automatically sweeps all active timers and store subscriptions on navigation to prevent memory leaks.
+  - **IDE Packaging Manifest** (`ide/ExtensionManifest.json`): Outlines the exact CSP, message schemas, and webview configurations required to package the dashboard into a `.vsix` extension.
+
+```mermaid
+flowchart TD
+    subgraph ModularRuntime["Modular Dashboard Runtime"]
+        Bridge["Universal Platform Bridge (Browser vs IDE)"]
+        Router["Client Hash Router (#/view?params)"]
+        Store["Reactive Store (State, Projects, Latency)"]
+        BaseView["BaseView (Lifecycle & Sweep)"]
+    end
+
+    subgraph Views["8 Modular Feature Views"]
+        V1["KanbanView"]
+        V2["TopologyView"]
+        V3["DriftView"]
+        V4["DecisionsView"]
+        V5["MermaidView"]
+        V6["DarkMatterView"]
+        V7["HarnessView"]
+        V8["SettingsView"]
+    end
+
+    Router --> BaseView
+    BaseView --> Views
+    Views --> Bridge
+    Views --> Store
+```
+
+---
+
+### 2.8 100% Offline MCP Server & Poly-Agent Harness Injector
+- **Location**: [`skyhook/lib/harness/`](file:///Users/asad/Documents/Codex/2026-08-29/wh/skyhook-repo/skyhook/lib/harness/), [`skyhook/cli/skyhook-mcp.js`](file:///Users/asad/Documents/Codex/2026-08-29/wh/skyhook-repo/skyhook/cli/skyhook-mcp.js)
+- **Mechanism**:
+  - Implements the official **Model Context Protocol (MCP) specification (2024-11-05)** over pure JSON-RPC 2.0.
+  - **Transports**:
+    - `StdioTransport.js`: Pipes JSON-RPC messages over standard I/O. Redirects `console.log` to `process.stderr` to keep `stdout` pristine for client parsing.
+    - `SSETransport.js`: Local HTTP loopback server listening on `127.0.0.1` serving `/sse` streams and `/messages` session endpoints.
+  - **8 Core MCP Tools**:
+    1. `skyhook_get_next_task`
+    2. `skyhook_update_status`
+    3. `skyhook_release_lease`
+    4. `skyhook_record_decision`
+    5. `skyhook_verify_policies`
+    6. `skyhook_check_drift`
+    7. `skyhook_trace_requirement`
+    8. `skyhook_get_context`
+  - **5 MCP Resources**: `skyhook://backlog`, `skyhook://plan`, `skyhook://decisions`, `skyhook://boundaries`, `skyhook://tech-stack`.
+  - **2 MCP Prompts**: `task_kickoff`, `architecture_review`.
+  - **Poly-Agent Harness Matrix**:
+    - **Cursor**: Generates `.cursor/rules/skyhook.mdc` and merges `.cursor/mcp.json`.
+    - **Claude Desktop**: Configures OS-specific `claude_desktop_config.json`.
+    - **Claude Code**: Injects `CLAUDE.md` and `.claude/config.json`.
+    - **GitHub Copilot**: Injects `.github/copilot-instructions.md` and `.vscode/settings.json`.
+    - **Windsurf**: Injects `.windsurfrules` and `.codeium/windsurf/mcp_config.json`.
+    - **Google Antigravity**: Injects `.agents/rules/skyhook-governance.md` and `.agents/mcp_config.json`.
+    - **Cline / Roo Code**: Injects `.clinerules` and global `cline_mcp_settings.json`.
+  - **Non-Destructive Merging**: Encloses markdown rules in `<!-- SKYHOOK_RULES_START --> ... <!-- SKYHOOK_RULES_END -->` and performs deep recursive JSON object merges without clobbering user configs.
+
+---
+
+## 3. Storage & State Schema (`.skyhook/`)
 
 ```
 .skyhook/
-├── project.yaml              # Project metadata, profile, configuration
-├── context.md                # Problem statement, solution overview, target audience
-├── vision.md                 # Product vision, KPIs, personas, user journeys
+├── project.yaml                     # Project metadata, profile declaration, and standards
+├── tech-stack.yaml                  # Declared vs inferred dependencies and libraries
 ├── requirements/
-│   ├── functional.yaml       # Functional requirements (REQ-001, REQ-002...)
-│   ├── non-functional.yaml   # Performance, security, scalability requirements
-│   └── constraints.yaml      # Technical, budget, regulatory constraints
-├── decisions/
-│   ├── index.yaml            # Decision registry with statuses and supersessions
-│   └── records/              # Full living ADR Markdown files (<ULID>.md)
+│   ├── functional.yaml              # User stories, acceptance criteria, WSJF priorities
+│   ├── non-functional.yaml          # Performance, security, accessibility criteria
+│   └── constraints.yaml             # Architectural, business, and regulatory constraints
 ├── backlog/
-│   └── epics.yaml            # Epics, stories, acceptance criteria, WSJF priority
-├── tech-stack.yaml           # Discovered & recorded technology stack
-├── ux/
-│   └── styleguide.md         # Design system tokens and component specs
-├── standards/                # Project-specific standards overrides
-├── changelog.md              # Automated audit log of all project mutations
-└── trace-graph.md            # Generated visual Decision DAG & traceability graph
+│   ├── epics.yaml                   # Epics, child stories, points, and dependencies
+│   ├── events.jsonl                 # Append-only event ledger for FSM replay & metrics
+│   └── .lock                        # Cross-process advisory lock file
+├── decisions/
+│   ├── index.yaml                   # Fast registry of all ADR metadata and statuses
+│   └── records/                     # Rich Markdown ADR files
+│       ├── ADR-001.md
+│       └── ADR-002.md
+├── plan/
+│   ├── PROJECT_PLAN.md              # Living compiled master plan with Mermaid Gantt
+│   ├── requirements/                # Scoped requirement plans
+│   └── epics/                       # Scoped epic plans
+├── trace-graph.md                   # Visual architecture & Decision DAG (Mermaid)
+├── harness-manifest.json            # Injected agent harness registry & timestamps
+└── changelog.md                     # Automated audit log of requirements and state changes
 ```
 
 ---
 
-## Compatibility & Standards
+## 4. Verification & Testing Standards
 
-- **Runtime**: Node.js ≥ 18.0.0 (Pure ES Modules).
-- **Zero External Runtime Daemons**: Standard command execution via CLI or stdio JSON.
-- **Portability**: Plain Markdown and YAML files stored in Git alongside source code.
-- **Agent Interoperability**: Compatible with Codex, Claude Code, Gemini CLI, GitHub Copilot, and Google Antigravity.
+Skyhook maintains 100% offline automated test suites with **148 comprehensive tests across 49 test suites**:
+- **Zero Network Invocations**: Tests use local filesystem fixtures (`os.tmpdir()`) and loopback servers (`127.0.0.1`).
+- **Clean Teardowns**: Tests shut down HTTP/WebSocket servers and clean up temporary workspaces on completion to prevent dangling handles.
+- **Run the full test suite**:
+  ```bash
+  npm test
+  ```

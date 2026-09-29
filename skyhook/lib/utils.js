@@ -9,7 +9,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const CLI_ROOT = path.resolve(__dirname, '..');
 export const SKYHOOK_ROOT = path.resolve(__dirname, '..', '..');
 
-let version = '1.9.0';
+let version = '1.9.1';
 try {
   let pkgPath = path.join(CLI_ROOT, 'package.json');
   if (!fs.existsSync(pkgPath)) {

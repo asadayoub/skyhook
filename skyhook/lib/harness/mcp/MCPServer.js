@@ -66,7 +66,7 @@ export class MCPServer {
             },
             serverInfo: {
               name: 'skyhook-mcp',
-              version: SKYHOOK_VERSION || '1.9.0'
+              version: SKYHOOK_VERSION || '1.9.1'
             }
           });
 

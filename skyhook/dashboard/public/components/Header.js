@@ -33,7 +33,7 @@ export class Header {
         <div>
           <div class="brand-title">SKYHOOK // ARCHITECTURE RADAR</div>
         </div>
-        <span class="brand-version">v1.9.0</span>
+        <span class="brand-version">v1.9.1</span>
       </div>
 
       <div id="navContainer"></div>
