@@ -8,11 +8,14 @@ import { BaseView } from '../core/BaseView.js';
 export class TopologyView extends BaseView {
   render() {
     const d = this.store.getState().projectData || {};
-    const reqs = [...(d.requirements?.functional?.requirements || []), ...(d.requirements?.nonFunctional?.requirements || [])];
-    const epics = d.backlog?.epics || [];
-    const stories = d.backlog?.stories || [];
-    const symbols = (d.symbols || []).slice(0, 25);
-    const decisions = d.decisions?.decisions || [];
+    const reqs = [
+      ...(Array.isArray(d.requirements?.functional?.requirements) ? d.requirements.functional.requirements : []),
+      ...(Array.isArray(d.requirements?.nonFunctional?.requirements) ? d.requirements.nonFunctional.requirements : [])
+    ];
+    const epics = Array.isArray(d.backlog?.epics) ? d.backlog.epics : [];
+    const stories = Array.isArray(d.backlog?.stories) ? d.backlog.stories : [];
+    const symbols = Array.isArray(d.symbols) ? d.symbols.slice(0, 25) : [];
+    const decisions = Array.isArray(d.decisions?.decisions) ? d.decisions.decisions : [];
 
     return `
       <div class="glass-panel topology-container" id="topologyViewport" style="height: 680px; position: relative; overflow: hidden; border-radius: 12px;">
@@ -60,21 +63,36 @@ export class TopologyView extends BaseView {
     if (!world) return;
 
     const d = this.store.getState().projectData || {};
-    const reqs = [...(d.requirements?.functional?.requirements || []), ...(d.requirements?.nonFunctional?.requirements || [])];
-    const epics = d.backlog?.epics || [];
-    const stories = d.backlog?.stories || [];
-    const symbols = (d.symbols || []).slice(0, 25);
-    const decisions = d.decisions?.decisions || [];
+    const reqs = [
+      ...(Array.isArray(d.requirements?.functional?.requirements) ? d.requirements.functional.requirements : []),
+      ...(Array.isArray(d.requirements?.nonFunctional?.requirements) ? d.requirements.nonFunctional.requirements : [])
+    ];
+    const epics = Array.isArray(d.backlog?.epics) ? d.backlog.epics : [];
+    const stories = Array.isArray(d.backlog?.stories) ? d.backlog.stories : [];
+    const symbols = Array.isArray(d.symbols) ? d.symbols.slice(0, 25) : [];
+    const decisions = Array.isArray(d.decisions?.decisions) ? d.decisions.decisions : [];
 
-    const pathBasename = (p) => p ? p.split(/[\\/]/).pop() : '';
+    const pathBasename = (p) => p ? String(p).split(/[\\/]/).pop() : '';
 
     const renderNodes = (items, x, color, type) => {
-      return items.map((item, idx) => {
+      if (!Array.isArray(items)) return '';
+      return items.filter(Boolean).map((item, idx) => {
         const y = 80 + idx * 60;
-        const title = item.title || item.name || item.id;
-        const sub = item.filePath ? `${pathBasename(item.filePath)}:${item.line || 1}` : (item.status || type);
+        const titleRaw = typeof item === 'string'
+          ? item
+          : (item.title || item.name || item.id || item.statement || item.description || `Node ${idx + 1}`);
+        const title = String(titleRaw || 'Untitled');
+
+        const filePath = item.filePath || item.file || '';
+        const subRaw = filePath
+          ? `${pathBasename(filePath)}:${item.line || 1}`
+          : (item.status || item.type || type || '');
+        const sub = String(subRaw || '');
+
+        const itemId = String(typeof item === 'string' ? item : (item.id || item.name || title || `node-${idx}`));
+
         return `
-          <g class="graph-node" style="cursor: pointer;" data-type="${type}" data-id="${this.escapeHtml(item.id || item.name)}" data-filepath="${this.escapeHtml(item.filePath || '')}" data-line="${item.line || 1}">
+          <g class="graph-node" style="cursor: pointer;" data-type="${type}" data-id="${this.escapeHtml(itemId)}" data-filepath="${this.escapeHtml(filePath)}" data-line="${item.line || 1}">
             <rect x="${x}" y="${y}" width="220" height="46" rx="8" fill="rgba(14, 20, 36, 0.9)" stroke="${color}" stroke-width="1.5" />
             <text x="${x + 12}" y="${y + 20}" font-family="Inter" font-size="12" font-weight="600" fill="#f0f6fc">${this.escapeHtml(title.slice(0, 24))}</text>
             <text x="${x + 12}" y="${y + 36}" font-family="Fira Code" font-size="10" fill="#94a3b8">${this.escapeHtml(sub.slice(0, 28))}</text>
