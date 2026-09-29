@@ -5,12 +5,22 @@
 
 import { BaseView } from '../core/BaseView.js';
 import { Toast } from '../components/Toast.js';
+import { ADRModal } from '../components/ADRModal.js';
 
 export class DecisionsView extends BaseView {
   constructor(context) {
     super(context);
     this.viewMode = 'kanban'; // 'kanban' | 'dag'
     this.dagData = null;
+    this.adrModal = new ADRModal({
+      bridge: this.bridge,
+      store: this.store,
+      onSaved: () => {
+        if (this.bridge.refreshProject) {
+          this.bridge.refreshProject();
+        }
+      }
+    });
   }
 
   render() {
@@ -47,10 +57,13 @@ export class DecisionsView extends BaseView {
               DAG Graph
             </button>
           </div>
+          <button id="draftAdrToolbarBtn" class="btn-cyber" style="padding: 8px 16px; font-size: 0.82rem;">
+            ➕ Draft Decision
+          </button>
           <button id="sweepAdrBtn" class="btn-secondary" style="padding: 8px 14px; font-size: 0.82rem;">
             🔍 Proactive Sweep
           </button>
-          <button id="compilePoliciesBtn" class="btn-cyber" style="padding: 8px 16px; font-size: 0.82rem;">
+          <button id="compilePoliciesBtn" class="btn-secondary" style="padding: 8px 16px; font-size: 0.82rem;">
             ⚡ Compile Policies
           </button>
         </div>
@@ -102,6 +115,9 @@ export class DecisionsView extends BaseView {
                               Accept ➔
                             </button>
                           ` : ''}
+                          <button class="btn-secondary edit-adr-btn" style="font-size: 0.72rem; padding: 4px 8px;" data-id="${d.id}">
+                            Edit ✏️
+                          </button>
                           <button class="btn-secondary open-adr-btn" style="font-size: 0.72rem; padding: 4px 8px;" data-id="${d.id}">
                             View Doc ↗
                           </button>
@@ -139,6 +155,15 @@ export class DecisionsView extends BaseView {
     if (typeof window !== 'undefined' && window.mermaid) {
       try { window.mermaid.run(); } catch (_) {}
     }
+
+    this.registerSubscription(
+      this.store.subscribe('projectData', () => {
+        if (this.container) {
+          this.container.innerHTML = this.render();
+          this.postRender();
+        }
+      })
+    );
   }
 
   bindEvents() {
@@ -204,6 +229,27 @@ export class DecisionsView extends BaseView {
         const pref = this.store.getState().editorPreference;
         if (skyhookDir) {
           this.bridge.openEditor(`${skyhookDir}/decisions/records/${id}.md`, 1, pref);
+        }
+      });
+    });
+
+    // Draft ADR modal button
+    const draftBtn = this.container.querySelector('#draftAdrToolbarBtn');
+    if (draftBtn) {
+      draftBtn.addEventListener('click', () => {
+        this.adrModal.open(null);
+      });
+    }
+
+    // Edit ADR button
+    const editBtns = this.container.querySelectorAll('.edit-adr-btn');
+    editBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.id;
+        const decisions = this.store.getState().projectData?.decisions?.decisions || [];
+        const adr = decisions.find(d => d.id === id);
+        if (adr) {
+          this.adrModal.open(adr);
         }
       });
     });

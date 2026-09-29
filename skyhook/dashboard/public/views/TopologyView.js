@@ -4,8 +4,19 @@
  */
 
 import { BaseView } from '../core/BaseView.js';
+import { PanZoomController } from '../core/PanZoomController.js';
+import { StoryModal } from '../components/StoryModal.js';
+import { ADRModal } from '../components/ADRModal.js';
+import { RequirementModal } from '../components/RequirementModal.js';
 
 export class TopologyView extends BaseView {
+  constructor(context) {
+    super(context);
+    this.panZoom = null;
+    this.storyModal = new StoryModal({ bridge: this.bridge, store: this.store });
+    this.adrModal = new ADRModal({ bridge: this.bridge, store: this.store });
+    this.reqModal = new RequirementModal({ bridge: this.bridge, store: this.store });
+  }
   render() {
     const d = this.store.getState().projectData || {};
     const reqs = [
@@ -46,9 +57,24 @@ export class TopologyView extends BaseView {
   async postRender() {
     this.drawNodes();
 
+    const viewport = this.container?.querySelector('#topologyViewport');
+    const world = this.container?.querySelector('#topologyWorld');
+    if (viewport && world) {
+      this.panZoom = new PanZoomController({
+        container: viewport,
+        target: world,
+        minScale: 0.2,
+        maxScale: 3.5
+      });
+      this.panZoom.mountHUD(viewport);
+    }
+
     const resetBtn = this.container?.querySelector('#resetTopologyBtn');
     if (resetBtn) {
-      resetBtn.addEventListener('click', () => this.drawNodes());
+      resetBtn.addEventListener('click', () => {
+        if (this.panZoom) this.panZoom.reset();
+        this.drawNodes();
+      });
     }
 
     this.registerSubscription(
@@ -56,6 +82,14 @@ export class TopologyView extends BaseView {
         this.drawNodes();
       })
     );
+  }
+
+  async unmount() {
+    if (this.panZoom) {
+      this.panZoom.destroy();
+      this.panZoom = null;
+    }
+    await super.unmount();
   }
 
   drawNodes() {
@@ -123,12 +157,35 @@ export class TopologyView extends BaseView {
         if (type === 'code' && filePath) {
           this.bridge.openEditor(filePath, line, pref);
         } else if (type === 'adr') {
-          const skyhookDir = this.store.getState().projectData?.skyhookDir;
-          if (skyhookDir) {
-            this.bridge.openEditor(`${skyhookDir}/decisions/records/${id}.md`, 1, pref);
+          const decisions = this.store.getState().projectData?.decisions?.decisions || [];
+          const adr = decisions.find(d => d.id === id);
+          if (adr) {
+            this.adrModal.open(adr);
+          } else {
+            const skyhookDir = this.store.getState().projectData?.skyhookDir;
+            if (skyhookDir) this.bridge.openEditor(`${skyhookDir}/decisions/records/${id}.md`, 1, pref);
+          }
+        } else if (type === 'story') {
+          const stories = this.store.getState().projectData?.backlog?.stories || [];
+          const story = stories.find(s => s.id === id);
+          if (story) {
+            this.storyModal.open(story);
+          }
+        } else if (type === 'req') {
+          const d = this.store.getState().projectData || {};
+          const allReqs = [
+            ...(Array.isArray(d.requirements?.functional?.requirements) ? d.requirements.functional.requirements : []),
+            ...(Array.isArray(d.requirements?.nonFunctional?.requirements) ? d.requirements.nonFunctional.requirements : [])
+          ];
+          const req = allReqs.find(r => r.id === id);
+          if (req) {
+            this.reqModal.open(req, req.type || 'functional');
           }
         } else {
-          alert(`Topology Node Selected:\nType: ${type.toUpperCase()}\nIdentifier: ${id}`);
+          const skyhookDir = this.store.getState().projectData?.skyhookDir;
+          if (skyhookDir) {
+            this.bridge.openEditor(`${skyhookDir}/backlog/epics.yaml`, 1, pref);
+          }
         }
       });
     });

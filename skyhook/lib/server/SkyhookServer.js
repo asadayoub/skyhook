@@ -398,6 +398,160 @@ export class SkyhookServer {
           return;
         }
 
+        // POST /api/action/reindex-symbols
+        if (pathname === '/api/action/reindex-symbols' && req.method === 'POST') {
+          const body = await SkyhookServer.parseJsonBody(req);
+          const projDir = body.projectDir || this.workspaceDir;
+          const result = await DashboardRPCHandler.reindexSymbols(projDir);
+          if (this.gateway) {
+            this.gateway.broadcast('SYMBOLS_UPDATED', result);
+          }
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(result));
+          return;
+        }
+
+        // =====================================================================
+        // --- Full Entity CRUD Routes ---
+        // =====================================================================
+
+        // Story CRUD
+        if (pathname === '/api/crud/story') {
+          const defaultSkyhookDir = path.join(this.workspaceDir, '.skyhook');
+          if (req.method === 'POST') {
+            const body = await SkyhookServer.parseJsonBody(req);
+            const skyhookDir = body.skyhookDir || defaultSkyhookDir;
+            const result = await DashboardRPCHandler.createStory(skyhookDir, body.story);
+            if (this.gateway) this.gateway.broadcast('BACKLOG_UPDATED', result);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(result));
+            return;
+          }
+          if (req.method === 'PUT') {
+            const body = await SkyhookServer.parseJsonBody(req);
+            const skyhookDir = body.skyhookDir || defaultSkyhookDir;
+            const result = await DashboardRPCHandler.updateStory(skyhookDir, body.storyId, body.updates);
+            if (this.gateway) this.gateway.broadcast('BACKLOG_UPDATED', result);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(result));
+            return;
+          }
+          if (req.method === 'DELETE') {
+            const body = await SkyhookServer.parseJsonBody(req);
+            const skyhookDir = body.skyhookDir || defaultSkyhookDir;
+            const result = await DashboardRPCHandler.deleteStory(skyhookDir, body.storyId);
+            if (this.gateway) this.gateway.broadcast('BACKLOG_UPDATED', result);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(result));
+            return;
+          }
+        }
+
+        // Epic CRUD
+        if (pathname === '/api/crud/epic') {
+          const defaultSkyhookDir = path.join(this.workspaceDir, '.skyhook');
+          if (req.method === 'POST') {
+            const body = await SkyhookServer.parseJsonBody(req);
+            const skyhookDir = body.skyhookDir || defaultSkyhookDir;
+            const result = await DashboardRPCHandler.createEpic(skyhookDir, body.epic);
+            if (this.gateway) this.gateway.broadcast('BACKLOG_UPDATED', result);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(result));
+            return;
+          }
+          if (req.method === 'PUT') {
+            const body = await SkyhookServer.parseJsonBody(req);
+            const skyhookDir = body.skyhookDir || defaultSkyhookDir;
+            const result = await DashboardRPCHandler.updateEpic(skyhookDir, body.epicId, body.updates);
+            if (this.gateway) this.gateway.broadcast('BACKLOG_UPDATED', result);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(result));
+            return;
+          }
+          if (req.method === 'DELETE') {
+            const body = await SkyhookServer.parseJsonBody(req);
+            const skyhookDir = body.skyhookDir || defaultSkyhookDir;
+            const result = await DashboardRPCHandler.deleteEpic(skyhookDir, body.epicId);
+            if (this.gateway) this.gateway.broadcast('BACKLOG_UPDATED', result);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(result));
+            return;
+          }
+        }
+
+        // ADR CRUD
+        if (pathname === '/api/crud/adr/supersede' && req.method === 'POST') {
+          const body = await SkyhookServer.parseJsonBody(req);
+          const result = DashboardRPCHandler.supersedeADR(this.workspaceDir, body);
+          if (this.gateway) this.gateway.broadcast('DECISIONS_UPDATED', result);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(result));
+          return;
+        }
+
+        if (pathname === '/api/crud/adr') {
+          const defaultSkyhookDir = path.join(this.workspaceDir, '.skyhook');
+          if (req.method === 'POST') {
+            const body = await SkyhookServer.parseJsonBody(req);
+            const skyhookDir = body.skyhookDir || defaultSkyhookDir;
+            const result = DashboardRPCHandler.createADR(skyhookDir, body.adr);
+            if (this.gateway) this.gateway.broadcast('DECISIONS_UPDATED', result);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(result));
+            return;
+          }
+          if (req.method === 'PUT') {
+            const body = await SkyhookServer.parseJsonBody(req);
+            const skyhookDir = body.skyhookDir || defaultSkyhookDir;
+            const result = DashboardRPCHandler.updateADR(skyhookDir, body.adrId, body.updates);
+            if (this.gateway) this.gateway.broadcast('DECISIONS_UPDATED', result);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(result));
+            return;
+          }
+          if (req.method === 'DELETE') {
+            const body = await SkyhookServer.parseJsonBody(req);
+            const skyhookDir = body.skyhookDir || defaultSkyhookDir;
+            const result = DashboardRPCHandler.deleteADR(skyhookDir, body.adrId);
+            if (this.gateway) this.gateway.broadcast('DECISIONS_UPDATED', result);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(result));
+            return;
+          }
+        }
+
+        // Requirement CRUD
+        if (pathname === '/api/crud/requirement') {
+          const defaultSkyhookDir = path.join(this.workspaceDir, '.skyhook');
+          if (req.method === 'POST') {
+            const body = await SkyhookServer.parseJsonBody(req);
+            const skyhookDir = body.skyhookDir || defaultSkyhookDir;
+            const result = DashboardRPCHandler.createRequirement(skyhookDir, body.type, body.requirement);
+            if (this.gateway) this.gateway.broadcast('REQUIREMENTS_UPDATED', result);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(result));
+            return;
+          }
+          if (req.method === 'PUT') {
+            const body = await SkyhookServer.parseJsonBody(req);
+            const skyhookDir = body.skyhookDir || defaultSkyhookDir;
+            const result = DashboardRPCHandler.updateRequirement(skyhookDir, body.type, body.reqId, body.updates);
+            if (this.gateway) this.gateway.broadcast('REQUIREMENTS_UPDATED', result);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(result));
+            return;
+          }
+          if (req.method === 'DELETE') {
+            const body = await SkyhookServer.parseJsonBody(req);
+            const skyhookDir = body.skyhookDir || defaultSkyhookDir;
+            const result = DashboardRPCHandler.deleteRequirement(skyhookDir, body.type, body.reqId);
+            if (this.gateway) this.gateway.broadcast('REQUIREMENTS_UPDATED', result);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(result));
+            return;
+          }
+        }
+
         // --- Static Asset Serving ---
         let relPath = pathname === '/' ? 'index.html' : pathname.replace(/^\//, '');
         let filePath = path.join(publicDir, relPath);

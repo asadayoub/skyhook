@@ -5,8 +5,22 @@
 
 import { BaseView } from '../core/BaseView.js';
 import { Toast } from '../components/Toast.js';
+import { StoryModal } from '../components/StoryModal.js';
 
 export class KanbanView extends BaseView {
+  constructor(context) {
+    super(context);
+    this.storyModal = new StoryModal({
+      bridge: this.bridge,
+      store: this.store,
+      onSaved: () => {
+        if (this.bridge.refreshProject) {
+          this.bridge.refreshProject();
+        }
+      }
+    });
+  }
+
   render() {
     const projectData = this.store.getState().projectData;
     const stories = projectData?.backlog?.stories || [];
@@ -22,6 +36,17 @@ export class KanbanView extends BaseView {
     ];
 
     return `
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+        <div style="font-family: var(--font-hud); font-size: 1.1rem; color: var(--text-secondary); letter-spacing: 0.5px;">
+          MULTI-AGENT AGILE KANBAN &bull; ${stories.length} TOTAL STORIES
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <button id="addStoryToolbarBtn" class="btn-cyber" style="padding: 6px 14px; font-size: 0.8rem;">
+            ➕ NEW STORY
+          </button>
+        </div>
+      </div>
+
       <div class="kanban-scroll-wrapper">
         <div class="kanban-grid" style="min-width: 1280px;">
           ${columns.map(col => {
@@ -30,7 +55,10 @@ export class KanbanView extends BaseView {
               <div class="kanban-col">
                 <div class="col-header">
                   <span class="col-title">${col.icon} ${col.title}</span>
-                  <span class="col-count">${colStories.length}</span>
+                  <div style="display: flex; align-items: center; gap: 6px;">
+                    <span class="col-count">${colStories.length}</span>
+                    <button class="add-col-story-btn" data-status="${col.id}" title="Add Story to ${col.title}" style="background: rgba(0,240,255,0.1); border: 1px solid var(--border-neon); color: var(--neon-cyan); width: 22px; height: 22px; border-radius: 4px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 0.8rem; font-weight: 700;">+</button>
+                  </div>
                 </div>
                 <div class="col-body" data-status="${col.id}">
                   ${colStories.map(story => this.renderStoryCard(story, epicMap)).join('')}
@@ -126,6 +154,38 @@ export class KanbanView extends BaseView {
           Toast.show(`Lease for story ${storyId} released`, 'info');
         } catch (err) {
           Toast.show(`Failed to release lease: ${err.message}`, 'error');
+        }
+      });
+    });
+
+    // Create Story toolbar button
+    const addToolbarBtn = this.container.querySelector('#addStoryToolbarBtn');
+    if (addToolbarBtn) {
+      addToolbarBtn.addEventListener('click', () => {
+        this.storyModal.open(null, 'backlog');
+      });
+    }
+
+    // Column add story buttons (+)
+    const addColBtns = this.container.querySelectorAll('.add-col-story-btn');
+    addColBtns.forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.storyModal.open(null, btn.dataset.status || 'backlog');
+      });
+    });
+
+    // Story card / title click for edit
+    const storyTitles = this.container.querySelectorAll('.story-title');
+    storyTitles.forEach(titleEl => {
+      titleEl.style.cursor = 'pointer';
+      titleEl.title = 'Click to edit or delete story';
+      titleEl.addEventListener('click', () => {
+        const storyId = titleEl.dataset.storyId;
+        const stories = this.store.getState().projectData?.backlog?.stories || [];
+        const story = stories.find(s => s.id === storyId);
+        if (story) {
+          this.storyModal.open(story);
         }
       });
     });

@@ -913,4 +913,115 @@ header.hud-header {
   }
 }
 
+/* Pan & Zoom Floating HUD Controls */
+.pan-zoom-hud {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  z-index: 25;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(6, 8, 14, 0.88);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border-neon);
+  border-radius: 8px;
+  padding: 6px 10px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  user-select: none;
+}
+
+.pz-btn {
+  background: rgba(14, 20, 36, 0.8);
+  border: 1px solid var(--border-dim);
+  color: var(--text-primary);
+  border-radius: 6px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-family: var(--font-hud);
+  font-size: 0.85rem;
+  font-weight: 700;
+  transition: all 0.15s ease;
+}
+
+.pz-btn:hover {
+  background: rgba(0, 240, 255, 0.15);
+  border-color: var(--neon-cyan);
+  color: var(--neon-cyan);
+  box-shadow: 0 0 10px var(--neon-cyan-glow);
+}
+
+.pz-scale-badge {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--neon-cyan);
+  padding: 4px 8px;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 4px;
+  border: 1px solid var(--border-dim);
+  min-width: 44px;
+  text-align: center;
+}
+
+/* Modal Form Cyber Aesthetics */
+.modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-label {
+  font-family: var(--font-hud);
+  font-size: 0.82rem;
+  letter-spacing: 0.8px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+}
+
+.form-input,
+.form-select,
+.form-textarea {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-neon);
+  border-radius: 8px;
+  padding: 10px 14px;
+  color: var(--text-primary);
+  font-family: var(--font-main);
+  font-size: 0.9rem;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.form-textarea {
+  min-height: 85px;
+  resize: vertical;
+}
+
+.form-input:focus,
+.form-select:focus,
+.form-textarea:focus {
+  border-color: var(--neon-cyan);
+  box-shadow: 0 0 12px var(--neon-cyan-glow);
+}
+
+.form-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+
 

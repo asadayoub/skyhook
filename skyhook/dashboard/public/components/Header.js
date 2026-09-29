@@ -55,6 +55,14 @@ export class Header {
             <option value="modal">In-Dashboard Viewer</option>
           </select>
 
+          <button id="reindexSymbolsBtn" class="btn-secondary" title="Re-scan and index codebase AST symbols" style="padding: 7px 11px; font-size: 0.78rem; font-family: var(--font-hud); cursor: pointer; white-space: nowrap; display: flex; align-items: center; gap: 4px;">
+            <span>🔄</span> <span>INDEX AST</span>
+          </button>
+
+          <button id="recompilePlanBtn" class="btn-secondary" title="Recompile PROJECT_PLAN.md with current backlog & ADRs" style="padding: 7px 11px; font-size: 0.78rem; font-family: var(--font-hud); cursor: pointer; white-space: nowrap; display: flex; align-items: center; gap: 4px;">
+            <span>⚡</span> <span>COMPILE PLAN</span>
+          </button>
+
           <div class="telemetry-indicator" title="Bidirectional WebSocket Event Stream">
             <span id="connectionIndicator" class="pulse-dot"></span>
             <span id="connectionStatusText">CONNECTING</span>
@@ -120,6 +128,33 @@ export class Header {
           }
         } catch (err) {
           Toast.show(`Error opening project: ${err.message}`, 'error');
+        }
+      });
+    }
+
+    const reindexBtn = document.getElementById('reindexSymbolsBtn');
+    if (reindexBtn) {
+      reindexBtn.addEventListener('click', async () => {
+        try {
+          Toast.show('Scanning AST symbols across workspace...', 'info');
+          const resp = await this.bridge.post('/api/action/reindex-symbols');
+          Toast.show(`AST indexing complete! ${resp.indexedSymbols || 0} symbols indexed.`, 'success');
+        } catch (err) {
+          Toast.show(`AST Index error: ${err.message}`, 'error');
+        }
+      });
+    }
+
+    const recompileBtn = document.getElementById('recompilePlanBtn');
+    if (recompileBtn) {
+      recompileBtn.addEventListener('click', async () => {
+        try {
+          Toast.show('Compiling PROJECT_PLAN.md...', 'info');
+          const skyhookDir = this.store.getState().projectData?.skyhookDir;
+          await this.bridge.post('/api/action/recompile-plan', { skyhookDir });
+          Toast.show(`Master plan compiled successfully!`, 'success');
+        } catch (err) {
+          Toast.show(`Compile plan error: ${err.message}`, 'error');
         }
       });
     }

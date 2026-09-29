@@ -7,9 +7,10 @@
 import fs from 'fs';
 import path from 'path';
 import { exec } from 'child_process';
-import { readYaml, writeYaml } from '../utils.js';
+import { readYaml, writeYaml, generateULID, getTimestamp } from '../utils.js';
 import { createSkyhookContext } from '../context.js';
 import { TaskLeaseManager } from '../backlog/TaskLeaseManager.js';
+import { BacklogLock } from '../backlog/BacklogLock.js';
 import { EventLedger } from '../backlog/EventLedger.js';
 import { CapacityPlanner } from '../plan/CapacityPlanner.js';
 import { PlanCompiler } from '../plan/PlanCompiler.js';
@@ -600,5 +601,454 @@ export class DashboardRPCHandler {
   static async removeHarness(workspaceDir = process.cwd(), options = {}) {
     const injector = new HarnessInjector();
     return injector.remove(workspaceDir, options);
+  }
+
+  // =========================================================================
+  // --- Backlog & Story CRUD Operations ---
+  // =========================================================================
+
+  /**
+   * Create a new story in backlog/epics.yaml
+   */
+  static async createStory(skyhookDir, storyData = {}) {
+    if (!skyhookDir) throw new Error('skyhookDir is required');
+    const epicsPath = path.join(skyhookDir, 'backlog', 'epics.yaml');
+    
+    return await BacklogLock.withLock(skyhookDir, async () => {
+      const backlog = readYaml(epicsPath) || { epics: [], stories: [], tasks: [] };
+      if (!Array.isArray(backlog.stories)) backlog.stories = [];
+      if (!Array.isArray(backlog.epics)) backlog.epics = [];
+
+      let maxNum = 0;
+      for (const s of backlog.stories) {
+        const match = String(s.id).match(/^STORY-(\d+)$/i);
+        if (match) {
+          const num = parseInt(match[1], 10);
+          if (num > maxNum) maxNum = num;
+        }
+      }
+      const nextId = `STORY-${String(maxNum + 1).padStart(3, '0')}`;
+      const now = getTimestamp();
+
+      const newStory = {
+        id: storyData.id || nextId,
+        title: storyData.title || 'Untitled Story',
+        description: storyData.description || '',
+        epicId: storyData.epicId || (backlog.epics[0]?.id || 'EPIC-001'),
+        status: storyData.status || 'backlog',
+        storyPoints: storyData.storyPoints !== undefined ? Number(storyData.storyPoints) : 1,
+        priority: storyData.priority || 'medium',
+        relatedRequirements: Array.isArray(storyData.relatedRequirements) ? storyData.relatedRequirements : [],
+        createdAt: now,
+        updatedAt: now
+      };
+
+      backlog.stories.push(newStory);
+      writeYaml(epicsPath, backlog);
+
+      EventLedger.appendEvent(skyhookDir, {
+        type: 'STORY_CREATED',
+        actor: 'user-dashboard',
+        payload: { storyId: newStory.id, title: newStory.title }
+      });
+
+      return { success: true, story: newStory };
+    });
+  }
+
+  /**
+   * Update an existing story in backlog/epics.yaml
+   */
+  static async updateStory(skyhookDir, storyId, updates = {}) {
+    if (!skyhookDir) throw new Error('skyhookDir is required');
+    if (!storyId) throw new Error('storyId is required');
+    const epicsPath = path.join(skyhookDir, 'backlog', 'epics.yaml');
+
+    return await BacklogLock.withLock(skyhookDir, async () => {
+      const backlog = readYaml(epicsPath) || { epics: [], stories: [], tasks: [] };
+      if (!Array.isArray(backlog.stories)) backlog.stories = [];
+      
+      const story = backlog.stories.find(s => s.id === storyId);
+      if (!story) throw new Error(`Story '${storyId}' not found`);
+
+      if (updates.title !== undefined) story.title = updates.title;
+      if (updates.description !== undefined) story.description = updates.description;
+      if (updates.epicId !== undefined) story.epicId = updates.epicId;
+      if (updates.status !== undefined) story.status = updates.status;
+      if (updates.storyPoints !== undefined) story.storyPoints = Number(updates.storyPoints);
+      if (updates.priority !== undefined) story.priority = updates.priority;
+      if (updates.relatedRequirements !== undefined) story.relatedRequirements = updates.relatedRequirements;
+      story.updatedAt = getTimestamp();
+
+      writeYaml(epicsPath, backlog);
+
+      EventLedger.appendEvent(skyhookDir, {
+        type: 'STORY_UPDATED',
+        actor: 'user-dashboard',
+        payload: { storyId, updates }
+      });
+
+      return { success: true, story };
+    });
+  }
+
+  /**
+   * Delete a story from backlog/epics.yaml
+   */
+  static async deleteStory(skyhookDir, storyId) {
+    if (!skyhookDir) throw new Error('skyhookDir is required');
+    if (!storyId) throw new Error('storyId is required');
+    const epicsPath = path.join(skyhookDir, 'backlog', 'epics.yaml');
+
+    return await BacklogLock.withLock(skyhookDir, async () => {
+      const backlog = readYaml(epicsPath) || { epics: [], stories: [], tasks: [] };
+      if (!Array.isArray(backlog.stories)) backlog.stories = [];
+
+      const initialCount = backlog.stories.length;
+      backlog.stories = backlog.stories.filter(s => s.id !== storyId);
+      if (backlog.stories.length === initialCount) {
+        throw new Error(`Story '${storyId}' not found`);
+      }
+
+      writeYaml(epicsPath, backlog);
+
+      EventLedger.appendEvent(skyhookDir, {
+        type: 'STORY_DELETED',
+        actor: 'user-dashboard',
+        payload: { storyId }
+      });
+
+      return { success: true, storyId };
+    });
+  }
+
+  // =========================================================================
+  // --- Epic CRUD Operations ---
+  // =========================================================================
+
+  /**
+   * Create an epic in backlog/epics.yaml
+   */
+  static async createEpic(skyhookDir, epicData = {}) {
+    if (!skyhookDir) throw new Error('skyhookDir is required');
+    const epicsPath = path.join(skyhookDir, 'backlog', 'epics.yaml');
+
+    return await BacklogLock.withLock(skyhookDir, async () => {
+      const backlog = readYaml(epicsPath) || { epics: [], stories: [], tasks: [] };
+      if (!Array.isArray(backlog.epics)) backlog.epics = [];
+
+      let maxNum = 0;
+      for (const e of backlog.epics) {
+        const match = String(e.id).match(/^EPIC-(\d+)$/i);
+        if (match) {
+          const num = parseInt(match[1], 10);
+          if (num > maxNum) maxNum = num;
+        }
+      }
+      const nextId = `EPIC-${String(maxNum + 1).padStart(3, '0')}`;
+      const now = getTimestamp();
+
+      const newEpic = {
+        id: epicData.id || nextId,
+        title: epicData.title || 'Untitled Epic',
+        description: epicData.description || '',
+        status: epicData.status || 'planned',
+        priority: epicData.priority || 'medium',
+        goal: epicData.goal || '',
+        createdAt: now,
+        updatedAt: now
+      };
+
+      backlog.epics.push(newEpic);
+      writeYaml(epicsPath, backlog);
+
+      return { success: true, epic: newEpic };
+    });
+  }
+
+  /**
+   * Update an epic in backlog/epics.yaml
+   */
+  static async updateEpic(skyhookDir, epicId, updates = {}) {
+    if (!skyhookDir) throw new Error('skyhookDir is required');
+    const epicsPath = path.join(skyhookDir, 'backlog', 'epics.yaml');
+
+    return await BacklogLock.withLock(skyhookDir, async () => {
+      const backlog = readYaml(epicsPath) || { epics: [], stories: [], tasks: [] };
+      if (!Array.isArray(backlog.epics)) backlog.epics = [];
+
+      const epic = backlog.epics.find(e => e.id === epicId);
+      if (!epic) throw new Error(`Epic '${epicId}' not found`);
+
+      if (updates.title !== undefined) epic.title = updates.title;
+      if (updates.description !== undefined) epic.description = updates.description;
+      if (updates.status !== undefined) epic.status = updates.status;
+      if (updates.priority !== undefined) epic.priority = updates.priority;
+      if (updates.goal !== undefined) epic.goal = updates.goal;
+      epic.updatedAt = getTimestamp();
+
+      writeYaml(epicsPath, backlog);
+      return { success: true, epic };
+    });
+  }
+
+  /**
+   * Delete an epic from backlog/epics.yaml
+   */
+  static async deleteEpic(skyhookDir, epicId) {
+    if (!skyhookDir) throw new Error('skyhookDir is required');
+    const epicsPath = path.join(skyhookDir, 'backlog', 'epics.yaml');
+
+    return await BacklogLock.withLock(skyhookDir, async () => {
+      const backlog = readYaml(epicsPath) || { epics: [], stories: [], tasks: [] };
+      if (!Array.isArray(backlog.epics)) backlog.epics = [];
+
+      const initialCount = backlog.epics.length;
+      backlog.epics = backlog.epics.filter(e => e.id !== epicId);
+      if (backlog.epics.length === initialCount) {
+        throw new Error(`Epic '${epicId}' not found`);
+      }
+
+      writeYaml(epicsPath, backlog);
+      return { success: true, epicId };
+    });
+  }
+
+  // =========================================================================
+  // --- Architectural Decision Records (ADR) CRUD Operations ---
+  // =========================================================================
+
+  /**
+   * Create a new ADR record file and register it in decisions/index.yaml
+   */
+  static createADR(skyhookDir, adrData = {}) {
+    if (!skyhookDir) throw new Error('skyhookDir is required');
+    const engine = new ADRSupersessionEngine(skyhookDir);
+    const indexData = engine.readIndex();
+    if (!Array.isArray(indexData.decisions)) indexData.decisions = [];
+
+    let maxNum = 0;
+    for (const d of indexData.decisions) {
+      const match = String(d.id).match(/^ADR-(\d+)$/i);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num > maxNum) maxNum = num;
+      }
+    }
+    const nextNum = maxNum + 1;
+    const adrId = `ADR-${String(nextNum).padStart(3, '0')}`;
+    const slug = (adrData.title || 'decision').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'decision';
+    const filename = `${adrId}-${slug}.md`;
+    const recordsDir = path.join(skyhookDir, 'decisions', 'records');
+    if (!fs.existsSync(recordsDir)) fs.mkdirSync(recordsDir, { recursive: true });
+
+    const recordPath = path.join(recordsDir, filename);
+    const now = getTimestamp().split('T')[0];
+
+    const posConsequences = Array.isArray(adrData.consequences?.positive) ? adrData.consequences.positive : ['Documented and agreed upon by team.'];
+    const negConsequences = Array.isArray(adrData.consequences?.negative) ? adrData.consequences.negative : ['Requires adoption and adherence.'];
+    const alternatives = Array.isArray(adrData.alternatives) ? adrData.alternatives : [];
+    const relatedReqs = Array.isArray(adrData.relatedRequirements) ? adrData.relatedRequirements : [];
+
+    const markdownContent = `# ${adrId}: ${adrData.title || 'Untitled Decision'}
+
+**Status**: ${adrData.status || 'accepted'}  
+**Date**: ${now}  
+**Author**: ${adrData.author || 'User Dashboard'}  
+**Category**: ${adrData.category || 'Architecture'}  
+
+## Context
+${adrData.context || 'Context and problem statement.'}
+
+## Decision
+${adrData.decision || 'The change that we are committing to.'}
+
+## Consequences
+### Positive
+${posConsequences.map(p => `- ${p}`).join('\n')}
+
+### Negative / Trade-offs
+${negConsequences.map(n => `- ${n}`).join('\n')}
+
+## Alternatives Considered
+${alternatives.length > 0 ? alternatives.map(a => `### ${a.name || 'Alternative'}\n- Pros: ${(a.pros || []).join(', ')}\n- Cons: ${(a.cons || []).join(', ')}`).join('\n\n') : 'None recorded.'}
+
+## Related Requirements
+${relatedReqs.length > 0 ? relatedReqs.map(r => `- ${r}`).join('\n') : 'None recorded.'}
+`;
+
+    fs.writeFileSync(recordPath, markdownContent, 'utf-8');
+
+    const newEntry = {
+      id: adrId,
+      title: adrData.title || 'Untitled Decision',
+      status: adrData.status || 'accepted',
+      date: now,
+      file: `decisions/records/${filename}`,
+      relatedRequirements: relatedReqs,
+      category: adrData.category || 'Architecture'
+    };
+
+    indexData.decisions.push(newEntry);
+    engine.writeIndex(indexData);
+
+    return { success: true, adr: newEntry, filePath: recordPath };
+  }
+
+  /**
+   * Update an existing ADR record file and metadata
+   */
+  static updateADR(skyhookDir, adrId, updates = {}) {
+    if (!skyhookDir) throw new Error('skyhookDir is required');
+    const engine = new ADRSupersessionEngine(skyhookDir);
+    const indexData = engine.readIndex();
+    const entry = indexData.decisions.find(d => d.id === adrId);
+    if (!entry) throw new Error(`Decision '${adrId}' not found`);
+
+    if (updates.title) entry.title = updates.title;
+    if (updates.status) entry.status = updates.status;
+    if (updates.category) entry.category = updates.category;
+    if (updates.relatedRequirements) entry.relatedRequirements = updates.relatedRequirements;
+    entry.updatedAt = getTimestamp();
+
+    engine.writeIndex(indexData);
+
+    const recPath = engine.resolveRecordFilePath(adrId, entry);
+    if (recPath && fs.existsSync(recPath) && updates.status) {
+      let content = fs.readFileSync(recPath, 'utf-8');
+      content = content.replace(/\*\*Status\*\*:\s*[^\n\r]+/i, `**Status**: ${updates.status}`);
+      fs.writeFileSync(recPath, content, 'utf-8');
+    }
+
+    return { success: true, adr: entry };
+  }
+
+  /**
+   * Delete an ADR record and remove from decisions/index.yaml
+   */
+  static deleteADR(skyhookDir, adrId) {
+    if (!skyhookDir) throw new Error('skyhookDir is required');
+    const engine = new ADRSupersessionEngine(skyhookDir);
+    const indexData = engine.readIndex();
+    const entry = indexData.decisions.find(d => d.id === adrId);
+    if (!entry) throw new Error(`Decision '${adrId}' not found`);
+
+    const recPath = engine.resolveRecordFilePath(adrId, entry);
+    if (recPath && fs.existsSync(recPath)) {
+      try { fs.unlinkSync(recPath); } catch (_) {}
+    }
+
+    indexData.decisions = indexData.decisions.filter(d => d.id !== adrId);
+    engine.writeIndex(indexData);
+
+    return { success: true, adrId };
+  }
+
+  // =========================================================================
+  // --- Requirements CRUD Operations ---
+  // =========================================================================
+
+  /**
+   * Create requirement in functional, non-functional, or constraints YAML
+   */
+  static createRequirement(skyhookDir, type = 'functional', reqData = {}) {
+    if (!skyhookDir) throw new Error('skyhookDir is required');
+    const fileMap = {
+      functional: 'functional.yaml',
+      nonFunctional: 'non-functional.yaml',
+      constraints: 'constraints.yaml'
+    };
+    const filename = fileMap[type] || 'functional.yaml';
+    const reqPath = path.join(skyhookDir, 'requirements', filename);
+    const data = readYaml(reqPath) || { requirements: [] };
+    const listKey = type === 'constraints' ? 'constraints' : 'requirements';
+    if (!Array.isArray(data[listKey])) data[listKey] = [];
+
+    const prefix = type === 'constraints' ? 'CON' : (type === 'nonFunctional' ? 'NFR' : 'REQ');
+    let maxNum = 0;
+    for (const r of data[listKey]) {
+      const match = String(r.id).match(new RegExp(`^${prefix}-(\\d+)$`, 'i'));
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num > maxNum) maxNum = num;
+      }
+    }
+    const nextId = `${prefix}-${String(maxNum + 1).padStart(3, '0')}`;
+    const now = getTimestamp();
+
+    const newReq = {
+      id: reqData.id || nextId,
+      statement: reqData.statement || reqData.title || 'Untitled Requirement',
+      rationale: reqData.rationale || '',
+      priority: reqData.priority || 'medium',
+      createdAt: now,
+      updatedAt: now
+    };
+
+    data[listKey].push(newReq);
+    writeYaml(reqPath, data);
+
+    return { success: true, requirement: newReq, type };
+  }
+
+  /**
+   * Update a requirement in functional, non-functional, or constraints YAML
+   */
+  static updateRequirement(skyhookDir, type = 'functional', reqId, updates = {}) {
+    if (!skyhookDir) throw new Error('skyhookDir is required');
+    const fileMap = {
+      functional: 'functional.yaml',
+      nonFunctional: 'non-functional.yaml',
+      constraints: 'constraints.yaml'
+    };
+    const filename = fileMap[type] || 'functional.yaml';
+    const reqPath = path.join(skyhookDir, 'requirements', filename);
+    const data = readYaml(reqPath) || { requirements: [] };
+    const listKey = type === 'constraints' ? 'constraints' : 'requirements';
+    if (!Array.isArray(data[listKey])) data[listKey] = [];
+
+    const item = data[listKey].find(r => r.id === reqId);
+    if (!item) throw new Error(`Requirement '${reqId}' not found`);
+
+    if (updates.statement !== undefined) item.statement = updates.statement;
+    if (updates.rationale !== undefined) item.rationale = updates.rationale;
+    if (updates.priority !== undefined) item.priority = updates.priority;
+    item.updatedAt = getTimestamp();
+
+    writeYaml(reqPath, data);
+    return { success: true, requirement: item, type };
+  }
+
+  /**
+   * Delete a requirement from functional, non-functional, or constraints YAML
+   */
+  static deleteRequirement(skyhookDir, type = 'functional', reqId) {
+    if (!skyhookDir) throw new Error('skyhookDir is required');
+    const fileMap = {
+      functional: 'functional.yaml',
+      nonFunctional: 'non-functional.yaml',
+      constraints: 'constraints.yaml'
+    };
+    const filename = fileMap[type] || 'functional.yaml';
+    const reqPath = path.join(skyhookDir, 'requirements', filename);
+    const data = readYaml(reqPath) || { requirements: [] };
+    const listKey = type === 'constraints' ? 'constraints' : 'requirements';
+    if (!Array.isArray(data[listKey])) data[listKey] = [];
+
+    data[listKey] = data[listKey].filter(r => r.id !== reqId);
+    writeYaml(reqPath, data);
+    return { success: true, reqId, type };
+  }
+
+  // =========================================================================
+  // --- Universal Actions & Codebase Re-indexing ---
+  // =========================================================================
+
+  /**
+   * Force re-index of all codebase AST symbols
+   */
+  static async reindexSymbols(projectDir = process.cwd()) {
+    const symbols = await indexCodebase(projectDir);
+    return { success: true, count: symbols.length, symbolsCount: symbols.length };
   }
 }
