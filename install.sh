@@ -42,9 +42,16 @@ chmod +x "$INSTALL_DIR/cli/skyhook"
 # Create skyhook-cmd wrapper for the agent JSON protocol
 cat > "$INSTALL_DIR/cli/skyhook-cmd" << 'WRAPPER_EOF'
 #!/usr/bin/env bash
-exec node "$(dirname "$0")/../skill/commands/index.js" "$@"
+exec node "$(dirname "$0")/skyhook-cmd.js" "$@"
 WRAPPER_EOF
 chmod +x "$INSTALL_DIR/cli/skyhook-cmd"
+
+# Create skyhook-mcp wrapper for the Model Context Protocol
+cat > "$INSTALL_DIR/cli/skyhook-mcp" << 'WRAPPER_EOF'
+#!/usr/bin/env bash
+exec node "$(dirname "$0")/skyhook-mcp.js" "$@"
+WRAPPER_EOF
+chmod +x "$INSTALL_DIR/cli/skyhook-mcp"
 
 # Verify
 if "$INSTALL_DIR/cli/skyhook" version &> /dev/null; then
