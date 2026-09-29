@@ -255,6 +255,10 @@ async function main() {
     }
   } else if (command === 'mcp') {
     effectiveCommand = 'mcp';
+  } else if (command === 'dashboard') {
+    const sub = parsedArgs._.shift() || 'start';
+    parsedArgs.action = sub;
+    effectiveCommand = 'dashboard';
   }
 
   const handlerName = commandMap[effectiveCommand];
@@ -263,16 +267,21 @@ async function main() {
     process.exit(1);
   }
 
-  // Handle 'init' gracefully without requiring existing .skyhook dir
+  // Handle commands that don't require pre-existing .skyhook directory
   let ctx = null;
-  if (effectiveCommand !== 'init' && effectiveCommand !== 'version' && effectiveCommand !== 'help' && effectiveCommand !== 'setup' && effectiveCommand !== 'install') {
+  const noCtxCommands = ['init', 'version', 'help', 'setup', 'install', 'dashboard'];
+  if (!noCtxCommands.includes(effectiveCommand)) {
     ctx = createSkyhookContext(process.cwd());
     if (!ctx) {
       log('error', 'Not a Skyhook project. Run `skyhook init` first.');
       process.exit(1);
     }
+  } else if (effectiveCommand === 'dashboard') {
+    ctx = createSkyhookContext(process.cwd()) || {
+      projectDir: process.cwd(),
+      skyhookDir: path.join(process.cwd(), '.skyhook')
+    };
   } else if (effectiveCommand === 'init' || effectiveCommand === 'setup') {
-    // For init and setup, we pass a temporary context or allow creation inside the handler
     ctx = { skyhookDir: path.join(process.cwd(), '.skyhook') };
   }
 

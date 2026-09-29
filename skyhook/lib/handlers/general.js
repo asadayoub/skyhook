@@ -13,19 +13,28 @@ let dashboardServer = null;
 const DASHBOARD_PORT = 31415;
 
 export async function cmdDashboard(ctx, args = {}) {
-  const action = (typeof args === 'string' ? args : args.action || (Array.isArray(args) ? args[0] : null)) || 'status';
+  let action = 'status';
+  if (typeof args === 'string') {
+    action = args;
+  } else if (args && args.action) {
+    action = args.action;
+  } else if (Array.isArray(args) && args[0]) {
+    action = args[0];
+  } else if (args && args._ && args._[0]) {
+    action = args._[0];
+  }
   
   if (action === 'start') {
     if (activeSkyhookServer) {
       return { 
-        message: 'Dashboard already running at http://localhost:' + activeSkyhookServer.currentPort,
+        message: 'Dashboard already running at ' + activeSkyhookServer.currentPort,
         port: activeSkyhookServer.currentPort,
-        url: 'http://localhost:' + activeSkyhookServer.currentPort
+        url: 'http://127.0.0.1:' + activeSkyhookServer.currentPort
       };
     }
     
     try {
-      const workspaceDir = ctx?.skyhookDir ? path.dirname(ctx.skyhookDir) : process.cwd();
+      const workspaceDir = ctx?.projectDir || (ctx?.skyhookDir ? path.dirname(ctx.skyhookDir) : process.cwd());
       const serverInstance = new SkyhookServer({
         port: args.port ? Number(args.port) : DASHBOARD_PORT,
         workspaceDir
@@ -60,7 +69,7 @@ export async function cmdDashboard(ctx, args = {}) {
   return { 
     running: currentRunning,
     port: currentPort,
-    url: currentRunning ? 'http://localhost:' + currentPort : null
+    url: currentRunning ? 'http://127.0.0.1:' + currentPort : null
   };
 }
 
