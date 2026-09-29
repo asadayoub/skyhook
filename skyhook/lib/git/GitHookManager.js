@@ -11,14 +11,14 @@ export const HOOK_MARKER = '# Skyhook Pre-Commit Architecture Guard';
 export const HOOK_SCRIPT_BODY = `
 ${HOOK_MARKER}
 if command -v skyhook >/dev/null 2>&1; then
-  skyhook adr verify
+  skyhook adr verify && skyhook drift --ci-check
 elif [ -f "./node_modules/.bin/skyhook" ]; then
-  ./node_modules/.bin/skyhook adr verify
+  ./node_modules/.bin/skyhook adr verify && ./node_modules/.bin/skyhook drift --ci-check
 fi
 if [ $? -ne 0 ]; then
   echo ""
-  echo "❌ Commit rejected: Codebase violates accepted Architectural Decision Records (ADRs)."
-  echo "👉 Run 'skyhook adr verify' to see details, or commit with '--no-verify' to bypass."
+  echo "❌ Commit rejected: Codebase violates architectural boundaries or accepted ADRs."
+  echo "👉 Run 'skyhook drift --boundaries' or 'skyhook adr verify' to see details, or commit with '--no-verify' to bypass."
   echo ""
   exit 1
 fi

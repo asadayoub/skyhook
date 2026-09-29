@@ -3,6 +3,7 @@
  * Parses standard ADR Markdown into structured objects and serializes them back.
  */
 
+import fs from 'fs';
 import crypto from 'crypto';
 
 /**
@@ -10,6 +11,18 @@ import crypto from 'crypto';
  */
 export function computeContentHash(content) {
   return crypto.createHash('sha256').update(content.trim()).digest('hex');
+}
+
+export class ADRMarkdownParser {
+  parse(markdown) {
+    return parseADRMarkdown(markdown);
+  }
+
+  parseFile(filePath) {
+    if (!fs.existsSync(filePath)) return null;
+    const content = fs.readFileSync(filePath, 'utf-8');
+    return parseADRMarkdown(content);
+  }
 }
 
 /**
@@ -29,6 +42,8 @@ export function parseADRMarkdown(markdown) {
     category: 'architecture',
     date: '',
     author: '',
+    supersedes: null,
+    supersededBy: null,
     context: '',
     decision: '',
     consequences: { positive: [], negative: [], neutral: [] },
@@ -63,6 +78,12 @@ export function parseADRMarkdown(markdown) {
 
   const authorMatch = markdown.match(/\*\*Author\*\*:\s*([^\n\r]+)/i);
   if (authorMatch) result.author = authorMatch[1].trim();
+
+  const supersedesMatch = markdown.match(/\*\*Supersedes\*\*:\s*([^\n\r]+)/i);
+  if (supersedesMatch) result.supersedes = supersedesMatch[1].trim();
+
+  const supersededByMatch = markdown.match(/\*\*Superseded By\*\*:\s*([^\n\r]+)/i);
+  if (supersededByMatch) result.supersededBy = supersededByMatch[1].trim();
 
   // Helper to extract a section between ## SectionName and next ## or end of file
   function extractSection(headingRegex) {

@@ -155,6 +155,122 @@ export class SkyhookServer {
           return;
         }
 
+        // GET /api/dark-matter
+        if (pathname === '/api/dark-matter' && req.method === 'GET') {
+          const darkMatter = await DashboardRPCHandler.getDarkMatterData(this.workspaceDir);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(darkMatter));
+          return;
+        }
+
+        // GET /api/drift
+        if (pathname === '/api/drift' && req.method === 'GET') {
+          const drift = await DashboardRPCHandler.getDriftScorecard(this.workspaceDir);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(drift));
+          return;
+        }
+
+        // GET /api/drift/graph
+        if (pathname === '/api/drift/graph' && req.method === 'GET') {
+          const graphData = await DashboardRPCHandler.getDriftGraph(this.workspaceDir);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(graphData));
+          return;
+        }
+
+        // GET /api/drift/boundaries
+        if (pathname === '/api/drift/boundaries' && req.method === 'GET') {
+          const boundaries = await DashboardRPCHandler.getDriftBoundaries(this.workspaceDir);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(boundaries));
+          return;
+        }
+
+        // GET /api/drift/c4
+        if (pathname === '/api/drift/c4' && req.method === 'GET') {
+          const c4 = await DashboardRPCHandler.getDriftC4(this.workspaceDir);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(c4));
+          return;
+        }
+
+        // POST /api/action/draft-adr-drift
+        if (pathname === '/api/action/draft-adr-drift' && req.method === 'POST') {
+          const body = await SkyhookServer.parseJsonBody(req);
+          const result = DashboardRPCHandler.draftADRFromDrift(this.workspaceDir, body.driftItem || body);
+          if (this.gateway) {
+            this.gateway.broadcast('ADR_DRAFTED', result);
+          }
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(result));
+          return;
+        }
+
+        // GET /api/adr/dag
+        if (pathname === '/api/adr/dag' && req.method === 'GET') {
+          const dag = DashboardRPCHandler.getADRDAG(this.workspaceDir);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(dag));
+          return;
+        }
+
+        // GET /api/adr/diff
+        if (pathname === '/api/adr/diff' && req.method === 'GET') {
+          const decisionId = url.searchParams.get('id') || 'ADR-001';
+          const diffData = DashboardRPCHandler.getADRDiff(this.workspaceDir, decisionId);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(diffData));
+          return;
+        }
+
+        // POST /api/action/transition-adr
+        if (pathname === '/api/action/transition-adr' && req.method === 'POST') {
+          const body = await SkyhookServer.parseJsonBody(req);
+          const result = DashboardRPCHandler.transitionADR(this.workspaceDir, body);
+          if (this.gateway) {
+            this.gateway.broadcast('ADR_TRANSITIONED', result);
+          }
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(result));
+          return;
+        }
+
+        // POST /api/action/supersede-adr
+        if (pathname === '/api/action/supersede-adr' && req.method === 'POST') {
+          const body = await SkyhookServer.parseJsonBody(req);
+          const result = DashboardRPCHandler.supersedeADR(this.workspaceDir, body);
+          if (this.gateway) {
+            this.gateway.broadcast('ADR_SUPERSEDED', result);
+          }
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(result));
+          return;
+        }
+
+        // POST /api/action/compile-policies
+        if (pathname === '/api/action/compile-policies' && req.method === 'POST') {
+          const body = await SkyhookServer.parseJsonBody(req);
+          const result = DashboardRPCHandler.compileADRPolicies(this.workspaceDir, body);
+          if (this.gateway) {
+            this.gateway.broadcast('POLICIES_COMPILED', result);
+          }
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(result));
+          return;
+        }
+
+        // POST /api/action/intercept-adr
+        if (pathname === '/api/action/intercept-adr' && req.method === 'POST') {
+          const result = DashboardRPCHandler.interceptADR(this.workspaceDir);
+          if (this.gateway) {
+            this.gateway.broadcast('ADR_INTERCEPTED', result);
+          }
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(result));
+          return;
+        }
+
         // POST /api/action/update-status
         if (pathname === '/api/action/update-status' && req.method === 'POST') {
           const body = await SkyhookServer.parseJsonBody(req);

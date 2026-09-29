@@ -82,6 +82,14 @@ export class ADRSyncEngine {
           existingIndex.category = parsed.category;
           changed = true;
         }
+        if (parsed.supersedes && parsed.supersedes !== existingIndex.supersedes) {
+          existingIndex.supersedes = parsed.supersedes;
+          changed = true;
+        }
+        if (parsed.supersededBy && parsed.supersededBy !== existingIndex.supersededBy) {
+          existingIndex.supersededBy = parsed.supersededBy;
+          changed = true;
+        }
 
         existingIndex.contentHash = parsed.contentHash;
         existingIndex.updatedAt = getTimestamp();
@@ -98,6 +106,8 @@ export class ADRSyncEngine {
           status: parsed.status || 'accepted',
           category: parsed.category || 'architecture',
           createdAt: parsed.date || getTimestamp(),
+          supersedes: parsed.supersedes || null,
+          supersededBy: parsed.supersededBy || null,
           contentHash: parsed.contentHash,
           file: path.relative(this.skyhookDir, filePath)
         };
@@ -134,10 +144,13 @@ export class ADRSyncEngine {
 
     // 3. Handle supersessions
     for (const decision of indexData.decisions) {
-      if (decision.supersedes && Array.isArray(decision.supersedes)) {
-        for (const supersededId of decision.supersedes) {
-          const target = indexMap.get(supersededId);
-          if (target && target.status !== 'superseded') {
+      const supersededIds = Array.isArray(decision.supersedes)
+        ? decision.supersedes
+        : (typeof decision.supersedes === 'string' && decision.supersedes.trim() ? [decision.supersedes.trim()] : []);
+
+      for (const supersededId of supersededIds) {
+        const target = indexMap.get(supersededId);
+        if (target && target.status !== 'superseded') {
             target.status = 'superseded';
             target.supersededBy = decision.id;
 
@@ -151,7 +164,6 @@ export class ADRSyncEngine {
           }
         }
       }
-    }
 
     // 4. Save updated index.yaml
     writeYaml(this.indexPath, indexData);

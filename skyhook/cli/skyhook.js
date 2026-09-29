@@ -10,7 +10,7 @@ import { createSkyhookContext } from '../lib/context.js';
 import * as backlogHandlers from '../lib/handlers/backlog.js';
 import * as adrHandlers from '../lib/handlers/adr.js';
 import * as hookHandlers from '../lib/handlers/hook.js';
-import { cmdSync, cmdTrace, cmdImpact, cmdUntraced, cmdCoverage, cmdMapLegacy, cmdGraph } from '../lib/handlers/sync.js';
+import { cmdSync, cmdTrace, cmdImpact, cmdUntraced, cmdCoverage, cmdMapLegacy, cmdGraph, cmdDrift } from '../lib/handlers/sync.js';
 import * as generalHandlers from '../lib/handlers/general.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -30,9 +30,14 @@ function log(level, message) {
 }
 
 // Format output elegantly
-function formatResult(result) {
+function formatResult(result, args = {}) {
   if (result.error) {
     log('error', result.error);
+    return;
+  }
+
+  if (args.json || args.format === 'json') {
+    console.log(JSON.stringify(result, null, 2));
     return;
   }
   
@@ -57,8 +62,39 @@ function formatResult(result) {
     log('info', `Scoped plans compiled: ${result.scopedPlans.requirementsCount} requirements, ${result.scopedPlans.epicsCount} epics.`);
   }
 
+  if (result.summary && result.darkMatter) {
+    log('info', `AST Code Coverage: ${result.summary.overallCoverage}% (${result.summary.tracedSymbols}/${result.summary.totalSymbols} symbols traced)`);
+    log('info', `Dark Matter (Untraced): ${result.summary.untracedSymbols} symbols across ${result.darkMatter.length} files`);
+    if (result.darkMatter.length > 0) {
+      console.table(result.darkMatter.slice(0, 15));
+    }
+    return;
+  }
+
+  if (result.requirementId && result.codeReferences) {
+    log('info', `Requirement: ${result.requirementId} (${result.codeReferences.length} code references)`);
+    if (result.codeReferences.length > 0) {
+      console.table(result.codeReferences.map(c => ({
+        file: c.file,
+        symbol: c.symbolName,
+        type: c.symbolType,
+        line: c.line
+      })));
+    }
+    if (result.lineage && result.lineage.length > 0) {
+      log('warn', `Suggested Lineage / Refactored Recoveries:`);
+      console.table(result.lineage);
+    }
+    return;
+  }
+
   if (result.table) {
     console.table(result.table);
+    return;
+  }
+
+  if (result.healthScore !== undefined || result.c4) {
+    return;
   }
   
   // Pretty print raw output if needed
@@ -102,6 +138,7 @@ async function main() {
     cmdCoverage,
     cmdMapLegacy,
     cmdGraph,
+    cmdDrift,
     ...generalHandlers
   };
 
@@ -115,10 +152,14 @@ async function main() {
     standards: 'cmdStandards',
     decide: 'cmdDecide',
     sync: 'cmdSync',
+    drift: 'cmdDrift',
+    boundaries: 'cmdDrift',
     trace: 'cmdTrace',
     impact: 'cmdImpact',
     untraced: 'cmdUntraced',
     coverage: 'cmdCoverage',
+    'dark-matter': 'cmdCoverage',
+    darkmatter: 'cmdCoverage',
     mapLegacy: 'cmdMapLegacy',
     graph: 'cmdGraph',
     version: 'cmdVersion',
@@ -131,6 +172,11 @@ async function main() {
     'draft-adr': 'cmdDraftADR',
     'watch-adr': 'cmdWatchADR',
     'bootstrap-adr': 'cmdBootstrapADR',
+    'review-adr': 'cmdReviewADR',
+    'supersede-adr': 'cmdSupersedeADR',
+    'dag-adr': 'cmdADRDAG',
+    'compile-adr': 'cmdCompilePolicies',
+    'intercept-adr': 'cmdInterceptADR',
     'hook-install': 'cmdHookInstall',
     'hook-uninstall': 'cmdHookUninstall',
     'hook-status': 'cmdHookStatus',
@@ -153,7 +199,23 @@ async function main() {
     else if (sub === 'draft') effectiveCommand = 'draft-adr';
     else if (sub === 'watch') effectiveCommand = 'watch-adr';
     else if (sub === 'bootstrap') effectiveCommand = 'bootstrap-adr';
+    else if (sub === 'review') effectiveCommand = 'review-adr';
+    else if (sub === 'supersede') effectiveCommand = 'supersede-adr';
+    else if (sub === 'dag') effectiveCommand = 'dag-adr';
+    else if (sub === 'compile') effectiveCommand = 'compile-adr';
+    else if (sub === 'intercept' || sub === 'scan') effectiveCommand = 'intercept-adr';
     else effectiveCommand = 'help';
+  } else if (command === 'drift') {
+    const sub = parsedArgs._.shift();
+    if (sub === 'boundaries' || sub === 'boundary') parsedArgs.boundaries = true;
+    else if (sub === 'c4') parsedArgs.c4 = true;
+    else if (sub === 'semantic') parsedArgs.semantic = true;
+    else if (sub === 'fix' || sub === 'adopt') parsedArgs.fix = true;
+    else if (sub) parsedArgs._.unshift(sub);
+    effectiveCommand = 'drift';
+  } else if (command === 'boundaries') {
+    parsedArgs.boundaries = true;
+    effectiveCommand = 'drift';
   } else if (command === 'backlog') {
     const sub = parsedArgs._.shift() || 'list';
     if (sub === 'events') effectiveCommand = 'backlog-events';
@@ -197,6 +259,8 @@ async function main() {
   // Remap some positional args
   if (effectiveCommand === 'decide' && parsedArgs._.length > 0) {
     parsedArgs.title = parsedArgs._.join(' ');
+  } else if ((effectiveCommand === 'trace' || effectiveCommand === 'impact') && parsedArgs._.length > 0) {
+    parsedArgs.id = parsedArgs._[0];
   } else if (effectiveCommand === 'plan' && parsedArgs._.length > 0) {
     const first = parsedArgs._[0];
     if (first.startsWith('REQ-') || first.startsWith('req-')) {
@@ -206,12 +270,17 @@ async function main() {
     } else if (first.startsWith('EPIC-') || first.startsWith('epic-') || first.length >= 20) {
       parsedArgs.epic = first;
     }
+  } else if (effectiveCommand === 'review-adr' && parsedArgs._.length > 0) {
+    parsedArgs.id = parsedArgs._[0];
+  } else if (effectiveCommand === 'supersede-adr' && parsedArgs._.length >= 2) {
+    parsedArgs.oldId = parsedArgs._[0];
+    parsedArgs.newId = parsedArgs._[1];
   }
   
   try {
     const result = await handlers[handlerName](ctx, parsedArgs);
     if (result) {
-      formatResult(result);
+      formatResult(result, parsedArgs);
     }
   } catch (error) {
     log('error', error.message);

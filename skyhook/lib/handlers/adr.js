@@ -5,6 +5,9 @@ import { ADRSyncEngine } from '../adr/ADRSyncEngine.js';
 import { ADRPolicyGuard } from '../adr/ADRPolicyGuard.js';
 import { ADRSynthesizer } from '../adr/ADRSynthesizer.js';
 import { ADRWatcher } from '../adr/ADRWatcher.js';
+import { ADRSupersessionEngine } from '../adr/ADRSupersessionEngine.js';
+import { ADRPolicyCompiler } from '../adr/ADRPolicyCompiler.js';
+import { ADRInterceptionDaemon } from '../adr/ADRInterceptionDaemon.js';
 
 export async function cmdRecordDecision(ctx, args) {
   const required = ['title', 'decision', 'context'];
@@ -94,9 +97,10 @@ export async function cmdVerifyADR(ctx, args = {}) {
     return { error: 'Not in a Skyhook project' };
   }
 
-  const decisionsData = (typeof ctx.readDecisions === 'function' ? ctx.readDecisions() : {}) || { decisions: [] };
+  const compiler = new ADRPolicyCompiler(ctx.skyhookDir, process.cwd());
+  const enrichedDecisions = compiler.loadEnrichedDecisions();
   const guard = new ADRPolicyGuard(ctx.skyhookDir, process.cwd());
-  const result = await guard.verifyPolicies(decisionsData.decisions || []);
+  const result = await guard.verifyPolicies(enrichedDecisions);
 
   return result;
 }
@@ -204,3 +208,107 @@ export async function cmdBootstrapADR(ctx, args = {}) {
     bootstrapped
   };
 }
+
+/**
+ * Move an ADR to under-review status
+ */
+export async function cmdReviewADR(ctx, args = {}) {
+  if (!ctx.skyhookDir) return { error: 'Not in a Skyhook project' };
+  const id = args.id || (args._ && args._[0]);
+  if (!id) return { error: 'Decision ID is required (e.g. `skyhook adr review ADR-001`)' };
+
+  const projectDir = ctx.projectDir || process.cwd();
+  const engine = new ADRSupersessionEngine(ctx.skyhookDir, projectDir);
+  const result = engine.transitionStatus(id, 'under-review', {
+    reason: args.reason,
+    force: !!args.force
+  });
+
+  return {
+    message: `ADR '${id}' transitioned to under-review status.`,
+    ...result
+  };
+}
+
+/**
+ * Supersede an existing ADR with a newly accepted ADR
+ */
+export async function cmdSupersedeADR(ctx, args = {}) {
+  if (!ctx.skyhookDir) return { error: 'Not in a Skyhook project' };
+  const oldId = args.oldId || (args._ && args._[0]);
+  const newId = args.newId || (args._ && args._[1]);
+
+  if (!oldId || !newId) {
+    return { error: 'Both oldId and newId are required (e.g. `skyhook adr supersede ADR-001 ADR-002`)' };
+  }
+
+  const projectDir = ctx.projectDir || process.cwd();
+  const engine = new ADRSupersessionEngine(ctx.skyhookDir, projectDir);
+  const result = engine.supersede(oldId, newId, {
+    reason: args.reason
+  });
+
+  return {
+    message: `ADR '${oldId}' was successfully superseded by '${newId}'.`,
+    ...result
+  };
+}
+
+/**
+ * Output visual Mermaid DAG of decision lineage and lifecycle states
+ */
+export async function cmdADRDAG(ctx, args = {}) {
+  if (!ctx.skyhookDir) return { error: 'Not in a Skyhook project' };
+
+  const projectDir = ctx.projectDir || process.cwd();
+  const engine = new ADRSupersessionEngine(ctx.skyhookDir, projectDir);
+  const index = engine.readIndex();
+
+  if (args.format === 'json') {
+    return {
+      decisions: index.decisions || []
+    };
+  }
+
+  const mermaid = engine.generateMermaidDAG(index.decisions);
+  console.log('\n' + mermaid + '\n');
+
+  return {
+    message: 'Mermaid Decision DAG generated successfully.',
+    mermaid
+  };
+}
+
+/**
+ * Compile living ADR policies into machine-readable configs and ESLint rules
+ */
+export async function cmdCompilePolicies(ctx, args = {}) {
+  if (!ctx.skyhookDir) return { error: 'Not in a Skyhook project' };
+
+  const projectDir = ctx.projectDir || process.cwd();
+  const compiler = new ADRPolicyCompiler(ctx.skyhookDir, projectDir);
+  const result = compiler.compile(args);
+
+  return {
+    message: `Compiled ${result.compiledCount} active policy rule(s) across ${result.acceptedCount} accepted ADR(s). Deactivated ${result.deactivatedCount} superseded/deprecated ADR(s).`,
+    ...result
+  };
+}
+
+/**
+ * Scan workspace for package and migration events, synthesizing draft ADRs
+ */
+export async function cmdInterceptADR(ctx, args = {}) {
+  if (!ctx.skyhookDir) return { error: 'Not in a Skyhook project' };
+
+  const projectDir = ctx.projectDir || process.cwd();
+  const daemon = new ADRInterceptionDaemon(ctx.skyhookDir, projectDir);
+  const synthesized = daemon.scan();
+
+  return {
+    message: `ADR Interception scan complete: ${synthesized.length} draft ADR(s) synthesized.`,
+    count: synthesized.length,
+    drafts: synthesized
+  };
+}
+

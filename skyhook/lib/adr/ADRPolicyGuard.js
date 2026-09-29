@@ -6,6 +6,7 @@
 
 import fs from 'fs';
 import path from 'path';
+import { ASTImportGraph } from '../drift/ASTImportGraph.js';
 
 export class ADRPolicyGuard {
   constructor(skyhookDir, projectDir = process.cwd()) {
@@ -43,38 +44,33 @@ export class ADRPolicyGuard {
       };
     }
 
-    const sourceFiles = this.findSourceFiles(this.projectDir);
+    const graph = new ASTImportGraph(this.projectDir);
+    await graph.build();
+    const sourceFiles = Array.from(graph.nodes.keys());
     const violations = [];
 
-    for (const file of sourceFiles) {
-      const relPath = path.relative(this.projectDir, file);
-      const content = fs.readFileSync(file, 'utf-8');
-      const lines = content.split('\n');
+    for (const policy of activePolicies) {
+      for (const edge of graph.edges) {
+        const relPath = edge.from;
 
-      for (const policy of activePolicies) {
         // 1. Prohibited Imports Check
         if (policy.prohibitedImports && Array.isArray(policy.prohibitedImports)) {
-          // Check if this file is excluded/excepted
           if (policy.exceptIn && this.matchesGlobOrDir(relPath, policy.exceptIn)) {
             continue;
           }
 
-          for (let lineNum = 0; lineNum < lines.length; lineNum++) {
-            const line = lines[lineNum];
-            for (const prohibited of policy.prohibitedImports) {
-              // Matches: import ... from 'prohibited' or require('prohibited')
-              const importRegex = new RegExp(`(?:from\\s+['"\`]${prohibited}['"\`]|require\\(['"\`]${prohibited}['"\`])`);
-              if (importRegex.test(line)) {
-                violations.push({
-                  adrId: policy.adrId,
-                  adrTitle: policy.adrTitle,
-                  ruleType: 'prohibited-import',
-                  file: relPath,
-                  line: lineNum + 1,
-                  lineContent: line.trim(),
-                  message: policy.violationMessage || `Import of '${prohibited}' is prohibited by ${policy.adrId} (${policy.adrTitle})`
-                });
-              }
+          for (const prohibited of policy.prohibitedImports) {
+            if (edge.specifier === prohibited || edge.to === prohibited || edge.specifier.includes(prohibited)) {
+              violations.push({
+                adrId: policy.adrId,
+                adrTitle: policy.adrTitle,
+                ruleType: 'prohibited-import',
+                file: relPath,
+                line: edge.line || 1,
+                lineContent: `import from '${edge.specifier}'`,
+                message: policy.violationMessage || `Import of '${prohibited}' is prohibited by ${policy.adrId} (${policy.adrTitle})`
+              });
+              break;
             }
           }
         }
@@ -82,21 +78,18 @@ export class ADRPolicyGuard {
         // 2. Directory Boundary Check (e.g. controllers cannot import DB directly)
         if (policy.restrictDir && policy.forbiddenInDir) {
           if (this.matchesGlobOrDir(relPath, policy.forbiddenInDir)) {
-            for (let lineNum = 0; lineNum < lines.length; lineNum++) {
-              const line = lines[lineNum];
-              for (const forbidden of policy.forbiddenImports || []) {
-                const importRegex = new RegExp(`(?:from\\s+['"\`].*${forbidden}.*['"\`]|require\\(['"\`].*${forbidden}.*['"\`])`);
-                if (importRegex.test(line)) {
-                  violations.push({
-                    adrId: policy.adrId,
-                    adrTitle: policy.adrTitle,
-                    ruleType: 'boundary-violation',
-                    file: relPath,
-                    line: lineNum + 1,
-                    lineContent: line.trim(),
-                    message: policy.violationMessage || `Directory '${policy.forbiddenInDir}' cannot import '${forbidden}' per ${policy.adrId}`
-                  });
-                }
+            for (const forbidden of policy.forbiddenImports || []) {
+              if (edge.specifier.includes(forbidden) || (edge.to && edge.to.includes(forbidden))) {
+                violations.push({
+                  adrId: policy.adrId,
+                  adrTitle: policy.adrTitle,
+                  ruleType: 'boundary-violation',
+                  file: relPath,
+                  line: edge.line || 1,
+                  lineContent: `import from '${edge.specifier}'`,
+                  message: policy.violationMessage || `Directory '${policy.forbiddenInDir}' cannot import '${forbidden}' per ${policy.adrId}`
+                });
+                break;
               }
             }
           }

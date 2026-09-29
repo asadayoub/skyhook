@@ -6,6 +6,10 @@ import fs from 'fs';
 import path from 'path';
 import { readYaml } from './utils.js';
 import { parseFile, getParserStatus } from './parsers/index.js';
+import { SymbolLineageTracker } from './tracer/SymbolLineageTracker.js';
+import { DarkMatterAnalyzer } from './tracer/DarkMatterAnalyzer.js';
+
+export { SymbolLineageTracker, DarkMatterAnalyzer };
 
 // ==================== TRACE COMMAND ====================
 
@@ -15,14 +19,15 @@ import { parseFile, getParserStatus } from './parsers/index.js';
  * @param {string} requirementId - Requirement ID to trace
  * @returns {Object} Trace results
  */
-export async function traceRequirement(projectDir, requirementId) {
+export async function traceRequirement(projectDir, requirementId, options = {}) {
   const results = {
     requirementId,
     requirement: null,
     stories: [],
     decisions: [],
     codeReferences: [],
-    files: []
+    files: [],
+    lineage: []
   };
 
   // 1. Load requirement from .skyhook/
@@ -63,6 +68,17 @@ export async function traceRequirement(projectDir, requirementId) {
 
   // 5. Collect unique files
   results.files = [...new Set(results.codeReferences.map(r => r.file))];
+
+  // 6. Detect possible refactored symbols if lineage requested or untraced
+  if (options.lineage || results.codeReferences.length === 0) {
+    try {
+      const allSymbols = await indexCodebase(projectDir);
+      const broken = SymbolLineageTracker.detectBrokenLineage(allSymbols, [requirement]);
+      results.lineage = broken.length > 0 ? broken[0].suggestedSymbols : [];
+    } catch {
+      results.lineage = [];
+    }
+  }
 
   return results;
 }
@@ -121,42 +137,27 @@ export async function indexCodebase(projectDir) {
  */
 export async function generateCoverageHeatmap(projectDir) {
   const allSymbols = await indexCodebase(projectDir);
+  const analysis = DarkMatterAnalyzer.analyze(allSymbols);
   
-  let totalSymbols = allSymbols.length;
-  let tracedSymbols = allSymbols.filter(s => s.traced).length;
-  let untracedSymbols = totalSymbols - tracedSymbols;
-  
-  const files = {};
-  for (const s of allSymbols) {
-    if (!files[s.file]) files[s.file] = { total: 0, traced: 0, untraced: 0 };
-    files[s.file].total++;
-    if (s.traced) files[s.file].traced++;
-    else files[s.file].untraced++;
-  }
-  
-  const darkMatter = [];
-  for (const [file, stats] of Object.entries(files)) {
-    if (stats.untraced > 0) {
-      darkMatter.push({
-        file,
-        coveragePercentage: Math.round((stats.traced / stats.total) * 100),
-        untracedCount: stats.untraced
-      });
-    }
-  }
-  
-  // Sort by most untraced code first
-  darkMatter.sort((a, b) => b.untracedCount - a.untracedCount);
-  
+  const darkMatter = analysis.files
+    .filter(f => f.untraced > 0)
+    .map(f => ({
+      file: f.file,
+      coveragePercentage: f.coverage,
+      untracedCount: f.untraced,
+      risk: f.risk
+    }));
+
   return {
     summary: {
-      totalSymbols,
-      tracedSymbols,
-      untracedSymbols,
-      overallCoverage: totalSymbols > 0 ? Math.round((tracedSymbols / totalSymbols) * 100) : 0
+      totalSymbols: analysis.summary.totalSymbols,
+      tracedSymbols: analysis.summary.tracedSymbols,
+      untracedSymbols: analysis.summary.untracedSymbols,
+      overallCoverage: analysis.summary.overallCoverage
     },
     darkMatter,
-    parserStatus: getParserStatus()
+    parserStatus: getParserStatus(),
+    analysis
   };
 }
 

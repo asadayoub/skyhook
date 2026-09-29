@@ -6,6 +6,8 @@ import { detectDrift } from '../drift-analyzer.js';
 import { traceRequirement, analyzeImpact, findUntracedRequirements, generateCoverageHeatmap, indexCodebase } from '../tracer.js';
 import { ADRSyncEngine } from '../adr/ADRSyncEngine.js';
 import { PlanCompiler } from '../plan/PlanCompiler.js';
+import { DriftAggregator } from '../drift/DriftAggregator.js';
+import { DriftAutoFixer } from '../drift/DriftAutoFixer.js';
 
 export async function cmdSync(ctx, args = {}) {
   const projectDir = process.cwd();
@@ -73,7 +75,20 @@ export async function cmdSync(ctx, args = {}) {
     console.log('\n✅ No architecture drift detected. Codebase matches declared tech stack.');
   }
 
-  // 7. Auto-recompile Living Project Plan if plan directory exists
+  // 7. Run Boundary & Architectural Compliance Analysis
+  let driftScorecard = null;
+  try {
+    const aggregator = new DriftAggregator(ctx, args);
+    driftScorecard = await aggregator.analyze();
+    console.log(`🛡️ Architectural Compliance Health: ${driftScorecard.healthScore}% (${driftScorecard.summary.criticalCount} critical, ${driftScorecard.summary.warningCount} warnings, ${driftScorecard.summary.circularCyclesCount} cycles)`);
+    if (driftScorecard.circularCycles.length > 0) {
+      console.log(`⚠️ Warning: ${driftScorecard.circularCycles.length} circular dependency cycle(s) detected. Run 'skyhook drift --boundaries' for details.`);
+    }
+  } catch {
+    // Non-fatal during sync
+  }
+
+  // 8. Auto-recompile Living Project Plan if plan directory exists
   let planSyncResult = null;
   if (ctx.skyhookDir && fs.existsSync(path.join(ctx.skyhookDir, 'plan'))) {
     try {
@@ -84,13 +99,127 @@ export async function cmdSync(ctx, args = {}) {
     }
   }
 
-  return { drift: driftResult, facts, adrSync: adrSyncResult, planSync: planSyncResult };
+  return { drift: driftResult, facts, adrSync: adrSyncResult, planSync: planSyncResult, driftScorecard };
+}
+
+/**
+ * cmdDrift - Unified Architectural Drift, DDD Boundaries, Semantic Rules, and C4 Generator
+ */
+export async function cmdDrift(ctx, args = {}) {
+  const aggregator = new DriftAggregator(ctx, args);
+  const scorecard = await aggregator.analyze();
+
+  if (args.json || args.format === 'json') {
+    return scorecard;
+  }
+
+  // 1. Handle auto-fix / adoption
+  if (args.fix || args.adopt) {
+    console.log('\n🛠️ Running Architectural Auto-Remediation...');
+    const packageDrifts = scorecard.warnings.filter(w => w.type === 'PACKAGE_DRIFT');
+    if (packageDrifts.length > 0) {
+      const items = packageDrifts.map(p => ({
+        name: p.orm || p.database || p.styling || (p.message && p.message.match(/'([^']+)'/)?.[1]) || 'Unknown',
+        category: p.type.toLowerCase().includes('database') ? 'Database' : 'Technology'
+      }));
+      const adoptedResult = DriftAutoFixer.adoptDrift(ctx, items);
+      if (adoptedResult.adoptedCount > 0) {
+        console.log(`✅ Adopted ${adoptedResult.adoptedCount} technologies into .skyhook/tech-stack.yaml: ${adoptedResult.adopted.join(', ')}`);
+      }
+    }
+  }
+
+  // 2. Display C4 Mermaid diagrams if requested
+  if (args.c4) {
+    console.log('\n🏛️ Living C4 Architecture - Container Diagram:');
+    console.log('```mermaid');
+    console.log(scorecard.c4.mermaidContainer);
+    console.log('```\n');
+    console.log('📦 Living C4 Architecture - Component Diagram:');
+    console.log('```mermaid');
+    console.log(scorecard.c4.mermaidComponent);
+    console.log('```\n');
+    return { c4: scorecard.c4 };
+  }
+
+  // 3. Display Boundaries if requested
+  if (args.boundaries) {
+    console.log(`\n🛡️ Architecture Boundary & Layer Governance (Health Score: ${scorecard.healthScore}%):`);
+    if (scorecard.circularCycles.length > 0) {
+      console.log('\n🔄 Circular Dependency Cycles Detected:');
+      scorecard.circularCycles.forEach((c, idx) => {
+        console.log(`  ${idx + 1}. ${c.join(' ➔ ')} ➔ ${c[0]}`);
+      });
+    }
+    const layerViolations = scorecard.criticalViolations.filter(v => v.type === 'LAYER_VIOLATION' || v.type === 'ENCAPSULATION_BREACH');
+    if (layerViolations.length > 0) {
+      console.log('\n⛔ Layer Boundary Violations:');
+      layerViolations.forEach((v, idx) => {
+        console.log(`  ${idx + 1}. [${v.fromLayer || 'module'}] ➔ [${v.toLayer || v.module}] in ${v.file}:${v.line || 1}`);
+        console.log(`     Issue: ${v.message}`);
+        console.log(`     Fix:   ${v.recommendation}`);
+      });
+    } else if (scorecard.circularCycles.length === 0) {
+      console.log('✅ Clean architectural boundaries. No layer or encapsulation breaches detected.');
+    }
+  } else if (args.semantic) {
+    console.log(`\n🔍 Semantic AST Pattern Analysis (Score: ${scorecard.healthScore}%):`);
+    const semanticIssues = [...scorecard.criticalViolations, ...scorecard.warnings].filter(v => v.type.startsWith('SEMANTIC'));
+    if (semanticIssues.length > 0) {
+      semanticIssues.forEach((v, idx) => {
+        console.log(`  ${idx + 1}. [${v.ruleId}] ${v.file}:${v.line}`);
+        console.log(`     Snippet: ${v.snippet}`);
+        console.log(`     Issue:   ${v.message}`);
+        console.log(`     Fix:     ${v.suggestion}`);
+      });
+    } else {
+      console.log('✅ All semantic architecture rules passed cleanly.');
+    }
+  } else {
+    // Default full overview
+    console.log(`\n======================================================`);
+    console.log(`🏛️ SKYHOOK ARCHITECTURE DRIFT & COMPLIANCE SCORECARD`);
+    console.log(`======================================================`);
+    console.log(`Architectural Compliance Health: ${scorecard.healthScore}%`);
+    console.log(`Status: ${scorecard.pass ? '✅ PASS' : '❌ VIOLATIONS DETECTED'}`);
+    console.log(`Graph Nodes: ${scorecard.summary.nodesCount} | Dependency Edges: ${scorecard.summary.edgesCount} | External Packages: ${scorecard.summary.externalPackagesCount}`);
+    console.log(`Critical Violations: ${scorecard.summary.criticalCount} | Warnings: ${scorecard.summary.warningCount} | Circular Cycles: ${scorecard.summary.circularCyclesCount}`);
+
+    if (scorecard.criticalViolations.length > 0) {
+      console.log(`\n🚨 Critical Violations:`);
+      scorecard.criticalViolations.forEach((v, idx) => {
+        console.log(`  ${idx + 1}. [${v.type}] ${v.message} (${v.file || ''})`);
+      });
+    }
+
+    if (scorecard.circularCycles.length > 0) {
+      console.log(`\n🔄 Circular Dependency Cycles:`);
+      scorecard.circularCycles.forEach((c, idx) => {
+        console.log(`  ${idx + 1}. ${c.join(' ➔ ')} ➔ ${c[0]}`);
+      });
+    }
+
+    if (scorecard.warnings.length > 0) {
+      console.log(`\n⚠️ Architectural Warnings:`);
+      scorecard.warnings.forEach((w, idx) => {
+        console.log(`  ${idx + 1}. [${w.type}] ${w.message}`);
+      });
+    }
+  }
+
+  // CI Check Gate
+  if ((args['ci-check'] || args.ciCheck) && scorecard.criticalViolations.length > 0) {
+    console.error(`\n❌ CI Check Failed: ${scorecard.criticalViolations.length} critical architecture violation(s) detected.`);
+    process.exit(1);
+  }
+
+  return scorecard;
 }
 
 export async function cmdTrace(ctx, args) {
   if (!args.id) return { error: 'Missing required: id (requirement ID)' };
   const projectDir = process.cwd();
-  return traceRequirement(projectDir, args.id);
+  return traceRequirement(projectDir, args.id, { lineage: Boolean(args.lineage) });
 }
 
 export async function cmdImpact(ctx, args) {

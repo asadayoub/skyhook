@@ -6,6 +6,7 @@ import fs from 'fs';
 import path from 'path';
 import { readYaml, findSkyhookDir, getTimestamp, generateULID } from './utils.js';
 import { generateADRDiagram } from './adr/ADRDiagramGenerator.js';
+import { generateComparativeDiagram } from './adr/ADRComparativeDiagramGenerator.js';
 
 // ==================== AUTO-ADR GENERATOR ====================
 
@@ -33,6 +34,13 @@ function generateADR(decisionData, context) {
 
   // Generate automated architecture diagram
   const diagram = decisionData.diagram || generateADRDiagram(decisionData, context);
+
+  // Generate comparative before/after visual diff if requested or superseding
+  let comparativeSection = '';
+  if (decisionData.comparativeDiagram || decisionData.diff || decisionData.supersedes) {
+    const compDiagram = generateComparativeDiagram(decisionData, context);
+    comparativeSection = `\n## Architecture Mutation (Before vs After)\n\n${compDiagram}\n`;
+  }
 
   // Format enforcement policy block if present
   let enforcementSection = '';
@@ -67,7 +75,7 @@ ${generateDecisionRationale(decisionData, context)}
 ## Architecture Diagram
 
 ${diagram}
-${enforcementSection}
+${comparativeSection}${enforcementSection}
 ## Consequences
 
 ### Positive
@@ -403,4 +411,4 @@ function generateDecisionRationale(decisionData, context) {
 
 // Removed duplicate decisionMentions
 
-export { generateADR };
+export { generateADR, generateComparativeDiagram };

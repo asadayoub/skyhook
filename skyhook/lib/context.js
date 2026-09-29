@@ -245,9 +245,17 @@ class SkyhookContext {
 }
 
 export function createSkyhookContext(projectDir) {
-  const skyhookDir = path.join(projectDir, '.skyhook');
-  if (!fs.existsSync(skyhookDir)) return null;
-  return new SkyhookContext(skyhookDir);
+  let dir = path.resolve(projectDir || process.cwd());
+  while (dir && dir !== path.parse(dir).root) {
+    const skyhookDir = path.join(dir, '.skyhook');
+    if (fs.existsSync(skyhookDir)) {
+      return new SkyhookContext(skyhookDir);
+    }
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return null;
 }
 
 export { SkyhookContext };

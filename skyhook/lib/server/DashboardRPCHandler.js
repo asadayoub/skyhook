@@ -14,8 +14,19 @@ import { EventLedger } from '../backlog/EventLedger.js';
 import { CapacityPlanner } from '../plan/CapacityPlanner.js';
 import { PlanCompiler } from '../plan/PlanCompiler.js';
 import { indexCodebase } from '../tracer.js';
+import { DarkMatterAnalyzer } from '../tracer/DarkMatterAnalyzer.js';
 import { inferFromRepo } from '../inference/InferenceEngine.js';
 import { detectDrift } from '../drift-analyzer.js';
+import { DriftAggregator } from '../drift/DriftAggregator.js';
+import { DriftAutoFixer } from '../drift/DriftAutoFixer.js';
+import { ASTImportGraph } from '../drift/ASTImportGraph.js';
+import { ModuleBoundaryGuard } from '../drift/ModuleBoundaryGuard.js';
+import { C4ArchitectureGenerator } from '../drift/C4ArchitectureGenerator.js';
+import { ADRSupersessionEngine } from '../adr/ADRSupersessionEngine.js';
+import { ADRPolicyCompiler } from '../adr/ADRPolicyCompiler.js';
+import { ADRInterceptionDaemon } from '../adr/ADRInterceptionDaemon.js';
+import { inferArchitecturalDiff, generateComparativeDiagram } from '../adr/ADRComparativeDiagramGenerator.js';
+import { parseADRMarkdown } from '../adr/ADRMarkdownParser.js';
 
 export class DashboardRPCHandler {
   /**
@@ -279,6 +290,187 @@ export class DashboardRPCHandler {
       url: targetUrl,
       path: absPath,
       line
+    };
+  }
+
+  /**
+   * Get complete architectural compliance scorecard
+   */
+  static async getDriftScorecard(projectDir = process.cwd()) {
+    const ctx = createSkyhookContext(projectDir) || {
+      projectDir,
+      skyhookDir: path.join(projectDir, '.skyhook')
+    };
+    const aggregator = new DriftAggregator(ctx);
+    return aggregator.analyze();
+  }
+
+  /**
+   * Get dependency matrix and graph nodes/edges
+   */
+  static async getDriftGraph(projectDir = process.cwd()) {
+    const graph = new ASTImportGraph(projectDir);
+    await graph.build();
+    const circularCycles = graph.findCircularDependencies();
+    return {
+      success: true,
+      nodes: Array.from(graph.nodes.values()),
+      edges: graph.edges,
+      externalPackages: Array.from(graph.externalPackages.entries()).map(([pkg, files]) => ({
+        package: pkg,
+        usedIn: Array.from(files)
+      })),
+      circularCycles
+    };
+  }
+
+  /**
+   * Get DDD boundary rules and violations
+   */
+  static async getDriftBoundaries(projectDir = process.cwd()) {
+    const ctx = createSkyhookContext(projectDir) || {
+      projectDir,
+      skyhookDir: path.join(projectDir, '.skyhook')
+    };
+    const graph = new ASTImportGraph(projectDir);
+    await graph.build();
+    const guard = new ModuleBoundaryGuard(projectDir);
+    const result = guard.validate(graph, ctx);
+    return {
+      success: true,
+      ...result
+    };
+  }
+
+  /**
+   * Get living C4 architecture model and target diff
+   */
+  static async getDriftC4(projectDir = process.cwd()) {
+    const graph = new ASTImportGraph(projectDir);
+    await graph.build();
+    const c4Gen = new C4ArchitectureGenerator(projectDir, graph);
+    const inferred = await c4Gen.inferArchitecture();
+    const mermaidContainer = c4Gen.toMermaidContainerDiagram(inferred);
+    const mermaidComponent = c4Gen.toMermaidComponentDiagram(inferred);
+    const diff = c4Gen.diffWithTarget(inferred);
+    return {
+      success: true,
+      inferred,
+      mermaidContainer,
+      mermaidComponent,
+      diff
+    };
+  }
+
+  /**
+   * Get dark matter and codebase coverage metrics
+   */
+  static async getDarkMatterData(projectDir = process.cwd()) {
+    const symbols = await indexCodebase(projectDir);
+    const analysis = DarkMatterAnalyzer.analyze(symbols);
+    return {
+      success: true,
+      projectDir,
+      ...analysis
+    };
+  }
+
+  /**
+   * 1-Click Draft ADR from detected architectural drift
+   */
+  static draftADRFromDrift(projectDir = process.cwd(), driftItem = {}) {
+    const ctx = createSkyhookContext(projectDir) || {
+      projectDir,
+      skyhookDir: path.join(projectDir, '.skyhook')
+    };
+    return DriftAutoFixer.draftADRFromDrift(ctx, driftItem);
+  }
+
+  /**
+   * Get Decision Lifecycle & Lineage DAG
+   */
+  static getADRDAG(projectDir = process.cwd()) {
+    const skyhookDir = path.join(projectDir, '.skyhook');
+    const engine = new ADRSupersessionEngine(skyhookDir, projectDir);
+    const indexData = engine.readIndex();
+    const mermaid = engine.generateMermaidDAG(indexData.decisions);
+    return {
+      success: true,
+      decisions: indexData.decisions || [],
+      mermaid
+    };
+  }
+
+  /**
+   * Get Before vs After comparative visual diff for a decision
+   */
+  static getADRDiff(projectDir = process.cwd(), decisionId) {
+    const skyhookDir = path.join(projectDir, '.skyhook');
+    const engine = new ADRSupersessionEngine(skyhookDir, projectDir);
+    const indexData = engine.readIndex();
+    const decision = (indexData.decisions || []).find(d => d.id === decisionId) || { id: decisionId, title: decisionId };
+
+    // Try reading record markdown
+    const recordPath = engine.resolveRecordFilePath(decisionId, decision);
+    if (recordPath && fs.existsSync(recordPath)) {
+      try {
+        const parsed = parseADRMarkdown(fs.readFileSync(recordPath, 'utf-8'));
+        Object.assign(decision, parsed);
+      } catch {
+        // use basic decision
+      }
+    }
+
+    const diff = inferArchitecturalDiff(decision);
+    const mermaid = generateComparativeDiagram(decision);
+
+    return {
+      success: true,
+      decisionId,
+      title: decision.title || decisionId,
+      diff,
+      mermaid
+    };
+  }
+
+  /**
+   * Transition decision lifecycle status
+   */
+  static transitionADR(projectDir = process.cwd(), { decisionId, targetStatus, reason, force }) {
+    const skyhookDir = path.join(projectDir, '.skyhook');
+    const engine = new ADRSupersessionEngine(skyhookDir, projectDir);
+    return engine.transitionStatus(decisionId, targetStatus, { reason, force });
+  }
+
+  /**
+   * Supersede an old decision with a new decision
+   */
+  static supersedeADR(projectDir = process.cwd(), { oldId, newId, reason }) {
+    const skyhookDir = path.join(projectDir, '.skyhook');
+    const engine = new ADRSupersessionEngine(skyhookDir, projectDir);
+    return engine.supersede(oldId, newId, { reason });
+  }
+
+  /**
+   * Compile active ADR policies into machine boundaries & ESLint rules
+   */
+  static compileADRPolicies(projectDir = process.cwd(), options = {}) {
+    const skyhookDir = path.join(projectDir, '.skyhook');
+    const compiler = new ADRPolicyCompiler(skyhookDir, projectDir);
+    return compiler.compile(options);
+  }
+
+  /**
+   * Run proactive interception sweep
+   */
+  static interceptADR(projectDir = process.cwd()) {
+    const skyhookDir = path.join(projectDir, '.skyhook');
+    const daemon = new ADRInterceptionDaemon(skyhookDir, projectDir);
+    const drafts = daemon.scan();
+    return {
+      success: true,
+      count: drafts.length,
+      drafts
     };
   }
 }
