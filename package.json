@@ -3,9 +3,10 @@
   "version": "1.9.0",
   "type": "module",
   "description": "Universal Project Intelligence for AI Agents",
-  "bin": {
+    "bin": {
     "skyhook": "./skyhook/cli/skyhook.js",
-    "skyhook-cmd": "./skyhook/cli/skyhook-cmd.js"
+    "skyhook-cmd": "./skyhook/cli/skyhook-cmd.js",
+    "skyhook-mcp": "./skyhook/cli/skyhook-mcp.js"
   },
   "files": [
     "skyhook/**/*"

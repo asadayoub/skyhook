@@ -224,6 +224,46 @@ export class SkyhookServer {
           return;
         }
 
+        // GET /api/harness/detect
+        if (pathname === '/api/harness/detect' && req.method === 'GET') {
+          const scan = await DashboardRPCHandler.detectHarnesses(this.workspaceDir);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(scan));
+          return;
+        }
+
+        // GET /api/harness/status
+        if (pathname === '/api/harness/status' && req.method === 'GET') {
+          const statusReport = await DashboardRPCHandler.getHarnessStatus(this.workspaceDir);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(statusReport));
+          return;
+        }
+
+        // POST /api/action/inject-harness
+        if (pathname === '/api/action/inject-harness' && req.method === 'POST') {
+          const body = await SkyhookServer.parseJsonBody(req);
+          const result = await DashboardRPCHandler.injectHarness(this.workspaceDir, body);
+          if (this.gateway) {
+            this.gateway.broadcast('HARNESS_INJECTED', result);
+          }
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(result));
+          return;
+        }
+
+        // POST /api/action/remove-harness
+        if (pathname === '/api/action/remove-harness' && req.method === 'POST') {
+          const body = await SkyhookServer.parseJsonBody(req);
+          const result = await DashboardRPCHandler.removeHarness(this.workspaceDir, body);
+          if (this.gateway) {
+            this.gateway.broadcast('HARNESS_REMOVED', result);
+          }
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(result));
+          return;
+        }
+
         // POST /api/action/transition-adr
         if (pathname === '/api/action/transition-adr' && req.method === 'POST') {
           const body = await SkyhookServer.parseJsonBody(req);

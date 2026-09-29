@@ -65,8 +65,12 @@ test('ADRWatcher triggers onChange callback when markdown file is modified', asy
     // Modify file
     fs.writeFileSync(mdFile, '# Decision: Test Decision\n\n**ID**: ADR-001\n**Status**: accepted\n', 'utf-8');
 
-    // Wait 150ms for debounce
-    await new Promise(resolve => setTimeout(resolve, 150));
+    // Wait up to 1000ms for debounce and macOS fs.watch notification
+    let waited = 0;
+    while (!eventFired && waited < 20) {
+      await new Promise(resolve => setTimeout(resolve, 50));
+      waited++;
+    }
 
     assert.strictEqual(eventFired, true);
     assert.strictEqual(receivedFilename, 'ADR-001.md');

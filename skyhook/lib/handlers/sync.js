@@ -99,7 +99,22 @@ export async function cmdSync(ctx, args = {}) {
     }
   }
 
-  return { drift: driftResult, facts, adrSync: adrSyncResult, planSync: planSyncResult, driftScorecard };
+  // 9. Synchronize Injected Agent Harness Rules
+  let harnessSyncResult = null;
+  if (ctx.skyhookDir) {
+    try {
+      const { HarnessInjector } = await import('../harness/HarnessInjector.js');
+      const injector = new HarnessInjector();
+      harnessSyncResult = await injector.syncRules(ctx);
+      if (harnessSyncResult.count > 0) {
+        console.log(`🤖 Agent Harness Sync: Refreshed governance rules across ${harnessSyncResult.count} agent(s) (${harnessSyncResult.syncedHarnesses.join(', ')}).`);
+      }
+    } catch {
+      // Non-fatal if harness sync encounters unconfigured environment
+    }
+  }
+
+  return { drift: driftResult, facts, adrSync: adrSyncResult, planSync: planSyncResult, driftScorecard, harnessSync: harnessSyncResult };
 }
 
 /**

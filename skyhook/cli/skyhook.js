@@ -10,6 +10,7 @@ import { createSkyhookContext } from '../lib/context.js';
 import * as backlogHandlers from '../lib/handlers/backlog.js';
 import * as adrHandlers from '../lib/handlers/adr.js';
 import * as hookHandlers from '../lib/handlers/hook.js';
+import * as harnessHandlers from '../lib/handlers/harness.js';
 import { cmdSync, cmdTrace, cmdImpact, cmdUntraced, cmdCoverage, cmdMapLegacy, cmdGraph, cmdDrift } from '../lib/handlers/sync.js';
 import * as generalHandlers from '../lib/handlers/general.js';
 
@@ -131,6 +132,7 @@ async function main() {
     ...backlogHandlers,
     ...adrHandlers,
     ...hookHandlers,
+    ...harnessHandlers,
     cmdSync,
     cmdTrace,
     cmdImpact,
@@ -187,7 +189,13 @@ async function main() {
     'update-status': 'cmdUpdateStatus',
     'get-blockers': 'cmdGetBlockers',
     'list-features': 'cmdListCurrentFeatures',
-    'add-feature': 'cmdAddFeature'
+    'add-feature': 'cmdAddFeature',
+    harness: 'cmdHarnessStatus',
+    'harness-inject': 'cmdHarnessInject',
+    'harness-detect': 'cmdHarnessDetect',
+    'harness-status': 'cmdHarnessStatus',
+    'harness-remove': 'cmdHarnessRemove',
+    mcp: 'cmdStartMCP'
   };
 
   // Support subcommands
@@ -235,6 +243,18 @@ async function main() {
     else if (sub === 'uninstall') effectiveCommand = 'hook-uninstall';
     else if (sub === 'status') effectiveCommand = 'hook-status';
     else effectiveCommand = 'hook-install';
+  } else if (command === 'harness') {
+    const sub = parsedArgs._.shift() || 'status';
+    if (sub === 'inject' || sub === 'install') effectiveCommand = 'harness-inject';
+    else if (sub === 'detect' || sub === 'scan') effectiveCommand = 'harness-detect';
+    else if (sub === 'remove' || sub === 'uninstall') effectiveCommand = 'harness-remove';
+    else if (sub === 'status' || sub === 'list') effectiveCommand = 'harness-status';
+    else {
+      parsedArgs.target = sub;
+      effectiveCommand = 'harness-inject';
+    }
+  } else if (command === 'mcp') {
+    effectiveCommand = 'mcp';
   }
 
   const handlerName = commandMap[effectiveCommand];

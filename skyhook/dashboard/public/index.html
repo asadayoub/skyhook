@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Skyhook // Cybernetic Architecture Radar</title>
+  <title>SKYHOOK // ARCHITECTURE RADAR</title>
   <link rel="stylesheet" href="/cyber.css">
   <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
   <script>
@@ -26,133 +26,27 @@
   </script>
 </head>
 <body>
-  <!-- HUD Header -->
-  <header class="hud-header">
+  <!-- HUD Header Shell -->
+  <header id="headerContainer" class="hud-header">
     <div class="brand">
-      <div class="brand-icon">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#00f0ff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
-          <polyline points="2 17 12 22 22 17"></polyline>
-          <polyline points="2 12 12 17 22 12"></polyline>
-        </svg>
-      </div>
-      <div>
-        <div class="brand-title">SKYHOOK // ARCHITECTURE RADAR</div>
-      </div>
-      <span class="brand-version">v1.9.0</span>
-    </div>
-
-    <!-- Navigation Tabs -->
-    <nav class="nav-tabs">
-      <button class="tab-btn active" data-tab="kanban">
-        <span>⚡</span> KANBAN
-      </button>
-      <button class="tab-btn" data-tab="topology">
-        <span>🌐</span> TOPOLOGY
-      </button>
-      <button class="tab-btn" data-tab="drift">
-        <span>🛡️</span> DRIFT CENTER
-      </button>
-      <button class="tab-btn" data-tab="decisions">
-        <span>⚖️</span> ADR DAG
-      </button>
-      <button class="tab-btn" data-tab="mermaid">
-        <span>📊</span> MERMAID
-      </button>
-      <button class="tab-btn" data-tab="darkmatter">
-        <span>🔭</span> DARK MATTER
-      </button>
-    </nav>
-
-    <!-- Project Selector & Telemetry -->
-    <div class="hud-controls">
-      <select id="projectSelect" class="project-select" aria-label="Project"></select>
-      
-      <select id="editorSelect" class="project-select" aria-label="Editor Preference" title="Preferred Editor for Deep Links">
-        <option value="vscode">VS Code (vscode://)</option>
-        <option value="cursor">Cursor (cursor://)</option>
-        <option value="sublime">Sublime Text (subl://)</option>
-        <option value="modal">In-Dashboard Viewer</option>
-      </select>
-
-      <div class="telemetry-indicator" title="Bidirectional WebSocket Event Stream">
-        <span id="connectionIndicator" class="pulse-dot"></span>
-        <span id="connectionStatusText">CONNECTING</span>
-        <span style="color: var(--text-dim);">|</span>
-        <span id="latencyDisplay" style="color: var(--neon-cyan);">-- ms</span>
-      </div>
+      <div class="brand-title">SKYHOOK // ARCHITECTURE RADAR</div>
     </div>
   </header>
 
   <!-- Telemetry HUD Overview -->
-  <div style="max-width: 1600px; margin: 24px auto 0 auto; padding: 0 24px;">
-    <div class="telemetry-grid">
-      <div class="glass-panel stat-card" style="--stat-accent: var(--neon-cyan);">
-        <div class="stat-label">Velocity</div>
-        <div class="stat-value" id="statVelocity">-- pts/wk</div>
-        <div class="stat-sub">Historical cycle time</div>
-      </div>
-      <div class="glass-panel stat-card" style="--stat-accent: #38bdf8;">
-        <div class="stat-label">Burndown Remaining</div>
-        <div class="stat-value" id="statBurndown">-- pts</div>
-        <div class="stat-sub">Uncompleted backlog</div>
-      </div>
-      <div class="glass-panel stat-card" style="--stat-accent: var(--neon-emerald);">
-        <div class="stat-label">Delivery Forecast</div>
-        <div class="stat-value" id="statForecast">-- wks</div>
-        <div class="stat-sub">Capacity timeline</div>
-      </div>
-      <div class="glass-panel stat-card" style="--stat-accent: var(--neon-violet);">
-        <div class="stat-label">Critical Path</div>
-        <div class="stat-value" id="statCritical">-- paths</div>
-        <div class="stat-sub">Dependency bottleneck</div>
-      </div>
-      <div class="glass-panel stat-card" style="--stat-accent: var(--neon-amber);">
-        <div class="stat-label">Active Agent Leases</div>
-        <div class="stat-value" id="statLeases">0</div>
-        <div class="stat-sub">Distributed locks</div>
-      </div>
-      <div class="glass-panel stat-card" style="--stat-accent: var(--neon-rose);">
-        <div class="stat-label">Blockers</div>
-        <div class="stat-value" id="statBlockers">0</div>
-        <div class="stat-sub">Immediate attention</div>
-      </div>
-    </div>
-  </div>
+  <div id="telemetryContainer" style="max-width: 1600px; margin: 24px auto 0 auto; padding: 0 24px;"></div>
 
-  <!-- Dynamic Tab View Container -->
+  <!-- Dynamic Router View Container -->
   <main id="mainContent" style="max-width: 1600px; margin: 0 auto; padding: 0 24px 48px 24px;">
     <div class="glass-panel" style="text-align: center; padding: 60px; color: var(--text-dim); font-family: var(--font-mono);">
-      SYNCHRONIZING WITH SKYHOOK WEBSOCKET GATEWAY...
+      INITIALIZING SKYHOOK MODULAR RUNTIME...
     </div>
   </main>
 
   <!-- Cybernetic File Viewer / Inspector Modal -->
-  <div id="fileModal" class="modal-overlay">
-    <div class="modal-dialog">
-      <div class="modal-header">
-        <div style="display: flex; align-items: center; gap: 12px;">
-          <span style="font-family: var(--font-hud); font-size: 1.1rem; font-weight: 700; color: var(--neon-cyan);">CODE INSPECTOR</span>
-          <span id="modalTitle" style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-secondary);">path/to/file.js</span>
-        </div>
-        <div style="display: flex; gap: 10px;">
-          <button id="openIdeBtn" class="btn-cyber" style="padding: 6px 14px; font-size: 0.8rem;">
-            LAUNCH IN IDE
-          </button>
-          <button id="modalCloseBtn" class="btn-secondary" style="padding: 6px 14px; font-size: 0.8rem;">
-            CLOSE
-          </button>
-        </div>
-      </div>
-      <div class="modal-body">
-        <div class="code-container">
-          <div id="modalCodeLines" class="code-lines"></div>
-          <div id="modalCodeContent" class="code-content"></div>
-        </div>
-      </div>
-    </div>
-  </div>
+  <div id="fileModal" class="modal-overlay"></div>
 
-  <script src="/app.js"></script>
+  <!-- Modular Application Bootloader -->
+  <script type="module" src="/main.js"></script>
 </body>
 </html>

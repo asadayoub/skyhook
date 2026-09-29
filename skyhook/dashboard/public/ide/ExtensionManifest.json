@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "name": "skyhook-ide-webview",
+  "version": "1.9.0",
+  "description": "Native VS Code and Cursor Webview Panel Integration Manifest for Skyhook Modular Dashboard",
+  "runtime": {
+    "target": "vscode-webview",
+    "supportedEditors": ["VS Code", "Cursor", "Windsurf", "VSCodium"],
+    "minimumApiVersion": "1.75.0"
+  },
+  "contentSecurityPolicy": {
+    "defaultSrc": ["'none'"],
+    "scriptSrc": [
+      "'self'",
+      "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js",
+      "'unsafe-eval'",
+      "'unsafe-inline'"
+    ],
+    "styleSrc": ["'self'", "'unsafe-inline'"],
+    "imgSrc": ["'self'", "data:", "https:"],
+    "connectSrc": ["'self'", "http://127.0.0.1:*", "ws://127.0.0.1:*"],
+    "fontSrc": ["'self'"]
+  },
+  "entrypoint": {
+    "html": "skyhook/dashboard/public/index.html",
+    "script": "skyhook/dashboard/public/main.js",
+    "styles": ["skyhook/dashboard/public/cyber.css"],
+    "type": "module"
+  },
+  "bridgeContract": {
+    "apiDetection": "typeof acquireVsCodeApi !== 'undefined' || window.__VSCODE_WEBVIEW__ === true",
+    "communicationProtocol": "window.postMessage",
+    "inboundMessages": [
+      {
+        "type": "RPC_REQUEST",
+        "description": "Webview calls extension host for data or mutation",
+        "payload": {
+          "id": "string",
+          "action": "string",
+          "payload": "object"
+        }
+      },
+      {
+        "type": "OPEN_DOCUMENT",
+        "description": "Requests extension host to open an editor tab at a specific line",
+        "payload": {
+          "filePath": "string",
+          "line": "number",
+          "column": "number"
+        }
+      }
+    ],
+    "outboundMessages": [
+      {
+        "type": "RPC_RESPONSE",
+        "description": "Extension host replies to webview RPC request",
+        "payload": {
+          "id": "string",
+          "result": "any",
+          "error": "string | null"
+        }
+      },
+      {
+        "type": "BROADCAST_EVENT",
+        "description": "Extension host pushes reactive workspace events to webview",
+        "payload": {
+          "type": "BACKLOG_UPDATED | DECISIONS_UPDATED | REQUIREMENTS_UPDATED | TECH_STACK_UPDATED | STORY_TRANSITIONED | LEASE_RELEASED | DRIFT_ADOPTED | PLAN_RECOMPILED | ADR_TRANSITIONED | HARNESS_INJECTED",
+          "data": "object"
+        }
+      }
+    ]
+  },
+  "lifecycle": {
+    "retainContextWhenHidden": true,
+    "statePersistence": {
+      "method": "vscode.setState / vscode.getState",
+      "keys": ["currentProjectId", "activeRoute", "editorPreference"]
+    }
+  }
+}

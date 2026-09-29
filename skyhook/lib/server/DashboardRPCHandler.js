@@ -27,6 +27,8 @@ import { ADRPolicyCompiler } from '../adr/ADRPolicyCompiler.js';
 import { ADRInterceptionDaemon } from '../adr/ADRInterceptionDaemon.js';
 import { inferArchitecturalDiff, generateComparativeDiagram } from '../adr/ADRComparativeDiagramGenerator.js';
 import { parseADRMarkdown } from '../adr/ADRMarkdownParser.js';
+import { AgentDetector } from '../harness/AgentDetector.js';
+import { HarnessInjector } from '../harness/HarnessInjector.js';
 
 export class DashboardRPCHandler {
   /**
@@ -472,5 +474,37 @@ export class DashboardRPCHandler {
       count: drafts.length,
       drafts
     };
+  }
+
+  /**
+   * Scan workspace for installed AI agents
+   */
+  static async detectHarnesses(workspaceDir = process.cwd(), options = {}) {
+    const detector = new AgentDetector();
+    return detector.scan(workspaceDir, options);
+  }
+
+  /**
+   * Get injection status for all agent harnesses
+   */
+  static async getHarnessStatus(workspaceDir = process.cwd()) {
+    const injector = new HarnessInjector();
+    return injector.status(workspaceDir);
+  }
+
+  /**
+   * Inject Skyhook configurations into agent harnesses
+   */
+  static async injectHarness(workspaceDir = process.cwd(), options = {}) {
+    const injector = new HarnessInjector();
+    return injector.inject(workspaceDir, options);
+  }
+
+  /**
+   * Remove Skyhook configurations from agent harnesses
+   */
+  static async removeHarness(workspaceDir = process.cwd(), options = {}) {
+    const injector = new HarnessInjector();
+    return injector.remove(workspaceDir, options);
   }
 }

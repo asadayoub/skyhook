@@ -12,6 +12,7 @@ test('Dashboard API: serves projects, project state, and secure files', async ()
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'skyhook-dash-api-'));
   const skyhookDir = path.join(tmpDir, '.skyhook');
 
+  let server;
   try {
     // Initialize mock workspace
     await cmdInit({ skyhookDir }, { name: 'Dashboard Test Workspace' });
@@ -23,7 +24,7 @@ test('Dashboard API: serves projects, project state, and secure files', async ()
       ]
     });
 
-    const server = new SkyhookServer({ port: 31520, workspaceDir: tmpDir });
+    server = new SkyhookServer({ port: 31520, workspaceDir: tmpDir });
     const { port, url } = await server.start();
 
     // 1. GET /api/projects
@@ -82,6 +83,9 @@ test('Dashboard API: serves projects, project state, and secure files', async ()
 
     await server.stop();
   } finally {
+    if (server) {
+      try { await server.stop(); } catch (_) {}
+    }
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
 });
