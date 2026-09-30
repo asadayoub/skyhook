@@ -9,13 +9,47 @@ import { BacklogStateMachine } from './backlog/BacklogStateMachine.js';
 import { EventLedger, EVENT_TYPES } from './backlog/EventLedger.js';
 
 class SkyhookContext {
-  constructor(skyhookDir) {
-    if (skyhookDir && !skyhookDir.endsWith('.skyhook') && fs.existsSync(path.join(skyhookDir, '.skyhook'))) {
-      this.skyhookDir = path.join(skyhookDir, '.skyhook');
+  constructor(skyhookDirOrProjectDir) {
+    const resolved = path.resolve(skyhookDirOrProjectDir || process.cwd());
+    if (path.basename(resolved) === '.skyhook') {
+      this.skyhookDir = resolved;
+      this.projectDir = path.dirname(resolved);
     } else {
-      this.skyhookDir = skyhookDir;
+      this.projectDir = resolved;
+      this.skyhookDir = path.join(resolved, '.skyhook');
     }
-    this.projectDir = path.dirname(this.skyhookDir);
+  }
+
+  get backlogDir() {
+    return path.join(this.skyhookDir, 'backlog');
+  }
+
+  get epicsFile() {
+    return path.join(this.skyhookDir, 'backlog', 'epics.yaml');
+  }
+
+  get eventsFile() {
+    return path.join(this.skyhookDir, 'backlog', 'events.jsonl');
+  }
+
+  get decisionsDir() {
+    return path.join(this.skyhookDir, 'decisions');
+  }
+
+  get adrsDir() {
+    return path.join(this.skyhookDir, 'decisions', 'records');
+  }
+
+  get requirementsDir() {
+    return path.join(this.skyhookDir, 'requirements');
+  }
+
+  get standardsDir() {
+    return path.join(this.skyhookDir, 'standards');
+  }
+
+  isInitialized() {
+    return fs.existsSync(path.join(this.skyhookDir, 'project.yaml'));
   }
 
   readYaml(filePath) {

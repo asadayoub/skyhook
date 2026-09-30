@@ -12,7 +12,7 @@ import * as backlogHandlers from '../lib/handlers/backlog.js';
 import * as adrHandlers from '../lib/handlers/adr.js';
 import * as hookHandlers from '../lib/handlers/hook.js';
 import * as harnessHandlers from '../lib/handlers/harness.js';
-import { cmdSync, cmdTrace, cmdImpact, cmdUntraced, cmdCoverage, cmdMapLegacy, cmdGraph } from '../lib/handlers/sync.js';
+import { cmdSync, cmdDrift, cmdTrace, cmdImpact, cmdUntraced, cmdCoverage, cmdMapLegacy, cmdGraph } from '../lib/handlers/sync.js';
 import * as generalHandlers from '../lib/handlers/general.js';
 
 // Combine all handlers into a single routing map
@@ -22,6 +22,7 @@ const handlers = {
   ...hookHandlers,
   ...harnessHandlers,
   cmdSync,
+  cmdDrift,
   cmdTrace,
   cmdImpact,
   cmdUntraced,
@@ -39,9 +40,11 @@ const commandMap = {
   question: 'cmdQuestion',
   plan: 'cmdPlan',
   standards: 'cmdStandards',
-  decide: 'cmdDecide',
+  decide: 'cmdRecordDecision',
   recordDecision: 'cmdRecordDecision',
   sync: 'cmdSync',
+  drift: 'cmdDrift',
+  boundaries: 'cmdDrift',
   version: 'cmdVersion',
   install: 'cmdInstall',
   profile: 'cmdProfile',
@@ -61,22 +64,52 @@ const commandMap = {
   graph: 'cmdGraph',
   dashboard: 'cmdDashboard',
   syncAdr: 'cmdSyncADR',
+  'sync-adr': 'cmdSyncADR',
   verifyAdr: 'cmdVerifyADR',
+  'verify-adr': 'cmdVerifyADR',
   draftAdr: 'cmdDraftADR',
+  'draft-adr': 'cmdDraftADR',
   watchAdr: 'cmdWatchADR',
+  'watch-adr': 'cmdWatchADR',
   bootstrapAdr: 'cmdBootstrapADR',
+  'bootstrap-adr': 'cmdBootstrapADR',
+  reviewAdr: 'cmdReviewADR',
+  'review-adr': 'cmdReviewADR',
+  supersedeAdr: 'cmdSupersedeADR',
+  'supersede-adr': 'cmdSupersedeADR',
+  dagAdr: 'cmdADRDAG',
+  'dag-adr': 'cmdADRDAG',
+  compileAdr: 'cmdCompilePolicies',
+  'compile-adr': 'cmdCompilePolicies',
+  interceptAdr: 'cmdInterceptADR',
+  'intercept-adr': 'cmdInterceptADR',
   backlogEvents: 'cmdBacklogEvents',
+  'backlog-events': 'cmdBacklogEvents',
   releaseLease: 'cmdReleaseLease',
+  'release-lease': 'cmdReleaseLease',
   backlogReplay: 'cmdBacklogReplay',
+  'backlog-replay': 'cmdBacklogReplay',
   hookInstall: 'cmdHookInstall',
+  'hook-install': 'cmdHookInstall',
   hookUninstall: 'cmdHookUninstall',
+  'hook-uninstall': 'cmdHookUninstall',
   hookStatus: 'cmdHookStatus',
+  'hook-status': 'cmdHookStatus',
   harnessInject: 'cmdHarnessInject',
+  'harness-inject': 'cmdHarnessInject',
   harnessDetect: 'cmdHarnessDetect',
+  'harness-detect': 'cmdHarnessDetect',
   harnessStatus: 'cmdHarnessStatus',
+  'harness-status': 'cmdHarnessStatus',
   harnessRemove: 'cmdHarnessRemove',
+  'harness-remove': 'cmdHarnessRemove',
   mcp: 'cmdStartMCP',
-  help: 'cmdHelp'
+  help: 'cmdHelp',
+  '--help': 'cmdHelp',
+  '-h': 'cmdHelp',
+  version: 'cmdVersion',
+  '--version': 'cmdVersion',
+  '-v': 'cmdVersion'
 };
 
 async function main() {
@@ -143,7 +176,7 @@ async function main() {
   }
   
   try {
-    const ctx = new SkyhookContext(process.cwd());
+    const ctx = new SkyhookContext(payload.projectDir || payload.cwd || process.cwd());
     const result = await handlers[funcName](ctx, payload.args || {});
     
     if (result !== undefined) {

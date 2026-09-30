@@ -6,18 +6,21 @@
 import { GitHookManager } from '../git/GitHookManager.js';
 
 export async function cmdHookInstall(ctx, args = {}) {
-  const manager = new GitHookManager(process.cwd());
+  const projectDir = ctx?.projectDir || process.cwd();
+  const manager = new GitHookManager(projectDir);
   const result = manager.install();
   return result;
 }
 
 export async function cmdHookUninstall(ctx, args = {}) {
-  const manager = new GitHookManager(process.cwd());
+  const projectDir = ctx?.projectDir || process.cwd();
+  const manager = new GitHookManager(projectDir);
   const result = manager.uninstall();
   return result;
 }
 
 export async function cmdHookStatus(ctx, args = {}) {
-  const manager = new GitHookManager(process.cwd());
+  const projectDir = ctx?.projectDir || process.cwd();
+  const manager = new GitHookManager(projectDir);
   return manager.getStatus();
 }

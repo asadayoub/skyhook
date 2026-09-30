@@ -78,10 +78,10 @@ export async function cmdProfile(ctx, args) {
   const profile = loadProfile(name);
   
   if (!profile) {
-    const profilesDir = path.join(SKYHOOK_ROOT, 'profiles');
-    const available = fs.readdirSync(profilesDir)
-      .filter(f => f.endsWith('.yaml'))
-      .map(f => f.replace('.yaml', ''));
+    const profilesDir = fs.existsSync(path.join(CLI_ROOT, 'profiles')) ? path.join(CLI_ROOT, 'profiles') : path.join(SKYHOOK_ROOT, 'profiles');
+    const available = fs.existsSync(profilesDir)
+      ? fs.readdirSync(profilesDir).filter(f => f.endsWith('.yaml')).map(f => f.replace('.yaml', ''))
+      : [];
     return { error: 'Profile not found: ' + name, available };
   }
   
@@ -521,6 +521,7 @@ export async function cmdStandards(ctx, args) {
 export async function cmdInstall(ctx, args) {
   const scope = args.scope || 'global';
   const force = args.force || false;
+  const srcDir = fs.existsSync(path.join(CLI_ROOT, 'cli')) ? CLI_ROOT : SKYHOOK_ROOT;
   
   if (scope === 'global') {
     const home = process.env.HOME || process.env.USERPROFILE;
@@ -530,14 +531,30 @@ export async function cmdInstall(ctx, args) {
       return { error: 'Already installed globally. Use --force to reinstall.' };
     }
     
-    // Copy skill directory
-    const srcDir = fs.existsSync(path.join(CLI_ROOT, 'cli')) ? CLI_ROOT : SKYHOOK_ROOT;
     fs.cpSync(srcDir, targetDir, { recursive: true });
     
     return { 
+      success: true,
       message: 'Skyhook skill installed globally',
       path: targetDir,
       usage: 'Add to your agent config or run via skyhook-cmd'
+    };
+  } else if (scope === 'local') {
+    const projectDir = (ctx && ctx.projectDir) || process.cwd();
+    const targetDir = path.join(projectDir, '.skyhook', 'skill');
+    
+    if (fs.existsSync(targetDir) && !force) {
+      return { error: 'Already installed locally. Use --force to reinstall.' };
+    }
+    
+    fs.mkdirSync(path.dirname(targetDir), { recursive: true });
+    fs.cpSync(srcDir, targetDir, { recursive: true });
+    
+    return {
+      success: true,
+      message: 'Skyhook skill installed locally in workspace',
+      path: targetDir,
+      usage: 'Local skill directory configured in .skyhook/skill'
     };
   }
   

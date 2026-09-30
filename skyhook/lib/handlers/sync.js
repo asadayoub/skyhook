@@ -254,7 +254,7 @@ export async function cmdCoverage(ctx, args) {
 }
 
 export async function cmdMapLegacy(ctx, args) {
-  const projectDir = process.cwd();
+  const projectDir = (ctx && ctx.projectDir) || process.cwd();
   const allSymbols = await indexCodebase(projectDir);
   const legacySymbols = allSymbols.filter(s => !s.traced);
 
@@ -270,7 +270,7 @@ export async function cmdMapLegacy(ctx, args) {
 }
 
 export async function cmdGraph(ctx, args) {
-  const projectDir = process.cwd();
+  const projectDir = (ctx && ctx.projectDir) || process.cwd();
   const allSymbols = await indexCodebase(projectDir);
 
   const funcReqs = ctx.readFunctionalReqs().requirements || [];
