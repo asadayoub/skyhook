@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
 import http from 'http';
-import { readYaml, writeYaml, getTimestamp, generateULID, loadProfile, SKYHOOK_ROOT, SKYHOOK_VERSION } from '../utils.js';
+import { readYaml, writeYaml, getTimestamp, generateULID, loadProfile, CLI_ROOT, SKYHOOK_ROOT, SKYHOOK_VERSION } from '../utils.js';
 import { inferFromRepo } from '../inference/InferenceEngine.js';
 import { PlanCompiler } from '../plan/PlanCompiler.js';
 import { GanttGenerator } from '../plan/GanttGenerator.js';
@@ -531,7 +531,7 @@ export async function cmdInstall(ctx, args) {
     }
     
     // Copy skill directory
-    const srcDir = SKYHOOK_ROOT;
+    const srcDir = fs.existsSync(path.join(CLI_ROOT, 'cli')) ? CLI_ROOT : SKYHOOK_ROOT;
     fs.cpSync(srcDir, targetDir, { recursive: true });
     
     return { 

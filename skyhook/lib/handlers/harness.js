@@ -47,10 +47,11 @@ export async function cmdHarnessInject(ctx, args = {}) {
   const injector = new HarnessInjector();
 
   let targets = 'auto';
+  const targetParam = args.target || args.targets || args.agent || args.agents;
   if (args.all) {
     targets = 'all';
-  } else if (args.target) {
-    targets = args.target.split(',').map(s => s.trim());
+  } else if (targetParam) {
+    targets = targetParam.split(',').map(s => s.trim());
   }
 
   const dryRun = !!(args['dry-run'] || args.dryRun);
@@ -122,8 +123,9 @@ export async function cmdHarnessRemove(ctx, args = {}) {
   const injector = new HarnessInjector();
 
   let targets = 'all';
-  if (args.target) {
-    targets = args.target.split(',').map(s => s.trim());
+  const targetParam = args.target || args.targets || args.agent || args.agents;
+  if (targetParam) {
+    targets = targetParam.split(',').map(s => s.trim());
   }
 
   const result = await injector.remove(projectDir, { targets });

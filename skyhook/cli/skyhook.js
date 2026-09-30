@@ -245,11 +245,21 @@ async function main() {
     else effectiveCommand = 'hook-install';
   } else if (command === 'harness') {
     const sub = parsedArgs._.shift() || 'status';
-    if (sub === 'inject' || sub === 'install') effectiveCommand = 'harness-inject';
-    else if (sub === 'detect' || sub === 'scan') effectiveCommand = 'harness-detect';
-    else if (sub === 'remove' || sub === 'uninstall') effectiveCommand = 'harness-remove';
-    else if (sub === 'status' || sub === 'list') effectiveCommand = 'harness-status';
-    else {
+    if (sub === 'inject' || sub === 'install') {
+      effectiveCommand = 'harness-inject';
+      if (parsedArgs._.length > 0 && !parsedArgs.target && !parsedArgs.agent) {
+        parsedArgs.target = parsedArgs._.shift();
+      }
+    } else if (sub === 'detect' || sub === 'scan') {
+      effectiveCommand = 'harness-detect';
+    } else if (sub === 'remove' || sub === 'uninstall') {
+      effectiveCommand = 'harness-remove';
+      if (parsedArgs._.length > 0 && !parsedArgs.target && !parsedArgs.agent) {
+        parsedArgs.target = parsedArgs._.shift();
+      }
+    } else if (sub === 'status' || sub === 'list') {
+      effectiveCommand = 'harness-status';
+    } else {
       parsedArgs.target = sub;
       effectiveCommand = 'harness-inject';
     }

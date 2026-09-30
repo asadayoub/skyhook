@@ -143,11 +143,14 @@ export class ClaudeDesktopHarness extends BaseAgentHarness {
     }
 
     const data = readJsonSafe(configPath);
-    const hasSkyhook = !!(data.mcpServers && data.mcpServers.skyhook);
+    const skyhookServer = data.mcpServers && data.mcpServers.skyhook;
+    const skyhookArgs = skyhookServer?.args || [];
+    const isThisWorkspace = !workspaceDir || skyhookArgs.includes(workspaceDir);
+    const hasSkyhook = !!skyhookServer && isThisWorkspace;
 
     return {
       status: hasSkyhook ? 'injected' : 'not_injected',
-      details: { fileExists: true, hasSkyhook, configPath }
+      details: { fileExists: true, hasSkyhook, configPath, isThisWorkspace }
     };
   }
 }
