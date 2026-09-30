@@ -82,6 +82,23 @@ export class SkyhookServer {
   }
 
   /**
+   * Resolve target workspace/project directory from request
+   */
+  resolveProjectTarget(url, body = {}) {
+    const customProjectDir = body.projectDir || (url && (url.searchParams.get('projectDir') || url.searchParams.get('project')));
+    if (customProjectDir) {
+      return path.resolve(customProjectDir);
+    }
+    const id = body.projectId || (url && url.searchParams.get('id'));
+    if (id) {
+      const projects = DashboardRPCHandler.getProjects(this.workspaceDir);
+      const matched = projects.find(p => p.id === id);
+      if (matched && matched.projectDir) return matched.projectDir;
+    }
+    return this.workspaceDir;
+  }
+
+  /**
    * Start the HTTP and WebSocket server
    * @returns {Promise<Object>} { port, url }
    */
@@ -174,15 +191,35 @@ export class SkyhookServer {
             res.end(JSON.stringify({ error: 'Missing path parameter' }));
             return;
           }
-          const fileData = DashboardRPCHandler.getFileContent(filePath, this.workspaceDir);
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify(fileData));
+
+          try {
+            const projects = DashboardRPCHandler.getProjects(this.workspaceDir);
+            const targetDir = this.resolveProjectTarget(url);
+            const allowedRoots = [
+              targetDir,
+              this.workspaceDir,
+              process.cwd(),
+              ...projects.map(p => p.projectDir),
+              ...projects.map(p => path.dirname(p.skyhookDir))
+            ].filter(Boolean);
+
+            const fileData = DashboardRPCHandler.getFileContent(filePath, allowedRoots);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(fileData));
+          } catch (err) {
+            const isForbidden = err.message && err.message.includes('Access forbidden');
+            const isNotFound = err.message && err.message.includes('File not found');
+            const status = isForbidden ? 403 : (isNotFound ? 404 : 500);
+            res.writeHead(status, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: err.message || 'Failed to read file' }));
+          }
           return;
         }
 
         // GET /api/dark-matter
         if (pathname === '/api/dark-matter' && req.method === 'GET') {
-          const darkMatter = await DashboardRPCHandler.getDarkMatterData(this.workspaceDir);
+          const targetDir = this.resolveProjectTarget(url);
+          const darkMatter = await DashboardRPCHandler.getDarkMatterData(targetDir);
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify(darkMatter));
           return;
@@ -190,7 +227,8 @@ export class SkyhookServer {
 
         // GET /api/drift
         if (pathname === '/api/drift' && req.method === 'GET') {
-          const drift = await DashboardRPCHandler.getDriftScorecard(this.workspaceDir);
+          const targetDir = this.resolveProjectTarget(url);
+          const drift = await DashboardRPCHandler.getDriftScorecard(targetDir);
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify(drift));
           return;
@@ -198,7 +236,8 @@ export class SkyhookServer {
 
         // GET /api/drift/graph
         if (pathname === '/api/drift/graph' && req.method === 'GET') {
-          const graphData = await DashboardRPCHandler.getDriftGraph(this.workspaceDir);
+          const targetDir = this.resolveProjectTarget(url);
+          const graphData = await DashboardRPCHandler.getDriftGraph(targetDir);
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify(graphData));
           return;
@@ -206,7 +245,8 @@ export class SkyhookServer {
 
         // GET /api/drift/boundaries
         if (pathname === '/api/drift/boundaries' && req.method === 'GET') {
-          const boundaries = await DashboardRPCHandler.getDriftBoundaries(this.workspaceDir);
+          const targetDir = this.resolveProjectTarget(url);
+          const boundaries = await DashboardRPCHandler.getDriftBoundaries(targetDir);
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify(boundaries));
           return;
@@ -214,7 +254,8 @@ export class SkyhookServer {
 
         // GET /api/drift/c4
         if (pathname === '/api/drift/c4' && req.method === 'GET') {
-          const c4 = await DashboardRPCHandler.getDriftC4(this.workspaceDir);
+          const targetDir = this.resolveProjectTarget(url);
+          const c4 = await DashboardRPCHandler.getDriftC4(targetDir);
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify(c4));
           return;
@@ -223,7 +264,8 @@ export class SkyhookServer {
         // POST /api/action/draft-adr-drift
         if (pathname === '/api/action/draft-adr-drift' && req.method === 'POST') {
           const body = await SkyhookServer.parseJsonBody(req);
-          const result = DashboardRPCHandler.draftADRFromDrift(this.workspaceDir, body.driftItem || body);
+          const targetDir = this.resolveProjectTarget(url, body);
+          const result = DashboardRPCHandler.draftADRFromDrift(targetDir, body.driftItem || body);
           if (this.gateway) {
             this.gateway.broadcast('ADR_DRAFTED', result);
           }
@@ -234,7 +276,8 @@ export class SkyhookServer {
 
         // GET /api/adr/dag
         if (pathname === '/api/adr/dag' && req.method === 'GET') {
-          const dag = DashboardRPCHandler.getADRDAG(this.workspaceDir);
+          const targetDir = this.resolveProjectTarget(url);
+          const dag = DashboardRPCHandler.getADRDAG(targetDir);
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify(dag));
           return;
@@ -242,8 +285,9 @@ export class SkyhookServer {
 
         // GET /api/adr/diff
         if (pathname === '/api/adr/diff' && req.method === 'GET') {
+          const targetDir = this.resolveProjectTarget(url);
           const decisionId = url.searchParams.get('id') || 'ADR-001';
-          const diffData = DashboardRPCHandler.getADRDiff(this.workspaceDir, decisionId);
+          const diffData = DashboardRPCHandler.getADRDiff(targetDir, decisionId);
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify(diffData));
           return;
@@ -251,7 +295,8 @@ export class SkyhookServer {
 
         // GET /api/harness/detect
         if (pathname === '/api/harness/detect' && req.method === 'GET') {
-          const scan = await DashboardRPCHandler.detectHarnesses(this.workspaceDir);
+          const targetDir = this.resolveProjectTarget(url);
+          const scan = await DashboardRPCHandler.detectHarnesses(targetDir);
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify(scan));
           return;
@@ -259,7 +304,8 @@ export class SkyhookServer {
 
         // GET /api/harness/status
         if (pathname === '/api/harness/status' && req.method === 'GET') {
-          const statusReport = await DashboardRPCHandler.getHarnessStatus(this.workspaceDir);
+          const targetDir = this.resolveProjectTarget(url);
+          const statusReport = await DashboardRPCHandler.getHarnessStatus(targetDir);
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify(statusReport));
           return;
@@ -268,7 +314,8 @@ export class SkyhookServer {
         // POST /api/action/inject-harness
         if (pathname === '/api/action/inject-harness' && req.method === 'POST') {
           const body = await SkyhookServer.parseJsonBody(req);
-          const result = await DashboardRPCHandler.injectHarness(this.workspaceDir, body);
+          const targetDir = this.resolveProjectTarget(url, body);
+          const result = await DashboardRPCHandler.injectHarness(targetDir, body);
           if (this.gateway) {
             this.gateway.broadcast('HARNESS_INJECTED', result);
           }
@@ -280,7 +327,8 @@ export class SkyhookServer {
         // POST /api/action/remove-harness
         if (pathname === '/api/action/remove-harness' && req.method === 'POST') {
           const body = await SkyhookServer.parseJsonBody(req);
-          const result = await DashboardRPCHandler.removeHarness(this.workspaceDir, body);
+          const targetDir = this.resolveProjectTarget(url, body);
+          const result = await DashboardRPCHandler.removeHarness(targetDir, body);
           if (this.gateway) {
             this.gateway.broadcast('HARNESS_REMOVED', result);
           }
@@ -292,7 +340,8 @@ export class SkyhookServer {
         // POST /api/action/transition-adr
         if (pathname === '/api/action/transition-adr' && req.method === 'POST') {
           const body = await SkyhookServer.parseJsonBody(req);
-          const result = DashboardRPCHandler.transitionADR(this.workspaceDir, body);
+          const targetDir = this.resolveProjectTarget(url, body);
+          const result = DashboardRPCHandler.transitionADR(targetDir, body);
           if (this.gateway) {
             this.gateway.broadcast('ADR_TRANSITIONED', result);
           }

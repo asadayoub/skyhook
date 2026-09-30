@@ -167,6 +167,14 @@ export class BrowserBridge {
    * Open file in IDE or trigger viewer
    * @param {string} filePath
    * @param {number} [line=1]
+  setStore(store) {
+    this.store = store;
+  }
+
+  /**
+   * Deep-link into local editor or open web code modal
+   * @param {string} filePath
+   * @param {number} [line=1]
    * @param {string} [preference='vscode']
    */
   async openEditor(filePath, line = 1, preference = 'vscode') {
@@ -175,10 +183,16 @@ export class BrowserBridge {
       return;
     }
 
+    const projectDir = this.store ? this.store.getState()?.projectData?.projectDir : null;
+    let absolutePath = filePath;
+    if (filePath && !filePath.startsWith('/') && !filePath.match(/^[A-Za-z]:[\\/]/) && projectDir) {
+      absolutePath = `${projectDir.replace(/\/+$/, '')}/${filePath.replace(/^\/+/, '')}`;
+    }
+
     const protocols = {
-      vscode: `vscode://file/${filePath}:${line}`,
-      cursor: `cursor://file/${filePath}:${line}`,
-      sublime: `subl://file/${filePath}:${line}`
+      vscode: `vscode://file/${absolutePath}:${line}`,
+      cursor: `cursor://file/${absolutePath}:${line}`,
+      sublime: `subl://file/${absolutePath}:${line}`
     };
 
     if (protocols[preference] && typeof window !== 'undefined') {
@@ -187,7 +201,7 @@ export class BrowserBridge {
 
     // Call server open-editor fallback
     try {
-      await this.call('open-editor', { filePath, line, preference });
+      await this.call('open-editor', { filePath: absolutePath, line, preference });
     } catch (_) {}
   }
 

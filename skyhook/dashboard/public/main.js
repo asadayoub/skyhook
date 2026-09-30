@@ -26,6 +26,7 @@ async function bootstrap() {
   // 1. Initialize Core Store & Universal Platform Bridge
   const store = new Store();
   const bridge = Bridge.create();
+  bridge.setStore?.(store);
   bridge.init();
 
   // Pipe Bridge connection & latency into Store

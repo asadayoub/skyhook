@@ -55,10 +55,16 @@ test('Dashboard API: serves projects, project state, and secure files', async ()
     assert.ok(fileData.content.includes('Dashboard Test Workspace'));
     assert.ok(fileData.totalLines > 0);
 
-    // 4. GET /api/file (directory traversal attack protection)
+    // 4. GET /api/file (relative path resolution)
+    const relRes = await fetch(`${url}/api/file?path=${encodeURIComponent('.skyhook/project.yaml')}`);
+    assert.strictEqual(relRes.status, 200);
+    const relData = await relRes.json();
+    assert.ok(relData.content.includes('Dashboard Test Workspace'));
+
+    // 5. GET /api/file (directory traversal attack protection)
     const forbiddenPath = path.resolve(tmpDir, '..', '..', '..', 'etc', 'passwd');
     const attackRes = await fetch(`${url}/api/file?path=${encodeURIComponent(forbiddenPath)}`);
-    assert.strictEqual(attackRes.status, 500); // Throws access forbidden
+    assert.strictEqual(attackRes.status, 403); // HTTP 403 Access Forbidden
     const attackData = await attackRes.json();
     assert.ok(attackData.error.includes('Access forbidden'));
 

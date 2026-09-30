@@ -97,7 +97,8 @@ export class CodeModal {
     this.element.classList.add('active');
 
     try {
-      const data = await this.bridge.get('/api/file', { path: filePath });
+      const projectDir = this.store.getState().projectData?.projectDir;
+      const data = await this.bridge.get('/api/file', { path: filePath, projectDir });
       const lines = (data.content || '').split('\n');
 
       let linesHtml = '';

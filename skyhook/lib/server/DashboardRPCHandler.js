@@ -262,14 +262,35 @@ export class DashboardRPCHandler {
    * @param {string} allowedRoot
    * @returns {Object}
    */
-  static getFileContent(targetPath, allowedRoot = process.cwd()) {
-    const resolvedPath = path.resolve(targetPath);
+  static getFileContent(targetPath, allowedRoots = [process.cwd()]) {
+    const rawRoots = Array.isArray(allowedRoots) ? allowedRoots : [allowedRoots];
+    const roots = rawRoots.filter(Boolean).map(r => path.resolve(r));
 
-    // Check directory traversal: must be in allowed root or home ~/.skyhook
     const home = process.env.HOME || process.env.USERPROFILE || '';
-    const skyhookHome = path.join(home, '.skyhook');
-    const isAllowed = resolvedPath.startsWith(path.resolve(allowedRoot)) || (home && resolvedPath.startsWith(path.resolve(skyhookHome)));
+    const skyhookHome = home ? path.resolve(path.join(home, '.skyhook')) : '';
+    if (skyhookHome && !roots.includes(skyhookHome)) {
+      roots.push(skyhookHome);
+    }
 
+    // Try resolving relative path against each root until an existing file is found
+    let resolvedPath = null;
+    if (path.isAbsolute(targetPath)) {
+      resolvedPath = path.resolve(targetPath);
+    } else {
+      for (const root of roots) {
+        const candidate = path.resolve(root, targetPath);
+        if (fs.existsSync(candidate)) {
+          resolvedPath = candidate;
+          break;
+        }
+      }
+      if (!resolvedPath) {
+        resolvedPath = path.resolve(roots[0] || process.cwd(), targetPath);
+      }
+    }
+
+    // Check directory traversal: must be in at least one of the allowed roots
+    const isAllowed = roots.some(root => resolvedPath.startsWith(root));
     if (!isAllowed) {
       throw new Error(`Access forbidden: File path outside allowed workspace.`);
     }
