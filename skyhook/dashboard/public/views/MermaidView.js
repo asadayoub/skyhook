@@ -23,7 +23,8 @@ export class MermaidView extends BaseView {
           </div>
 
           <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-            <select id="diagramTypeSelect" class="project-select" style="min-width: 220px;" aria-label="Diagram Type">
+            <select id="diagramTypeSelect" class="project-select" style="min-width: 240px;" aria-label="Diagram Type">
+              <option value="ast-graph" ${this.currentDiagramType === 'ast-graph' ? 'selected' : ''}>AST Codebase & Symbol Relationships</option>
               <option value="master-plan" ${this.currentDiagramType === 'master-plan' ? 'selected' : ''}>Master Plan Execution Gantt</option>
               <option value="c4-container" ${this.currentDiagramType === 'c4-container' ? 'selected' : ''}>C4 System Architecture</option>
               <option value="adr-evolution" ${this.currentDiagramType === 'adr-evolution' ? 'selected' : ''}>ADR Decision Evolution DAG</option>
@@ -45,8 +46,18 @@ export class MermaidView extends BaseView {
     `;
   }
 
-  getDiagramCode() {
+  async getDiagramCode() {
     const d = this.store.getState().projectData || {};
+
+    if (this.currentDiagramType === 'ast-graph') {
+      try {
+        const projectDir = d.projectDir;
+        const res = await this.bridge.get('/api/ast/graph', projectDir ? { projectDir } : {});
+        if (res && res.mermaid) return res.mermaid;
+      } catch (err) {
+        console.warn('[MermaidView] Failed to fetch AST graph:', err);
+      }
+    }
 
     if (this.currentDiagramType === 'master-plan') {
       const planMd = d.planMarkdown || '';
@@ -163,7 +174,7 @@ export class MermaidView extends BaseView {
     const oldHud = viewport.querySelector('.pan-zoom-hud');
     if (oldHud) oldHud.remove();
 
-    const code = this.getDiagramCode();
+    const code = await this.getDiagramCode();
     pre.removeAttribute('data-processed');
     pre.innerHTML = this.escapeHtml(code);
 

@@ -182,6 +182,8 @@ export class TopologyView extends BaseView {
       return { title, sub, itemId, filePath, line };
     };
 
+    const posMap = new Map();
+
     const renderNodes = (items, x, color, type) => {
       if (!Array.isArray(items) || items.length === 0) {
         return `
@@ -195,6 +197,16 @@ export class TopologyView extends BaseView {
       return items.filter(Boolean).map((item, idx) => {
         const y = 100 + idx * 64;
         const info = extractNodeInfo(item, type, idx);
+        posMap.set(`${type}:${info.itemId}`, {
+          x,
+          y,
+          rightX: x + 220,
+          leftX: x,
+          centerY: y + 24,
+          type,
+          info,
+          item
+        });
 
         return `
           <g class="graph-node" style="cursor: pointer;" data-type="${type}" data-id="${this.escapeHtml(info.itemId)}" data-filepath="${this.escapeHtml(info.filePath)}" data-line="${info.line}">
@@ -227,18 +239,184 @@ export class TopologyView extends BaseView {
       </g>
     `).join('');
 
-    let svg = headersSvg;
-    svg += renderNodes(reqs, 60, '#00f0ff', 'req');
-    svg += renderNodes(epics, 340, '#38bdf8', 'epic');
-    svg += renderNodes(stories, 620, '#a855f7', 'story');
-    svg += renderNodes(symbols, 900, '#10b981', 'code');
-    svg += renderNodes(decisions, 1180, '#f59e0b', 'adr');
+    let nodesSvg = '';
+    nodesSvg += renderNodes(reqs, 60, '#00f0ff', 'req');
+    nodesSvg += renderNodes(epics, 340, '#38bdf8', 'epic');
+    nodesSvg += renderNodes(stories, 620, '#a855f7', 'story');
+    nodesSvg += renderNodes(symbols, 900, '#10b981', 'code');
+    nodesSvg += renderNodes(decisions, 1180, '#f59e0b', 'adr');
 
-    world.innerHTML = svg;
+    // Calculate relationship curves
+    const edges = [];
 
-    // Attach click listeners to SVG nodes
+    // 1. Epic -> Story relationships
+    stories.forEach((story, idx) => {
+      const storyInfo = extractNodeInfo(story, 'story', idx);
+      const storyPos = posMap.get(`story:${storyInfo.itemId}`);
+      if (!storyPos) return;
+
+      const epicId = story.epicId;
+      if (epicId) {
+        const epicPos = posMap.get(`epic:${epicId}`);
+        if (epicPos) {
+          edges.push({
+            id: `edge-${epicId}-${storyInfo.itemId}`,
+            fromId: `epic:${epicId}`,
+            toId: `story:${storyInfo.itemId}`,
+            x1: epicPos.rightX,
+            y1: epicPos.centerY,
+            x2: storyPos.leftX,
+            y2: storyPos.centerY,
+            color: '#38bdf8'
+          });
+        }
+      }
+    });
+
+    // 2. Requirement -> Epic or Story
+    epics.forEach((epic, idx) => {
+      const epicInfo = extractNodeInfo(epic, 'epic', idx);
+      const epicPos = posMap.get(`epic:${epicInfo.itemId}`);
+      if (!epicPos) return;
+
+      const reqIds = Array.isArray(epic.requirements) ? epic.requirements : (epic.requirementId ? [epic.requirementId] : []);
+      reqIds.forEach(reqId => {
+        const reqPos = posMap.get(`req:${reqId}`);
+        if (reqPos) {
+          edges.push({
+            id: `edge-${reqId}-${epicInfo.itemId}`,
+            fromId: `req:${reqId}`,
+            toId: `epic:${epicInfo.itemId}`,
+            x1: reqPos.rightX,
+            y1: reqPos.centerY,
+            x2: epicPos.leftX,
+            y2: epicPos.centerY,
+            color: '#00f0ff'
+          });
+        }
+      });
+    });
+
+    // 3. Code (AST Symbol) -> Requirement or Story
+    symbols.forEach((sym, idx) => {
+      const symInfo = extractNodeInfo(sym, 'code', idx);
+      const symPos = posMap.get(`code:${symInfo.itemId}`);
+      if (!symPos) return;
+
+      const reqId = sym.requirementId;
+      if (reqId) {
+        const matchingStory = stories.find(s => s.requirementId === reqId || s.id === reqId);
+        if (matchingStory) {
+          const storyInfo = extractNodeInfo(matchingStory, 'story', 0);
+          const storyPos = posMap.get(`story:${storyInfo.itemId}`);
+          if (storyPos) {
+            edges.push({
+              id: `edge-${storyInfo.itemId}-${symInfo.itemId}`,
+              fromId: `story:${storyInfo.itemId}`,
+              toId: `code:${symInfo.itemId}`,
+              x1: storyPos.rightX,
+              y1: storyPos.centerY,
+              x2: symPos.leftX,
+              y2: symPos.centerY,
+              color: '#10b981'
+            });
+            return;
+          }
+        }
+
+        const reqPos = posMap.get(`req:${reqId}`);
+        if (reqPos) {
+          edges.push({
+            id: `edge-${reqId}-${symInfo.itemId}`,
+            fromId: `req:${reqId}`,
+            toId: `code:${symInfo.itemId}`,
+            x1: reqPos.rightX,
+            y1: reqPos.centerY,
+            x2: symPos.leftX,
+            y2: symPos.centerY,
+            color: '#10b981'
+          });
+        }
+      }
+    });
+
+    // 4. ADR Decision -> Code / Requirement
+    decisions.forEach((adr, idx) => {
+      const adrInfo = extractNodeInfo(adr, 'adr', idx);
+      const adrPos = posMap.get(`adr:${adrInfo.itemId}`);
+      if (!adrPos) return;
+
+      const relatedReqs = Array.isArray(adr.relatedRequirements) ? adr.relatedRequirements : [];
+      relatedReqs.forEach(reqId => {
+        const symWithReq = symbols.find(s => s.requirementId === reqId);
+        if (symWithReq) {
+          const symInfo = extractNodeInfo(symWithReq, 'code', 0);
+          const symPos = posMap.get(`code:${symInfo.itemId}`);
+          if (symPos) {
+            edges.push({
+              id: `edge-${symInfo.itemId}-${adrInfo.itemId}`,
+              fromId: `code:${symInfo.itemId}`,
+              toId: `adr:${adrInfo.itemId}`,
+              x1: symPos.rightX,
+              y1: symPos.centerY,
+              x2: adrPos.leftX,
+              y2: adrPos.centerY,
+              color: '#f59e0b'
+            });
+            return;
+          }
+        }
+        const reqPos = posMap.get(`req:${reqId}`);
+        if (reqPos) {
+          edges.push({
+            id: `edge-${reqId}-${adrInfo.itemId}`,
+            fromId: `req:${reqId}`,
+            toId: `adr:${adrInfo.itemId}`,
+            x1: reqPos.rightX,
+            y1: reqPos.centerY,
+            x2: adrPos.leftX,
+            y2: adrPos.centerY,
+            color: '#f59e0b'
+          });
+        }
+      });
+    });
+
+    const edgesSvg = edges.map(e => {
+      const dx = Math.max(30, Math.abs(e.x2 - e.x1) * 0.45);
+      const d = `M ${e.x1} ${e.y1} C ${e.x1 + dx} ${e.y1}, ${e.x2 - dx} ${e.y2}, ${e.x2} ${e.y2}`;
+      return `
+        <path class="topology-edge" id="${e.id}" data-from="${e.fromId}" data-to="${e.toId}" d="${d}" fill="none" stroke="${e.color}" stroke-width="1.8" stroke-opacity="0.35" style="transition: stroke-width 0.2s, stroke-opacity 0.2s;" />
+      `;
+    }).join('');
+
+    world.innerHTML = `
+      <g id="topologyHeaders">${headersSvg}</g>
+      <g id="topologyEdges">${edgesSvg}</g>
+      <g id="topologyNodes">${nodesSvg}</g>
+    `;
+
+    // Attach click and hover listeners to SVG nodes
     const nodeEls = world.querySelectorAll('.graph-node');
     nodeEls.forEach(node => {
+      const nodeKey = `${node.dataset.type}:${node.dataset.id}`;
+
+      node.addEventListener('mouseenter', () => {
+        const relatedPaths = world.querySelectorAll(`.topology-edge[data-from="${nodeKey}"], .topology-edge[data-to="${nodeKey}"]`);
+        relatedPaths.forEach(p => {
+          p.setAttribute('stroke-width', '3.5');
+          p.setAttribute('stroke-opacity', '0.95');
+        });
+      });
+
+      node.addEventListener('mouseleave', () => {
+        const relatedPaths = world.querySelectorAll(`.topology-edge[data-from="${nodeKey}"], .topology-edge[data-to="${nodeKey}"]`);
+        relatedPaths.forEach(p => {
+          p.setAttribute('stroke-width', '1.8');
+          p.setAttribute('stroke-opacity', '0.35');
+        });
+      });
+
       node.addEventListener('click', () => {
         const type = node.dataset.type;
         const id = node.dataset.id;

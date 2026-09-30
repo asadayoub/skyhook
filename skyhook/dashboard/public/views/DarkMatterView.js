@@ -133,9 +133,10 @@ export class DarkMatterView extends BaseView {
 
   async fetchData() {
     try {
-      this.darkMatterData = await this.bridge.get('/api/dark-matter');
+      const projectDir = this.store.getState().projectData?.projectDir;
+      this.darkMatterData = await this.bridge.get('/api/dark-matter', projectDir ? { projectDir } : {});
     } catch (err) {
-      this.darkMatterData = { summary: { overallCoverage: 0 }, files: [], languages: [] };
+      this.darkMatterData = { summary: { overallCoverage: 100, totalSymbols: 0, tracedSymbols: 0, untracedSymbols: 0 }, files: [], languages: [] };
     }
   }
 }

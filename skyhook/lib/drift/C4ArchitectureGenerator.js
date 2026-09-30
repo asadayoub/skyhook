@@ -450,13 +450,17 @@ export class C4ArchitectureGenerator {
     const targetContainers = new Map();
     if (targetConfig && Array.isArray(targetConfig.containers)) {
       for (const tc of targetConfig.containers) {
-        targetContainers.set(tc.id.toLowerCase(), tc);
+        if (tc && tc.id) {
+          targetContainers.set(String(tc.id).toLowerCase(), tc);
+        }
       }
     }
 
     const inferredContainers = new Map();
-    for (const ic of inferred.containers) {
-      inferredContainers.set(ic.id.toLowerCase(), ic);
+    for (const ic of (inferred && inferred.containers) || []) {
+      if (ic && ic.id) {
+        inferredContainers.set(String(ic.id).toLowerCase(), ic);
+      }
     }
 
     const addedContainers = [];
@@ -491,21 +495,25 @@ export class C4ArchitectureGenerator {
     const targetEdges = new Set();
     if (targetConfig && Array.isArray(targetConfig.relationships)) {
       for (const rel of targetConfig.relationships) {
-        targetEdges.add(`${rel.from.toLowerCase()}->${rel.to.toLowerCase()}`);
+        if (rel && rel.from && rel.to) {
+          targetEdges.add(`${String(rel.from).toLowerCase()}->${String(rel.to).toLowerCase()}`);
+        }
       }
     }
 
     const unauthorizedConnections = [];
     if (targetEdges.size > 0) {
-      for (const rel of inferred.relationships) {
-        const edgeKey = `${rel.from.toLowerCase()}->${rel.to.toLowerCase()}`;
-        if (!targetEdges.has(edgeKey)) {
-          unauthorizedConnections.push({
-            from: rel.from,
-            to: rel.to,
-            label: rel.label,
-            reason: `Connection between '${rel.from}' and '${rel.to}' is not declared in target C4 model`
-          });
+      for (const rel of (inferred && inferred.relationships) || []) {
+        if (rel && rel.from && rel.to) {
+          const edgeKey = `${String(rel.from).toLowerCase()}->${String(rel.to).toLowerCase()}`;
+          if (!targetEdges.has(edgeKey)) {
+            unauthorizedConnections.push({
+              from: rel.from,
+              to: rel.to,
+              label: rel.label,
+              reason: `Connection between '${rel.from}' and '${rel.to}' is not declared in target C4 model`
+            });
+          }
         }
       }
     }

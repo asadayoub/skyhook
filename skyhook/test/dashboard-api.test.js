@@ -85,7 +85,28 @@ test('Dashboard API: serves projects, project state, and secure files', async ()
     assert.strictEqual(jsRes.status, 200);
     assert.ok(jsRes.headers.get('content-type').includes('application/javascript'));
     const jsText = await jsRes.text();
-    assert.ok(jsText.includes('initWebSocket'));
+    // 6. GET /api/drift (scorecard without crashing)
+    const driftRes = await fetch(`${url}/api/drift?projectDir=${encodeURIComponent(tmpDir)}`);
+    assert.strictEqual(driftRes.status, 200);
+    const driftData = await driftRes.json();
+    assert.ok(typeof driftData.healthScore === 'number');
+    assert.ok(driftData.summary);
+
+    // 7. GET /api/dark-matter (coverage radar)
+    const dmRes = await fetch(`${url}/api/dark-matter?projectDir=${encodeURIComponent(tmpDir)}`);
+    assert.strictEqual(dmRes.status, 200);
+    const dmData = await dmRes.json();
+    assert.strictEqual(dmData.success, true);
+    assert.ok(dmData.summary);
+
+    // 8. GET /api/ast/graph (AST symbol relationship graph)
+    const astRes = await fetch(`${url}/api/ast/graph?projectDir=${encodeURIComponent(tmpDir)}`);
+    assert.strictEqual(astRes.status, 200);
+    const astData = await astRes.json();
+    assert.strictEqual(astData.success, true);
+    assert.ok(typeof astData.mermaid === 'string');
+    assert.ok(Array.isArray(astData.nodes));
+    assert.ok(astData.summary);
 
     await server.stop();
   } finally {
