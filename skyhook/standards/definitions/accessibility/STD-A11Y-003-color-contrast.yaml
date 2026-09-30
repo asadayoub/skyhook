@@ -1,0 +1,22 @@
+schemaVersion: "1.0.0"
+id: "STD-A11Y-003"
+title: "Minimum Visual Color Contrast Ratios"
+category: "accessibility"
+domain: "perceivable"
+tags: ["a11y", "accessibility", "wcag", "contrast", "color", "design"]
+severity: "error"
+version: "1.0.0"
+
+summary: "Text and interactive components must maintain a minimum 4.5:1 contrast ratio against their background (WCAG 2.1 AA 1.4.3)."
+
+guidelines:
+  - "Standard body text must have a minimum contrast ratio of 4.5:1 against the background."
+  - "Large text (>= 18pt regular or >= 14pt bold) must have a minimum contrast ratio of 3:1."
+  - "User interface components and graphical controls must have a 3:1 contrast ratio against adjacent colors."
+  - "Color must never be the sole conveyor of information or system state (combine with icons or text)."
+
+acceptanceCriteria:
+  - "All text tokens in design system pass automated 4.5:1 contrast check."
+  - "Error states display text label or icon alongside red color."
+
+remediation: "Adjust text or background color tokens to satisfy the 4.5:1 WCAG AA contrast threshold."

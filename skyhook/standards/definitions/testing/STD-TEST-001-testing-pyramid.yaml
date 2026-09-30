@@ -1,0 +1,22 @@
+schemaVersion: "1.0.0"
+id: "STD-TEST-001"
+title: "Testing Pyramid & Balanced Test Stratification"
+category: "testing"
+domain: "quality"
+tags: ["testing", "unit", "integration", "e2e", "pyramid"]
+severity: "warning"
+version: "1.0.0"
+
+summary: "Structure test suites according to the testing pyramid: many fast unit tests, balanced integration tests, focused E2E smoke tests."
+
+guidelines:
+  - "Unit tests should be fast (< 5ms per test), hermetic, and execute without network or database dependencies."
+  - "Integration tests must verify collaboration between modules, repositories, and persistence layers."
+  - "End-to-End (E2E) tests must focus on critical user paths and smoke verification."
+  - "Maintain minimum 80% code coverage across core domain logic and calculation services."
+
+acceptanceCriteria:
+  - "Test suite completes in under 60 seconds on developer machines."
+  - "Core domain services have 80%+ branch coverage."
+
+remediation: "Add unit tests for un-covered domain functions and mock external I/O."

@@ -1,0 +1,21 @@
+schemaVersion: "1.0.0"
+id: "STD-SOFT-003"
+title: "Strict Type Safety & Boundary Runtime Schema Validation"
+category: "software"
+domain: "correctness"
+tags: ["software", "typescript", "types", "validation", "zod"]
+severity: "error"
+version: "1.0.0"
+
+summary: "Enforce strict compile-time types and validate all untrusted external inputs using runtime schemas."
+
+guidelines:
+  - "Never use 'any' type in TypeScript without an explicit justifying comment; use 'unknown' and narrow."
+  - "Validate all external inputs (HTTP request bodies, query params, webhooks) with runtime schemas (Zod, TypeBox, Pydantic)."
+  - "Enable strict mode in tsconfig.json (strictNullChecks, noImplicitAny, strictFunctionTypes)."
+
+acceptanceCriteria:
+  - "TypeScript compilation passes with strict mode enabled and zero errors."
+  - "All HTTP endpoint request handlers parse inputs using schema validators."
+
+remediation: "Replace 'any' annotations with typed interfaces or Zod schemas."

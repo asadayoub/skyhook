@@ -89,6 +89,62 @@ function formatResult(result, args = {}) {
     return;
   }
 
+  if (result.standard) {
+    const s = result.standard;
+    console.log(`\n\x1b[1m\x1b[36m${s.id}: ${s.title}\x1b[0m (v${s.version || '1.0.0'})`);
+    console.log(`\x1b[90mDomain:\x1b[0m ${s.domain || s.category} | \x1b[90mSeverity:\x1b[0m ${s.severity || 'error'} | \x1b[90mTier:\x1b[0m ${s.tier || 'workspace'}`);
+    if (s.summary) console.log(`\x1b[90mSummary:\x1b[0m ${s.summary}`);
+    if (s.tags && s.tags.length > 0) console.log(`\x1b[90mTags:\x1b[0m ${s.tags.join(', ')}`);
+    if (s.guidelines && s.guidelines.length > 0) {
+      console.log(`\n\x1b[1mGuidelines:\x1b[0m`);
+      s.guidelines.forEach(g => console.log(`  • ${g}`));
+    }
+    if (s.acceptanceCriteria && s.acceptanceCriteria.length > 0) {
+      console.log(`\n\x1b[1mAcceptance Criteria:\x1b[0m`);
+      s.acceptanceCriteria.forEach((ac, idx) => {
+        const text = typeof ac === 'string' ? ac : `[${ac.id || idx + 1}] ${ac.criterion || ac.text || ''}`;
+        console.log(`  ☑ ${text}`);
+      });
+    }
+    if (s.automatedRules && s.automatedRules.length > 0) {
+      console.log(`\n\x1b[1mAutomated Rules (${s.automatedRules.length}):\x1b[0m`);
+      console.table(s.automatedRules.map(r => ({
+        ruleId: r.ruleId,
+        name: r.name || r.ruleId,
+        severity: r.severity || s.severity,
+        pattern: r.pattern
+      })));
+    }
+    return;
+  }
+
+  if (result.catalog && Array.isArray(result.catalog)) {
+    log('info', `Engineering Standards Library (${result.count || result.catalog.length} standards registered)`);
+    console.table(result.catalog.map(s => ({
+      id: s.id,
+      title: s.title,
+      domain: s.domain || s.category,
+      severity: s.severity || 'error',
+      source: s.tier || 'builtin'
+    })));
+    return;
+  }
+
+  if (result.pass !== undefined && result.summary && result.violations) {
+    const statusLevel = result.pass ? 'success' : 'error';
+    log(statusLevel, result.message);
+    console.log(`Total Files Checked: ${result.totalChecked} | Critical: ${result.summary.critical} | Errors: ${result.summary.error} | Warnings: ${result.summary.warning}`);
+    if (result.violations.length > 0) {
+      console.table(result.violations.map(v => ({
+        file: `${v.file}:${v.line}`,
+        rule: v.ruleId,
+        severity: v.severity,
+        message: v.message
+      })));
+    }
+    return;
+  }
+
   if (result.table) {
     console.table(result.table);
     return;
@@ -273,6 +329,31 @@ async function main() {
     const sub = parsedArgs._.shift() || 'start';
     parsedArgs.action = sub;
     effectiveCommand = 'dashboard';
+  } else if (command === 'standards') {
+    const sub = parsedArgs._.shift() || 'list';
+    if (sub === 'list') {
+      parsedArgs.action = 'list';
+      if (parsedArgs._[0]) parsedArgs.category = parsedArgs._.shift();
+    } else if (sub === 'view') {
+      parsedArgs.action = 'view';
+      if (parsedArgs._[0]) parsedArgs.id = parsedArgs._.shift();
+    } else if (sub === 'new' || sub === 'create') {
+      parsedArgs.action = 'new';
+    } else if (sub === 'pull' || sub === 'install') {
+      parsedArgs.action = 'pull';
+      if (parsedArgs._[0]) parsedArgs.source = parsedArgs._.shift();
+    } else if (sub === 'verify' || sub === 'check') {
+      parsedArgs.action = 'verify';
+    } else {
+      if (sub.startsWith('STD-')) {
+        parsedArgs.action = 'view';
+        parsedArgs.id = sub;
+      } else {
+        parsedArgs.action = 'list';
+        parsedArgs.category = sub;
+      }
+    }
+    effectiveCommand = 'standards';
   }
 
   const handlerName = commandMap[effectiveCommand];
@@ -324,6 +405,12 @@ async function main() {
     const result = await handlers[handlerName](ctx, parsedArgs);
     if (result) {
       formatResult(result, parsedArgs);
+      if (result.exitCode !== undefined && result.exitCode !== 0) {
+        process.exit(result.exitCode);
+      }
+      if (result.pass === false) {
+        process.exit(1);
+      }
     }
   } catch (error) {
     log('error', error.message);

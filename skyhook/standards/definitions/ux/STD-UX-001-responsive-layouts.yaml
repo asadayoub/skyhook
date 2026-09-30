@@ -1,0 +1,22 @@
+schemaVersion: "1.0.0"
+id: "STD-UX-001"
+title: "Responsive Mobile-First Layouts"
+category: "ux"
+domain: "layout"
+tags: ["ux", "responsive", "mobile", "css", "layout"]
+severity: "warning"
+version: "1.0.0"
+
+summary: "Design mobile-first; user interfaces must adapt smoothly to viewports from 320px to 4K without horizontal scrolling."
+
+guidelines:
+  - "Start with mobile layouts (320px-375px) and scale up using min-width media queries or responsive utilities."
+  - "Touch targets (buttons, inputs, links) must have a minimum size of 44x44px on touch viewports."
+  - "Never disable user zoom (maximum-scale=1.0 in viewport meta is prohibited)."
+  - "Zero unwanted horizontal scrolling across all standard device breakpoints."
+
+acceptanceCriteria:
+  - "Page renders legibly without horizontal scrolling at 320px width."
+  - "All clickable targets have at least 44x44px touch bounding boxes on mobile."
+
+remediation: "Replace fixed pixel widths with fluid containers, flexbox/grid, and responsive padding."

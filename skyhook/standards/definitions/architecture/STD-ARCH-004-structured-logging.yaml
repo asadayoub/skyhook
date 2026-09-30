@@ -1,0 +1,31 @@
+schemaVersion: "1.0.0"
+id: "STD-ARCH-004"
+title: "Structured JSON Logging & Observability"
+category: "architecture"
+domain: "observability"
+tags: ["logging", "observability", "json", "trace", "architecture"]
+severity: "warning"
+version: "1.0.0"
+
+summary: "Core business logic and services must use structured JSON loggers; avoid raw console.log or print statements."
+
+guidelines:
+  - "Never use console.log or console.error in production backend services."
+  - "Logs must output structured JSON containing timestamp, severity level, message, and correlation/trace ID."
+  - "Sanitize log payloads to ensure passwords, access tokens, and PII are never logged."
+
+acceptanceCriteria:
+  - "Production services output structured JSON logs."
+  - "Zero raw console.log calls in core domain services."
+
+automatedRules:
+  - ruleId: "enforce-structured-logging"
+    type: "ast-pattern"
+    pattern: "\\bconsole\\.(log|info|debug|warn|error)\\("
+    targetPaths: ["**/services/**", "**/domain/**", "**/usecases/**"]
+    ignoredPaths: ["**/cli/**", "**/scripts/**", "**/test/**"]
+    severity: "warning"
+    message: "Raw console.log call inside core domain/service logic. Use structured logger."
+    suggestion: "Inject a structured logger instance with context and traceId."
+
+remediation: "Replace console.log calls with a structured logger (e.g. Pino, Winston, structlog)."

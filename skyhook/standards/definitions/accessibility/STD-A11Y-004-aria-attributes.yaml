@@ -1,0 +1,22 @@
+schemaVersion: "1.0.0"
+id: "STD-A11Y-004"
+title: "Semantic HTML First & Valid ARIA Usage"
+category: "accessibility"
+domain: "robust"
+tags: ["a11y", "accessibility", "wcag", "aria", "html"]
+severity: "error"
+version: "1.0.0"
+
+summary: "Prioritize semantic HTML tags over ARIA; ensure all ARIA roles and states are valid and synchronized (WCAG 2.1 AA 4.1.2)."
+
+guidelines:
+  - "Rule 1 of ARIA: Do not use ARIA if a native HTML element (e.g. <button>, <dialog>, <nav>) exists."
+  - "Keep dynamic states (aria-expanded, aria-checked, aria-selected) synchronized with component state."
+  - "Every aria-controls or aria-labelledby attribute must reference an existing DOM element ID."
+  - "Provide aria-live='polite' regions for asynchronous notifications and alert banners."
+
+acceptanceCriteria:
+  - "Zero invalid ARIA attributes or mismatched role IDs."
+  - "Interactive dropdowns and accordions update aria-expanded dynamically on toggle."
+
+remediation: "Replace custom <div> structures with semantic HTML5 elements or add corresponding ARIA states and roles."

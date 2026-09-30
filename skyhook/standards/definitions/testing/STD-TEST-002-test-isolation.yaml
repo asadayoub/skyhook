@@ -1,0 +1,22 @@
+schemaVersion: "1.0.0"
+id: "STD-TEST-002"
+title: "Hermetic Test Isolation & Ephemeral Fixtures"
+category: "testing"
+domain: "reliability"
+tags: ["testing", "isolation", "fixtures", "testcontainers", "flakiness"]
+severity: "error"
+version: "1.0.0"
+
+summary: "Every test must be independently executable and self-contained; zero shared mutable state between tests."
+
+guidelines:
+  - "Tests must never depend on the execution order of previous tests."
+  - "Clean up temporary files, database rows, and mocked timers in afterEach / finally blocks."
+  - "Use unique IDs or ephemeral databases/containers per test run to prevent cross-test data pollution."
+  - "Eliminate flaky sleep() calls; wait on deterministic promises or event callbacks instead."
+
+acceptanceCriteria:
+  - "Running tests in random order or in parallel produces 100% identical results."
+  - "Zero leftover artifact files or lingering daemon processes after test run."
+
+remediation: "Ensure all test state is initialized in beforeEach and torn down in afterEach."

@@ -1,0 +1,22 @@
+schemaVersion: "1.0.0"
+id: "STD-UX-002"
+title: "Immediate Visual Feedback & Asynchronous Loading States"
+category: "ux"
+domain: "interaction"
+tags: ["ux", "feedback", "loading", "skeleton", "transitions"]
+severity: "warning"
+version: "1.0.0"
+
+summary: "Provide immediate tactile and visual feedback within 100ms of any user interaction; show skeleton states during async operations."
+
+guidelines:
+  - "Interactive components must have defined hover, active, and focus states."
+  - "Operations taking > 300ms must display a loading spinner, skeleton placeholder, or progress bar."
+  - "Form submissions must disable the submit button and show a loading spinner to prevent accidental double-submission."
+  - "Display accessible toast notifications or inline banners confirming successful mutations."
+
+acceptanceCriteria:
+  - "Button transitions to disabled loading state immediately upon click."
+  - "Async data fetching surfaces skeleton placeholder before content renders."
+
+remediation: "Add pending state handlers to buttons and render skeleton frames while awaiting promises."

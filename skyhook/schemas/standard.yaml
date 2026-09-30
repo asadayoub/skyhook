@@ -1,0 +1,88 @@
+# Skyhook Standard Schema
+# Version: 1.0.0
+# Defines schema for modular engineering standards with guidelines, criteria, and automated rules
+
+schemaVersion: "1.0.0"
+definitions:
+  automatedRule:
+    type: "object"
+    required: ["ruleId", "severity", "message"]
+    properties:
+      ruleId:
+        type: "string"
+        minLength: 1
+      type:
+        type: "string"
+        enum: ["ast-pattern", "forbidden-import", "path-restriction", "regex"]
+        default: "ast-pattern"
+      pattern:
+        type: "string"
+      targetPaths:
+        type: "array"
+        items:
+          type: "string"
+      allowedPaths:
+        type: "array"
+        items:
+          type: "string"
+      ignoredPaths:
+        type: "array"
+        items:
+          type: "string"
+      severity:
+        type: "string"
+        enum: ["critical", "error", "warning", "advisory"]
+        default: "error"
+      message:
+        type: "string"
+      suggestion:
+        type: "string"
+
+  standard:
+    type: "object"
+    required: ["id", "title", "category", "severity", "summary", "guidelines"]
+    properties:
+      id:
+        type: "string"
+        pattern: "^STD-[A-Z0-9]+-[0-9]{3}$"
+      title:
+        type: "string"
+        minLength: 1
+        maxLength: 200
+      category:
+        type: "string"
+        enum: ["security", "accessibility", "architecture", "software", "testing", "ux", "compliance", "custom"]
+      domain:
+        type: "string"
+      tags:
+        type: "array"
+        items:
+          type: "string"
+      severity:
+        type: "string"
+        enum: ["critical", "error", "warning", "advisory"]
+        default: "error"
+      version:
+        type: "string"
+        default: "1.0.0"
+      summary:
+        type: "string"
+        description: "Concise summary primed into LLMs when working on governed tasks"
+      guidelines:
+        type: "array"
+        items:
+          type: "string"
+      acceptanceCriteria:
+        type: "array"
+        items:
+          type: "string"
+      automatedRules:
+        type: "array"
+        items:
+          $ref: "#/definitions/automatedRule"
+      remediation:
+        type: "string"
+      references:
+        type: "array"
+        items:
+          type: "string"

@@ -90,6 +90,12 @@ export class ADRSyncEngine {
           existingIndex.supersededBy = parsed.supersededBy;
           changed = true;
         }
+        if (parsed.standards && parsed.standards.length > 0) {
+          if (JSON.stringify(parsed.standards) !== JSON.stringify(existingIndex.standards)) {
+            existingIndex.standards = parsed.standards;
+            changed = true;
+          }
+        }
 
         existingIndex.contentHash = parsed.contentHash;
         existingIndex.updatedAt = getTimestamp();
@@ -106,6 +112,7 @@ export class ADRSyncEngine {
           status: parsed.status || 'accepted',
           category: parsed.category || 'architecture',
           createdAt: parsed.date || getTimestamp(),
+          standards: parsed.standards || [],
           supersedes: parsed.supersedes || null,
           supersededBy: parsed.supersededBy || null,
           contentHash: parsed.contentHash,

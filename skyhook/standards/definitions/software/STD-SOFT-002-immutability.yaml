@@ -1,0 +1,21 @@
+schemaVersion: "1.0.0"
+id: "STD-SOFT-002"
+title: "Immutability & Pure Transformation Functions"
+category: "software"
+domain: "craftsmanship"
+tags: ["software", "immutability", "functional", "pure-functions", "clean-code"]
+severity: "warning"
+version: "1.0.0"
+
+summary: "Favor immutable data structures, avoid in-place mutations of shared state, and write pure functions."
+
+guidelines:
+  - "Do not mutate function arguments passed by reference; return new objects or arrays."
+  - "Use spread operators, map, filter, reduce instead of mutating loops (push, splice) where feasible."
+  - "Declare variables with const by default; use let only when reassignment is strictly required; never use var."
+
+acceptanceCriteria:
+  - "Zero usage of var keywords."
+  - "State transformation functions return new objects without mutating input parameters."
+
+remediation: "Refactor in-place mutations to return shallow/deep copies with updated properties."

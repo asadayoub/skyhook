@@ -37,6 +37,13 @@ export class MCPToolRegistry {
   }
 
   /**
+   * Alias for get(name)
+   */
+  getTool(name) {
+    return this.get(name);
+  }
+
+  /**
    * List all tool definitions for MCP tools/list
    * @returns {Array<Object>}
    */

@@ -1,0 +1,30 @@
+schemaVersion: "1.0.0"
+id: "STD-ARCH-003"
+title: "Repository Pattern & Data Persistence Encapsulation"
+category: "architecture"
+domain: "persistence"
+tags: ["architecture", "repository", "orm", "database", "controllers"]
+severity: "error"
+version: "1.0.0"
+
+summary: "HTTP controllers and API routes must delegate database queries to repositories or services."
+
+guidelines:
+  - "Controllers should only handle HTTP concerns: request validation, authentication, calling services, and formatting responses."
+  - "Direct ORM queries (e.g. prisma.user.findMany) must not reside inside route handlers or presentation components."
+  - "Repositories encapsulate data fetching, caching, and ORM mechanics, providing clean test doubles for unit testing."
+
+acceptanceCriteria:
+  - "No direct ORM client calls (prisma, typeorm, mongoose) inside controller or route files."
+
+automatedRules:
+  - ruleId: "enforce-repository-pattern"
+    type: "ast-pattern"
+    pattern: "\\bprisma\\.([A-Za-z0-9_]+)\\.(findMany|findUnique|findFirst|create|update|delete|upsert|aggregate)\\b"
+    targetPaths: ["**/controllers/**", "**/routes/**", "**/handlers/**", "**/presentation/**"]
+    ignoredPaths: ["**/repositories/**", "**/models/**", "**/services/**", "**/test/**"]
+    severity: "error"
+    message: "Direct ORM query inside controller. Delegate data persistence to a Repository or Service."
+    suggestion: "Create a repository method to encapsulate this database query."
+
+remediation: "Move database access logic into a dedicated repository class or service function."

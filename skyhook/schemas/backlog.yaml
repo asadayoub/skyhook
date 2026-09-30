@@ -53,6 +53,10 @@ definitions:
             type: "string"
           name:
             type: "string"
+      standards:
+        type: "array"
+        items:
+          type: "string"
       tags:
         type: "array"
         items:

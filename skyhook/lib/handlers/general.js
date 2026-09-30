@@ -7,6 +7,9 @@ import { inferFromRepo } from '../inference/InferenceEngine.js';
 import { PlanCompiler } from '../plan/PlanCompiler.js';
 import { GanttGenerator } from '../plan/GanttGenerator.js';
 import { SkyhookServer } from '../server/SkyhookServer.js';
+import { StandardsRegistry } from '../standards/StandardsRegistry.js';
+import { StandardsPackageInstaller } from '../standards/StandardsPackageInstaller.js';
+import { SemanticRuleEngine } from '../drift/SemanticRuleEngine.js';
 
 let activeSkyhookServer = null;
 let dashboardServer = null;
@@ -131,7 +134,7 @@ export async function cmdHelp(ctx, args) {
       { name: 'discover', description: 'Run phased discovery workflow', args: ['phase?, answers?'] },
       { name: 'question', description: 'Get contextual questions for any phase', args: ['category?, limit?'] },
       { name: 'plan', description: 'Generate PROJECT_PLAN.md', args: [] },
-      { name: 'standards', description: 'List applicable standards (with overrides)', args: ['category?'] },
+      { name: 'standards', description: 'Modular engineering standards catalog & automated linter (list, view <id>, new, pull <dir>, verify)', args: ['action?: list|view|new|pull|verify, id?, category?, domain?, severity?'] },
       { name: 'profile', description: 'Show profile details (tech stack, variants, questions)', args: ['name?'] },
       { name: 'version', description: 'Show version info', args: [] },
       { name: 'install', description: 'Install skill globally/locally', args: ['scope?: global|local, force?'] },
@@ -172,7 +175,8 @@ export async function cmdGetContext(ctx, args) {
       epics: backlog.epics?.length || 0,
       stories: backlog.stories?.length || 0,
       decisions: decisions.decisions?.length || 0,
-      requirements: (funcReqs.requirements?.length || 0) + (nfReqs.requirements?.length || 0)
+      requirements: (funcReqs.requirements?.length || 0) + (nfReqs.requirements?.length || 0),
+      standards: (ctx.readStandards ? ctx.readStandards() : {}).standards?.length || 0
     }
   };
   
@@ -191,6 +195,8 @@ export async function cmdGetContext(ctx, args) {
     ];
   } else if (topic === 'tech') {
     context.techStack = techStack;
+  } else if (topic === 'standards') {
+    context.standards = ctx.readStandards ? ctx.readStandards() : { standards: [] };
   }
   
   return context;
@@ -490,15 +496,105 @@ export async function cmdPlan(ctx, args = {}) {
   return await PlanCompiler.compileMasterPlan(ctx, { projectDir });
 }
 
-export async function cmdStandards(ctx, args) {
-  const skyhookDir = ctx.skyhookDir;
-  const projectYaml = readYaml(path.join(skyhookDir, 'project.yaml'));
+export async function cmdStandards(ctx, args = {}) {
+  const projectDir = ctx?.projectDir || (ctx?.skyhookDir ? path.dirname(ctx.skyhookDir) : process.cwd());
+  const action = args.action || (args.subcommand) || (args._ && args._[0]) || 'list';
+
+  // 1. View single standard
+  if (action === 'view' || (!action || action === 'list') && args.id) {
+    const id = args.id || (args._ && args._[1]) || (args._ && args._[0]);
+    if (!id || id === 'view') {
+      return { error: 'Standard ID is required for view (e.g. STD-SEC-001)' };
+    }
+    const standard = StandardsRegistry.getStandard(id, projectDir);
+    if (!standard) {
+      return { error: `Standard not found: ${id}` };
+    }
+    return { success: true, standard };
+  }
+
+  // 2. Scaffold new custom standard
+  if (action === 'new' || action === 'create') {
+    if (!args.id || !args.title) {
+      return { error: 'Both --id and --title are required to scaffold a custom standard' };
+    }
+    try {
+      const created = StandardsPackageInstaller.scaffoldCustomStandard({
+        id: args.id,
+        title: args.title,
+        category: args.category || args.domain,
+        domain: args.domain || args.category,
+        severity: args.severity,
+        description: args.description,
+        guidelines: args.guidelines ? (Array.isArray(args.guidelines) ? args.guidelines : [args.guidelines]) : undefined,
+        acceptanceCriteria: args.acceptanceCriteria ? (Array.isArray(args.acceptanceCriteria) ? args.acceptanceCriteria : [args.acceptanceCriteria]) : undefined,
+        tags: args.tags ? (Array.isArray(args.tags) ? args.tags : args.tags.split(',').map(t => t.trim())) : undefined
+      }, projectDir);
+      return {
+        success: true,
+        message: `Custom standard created at ${created.relativePath}`,
+        standard: created.standard,
+        path: created.filePath
+      };
+    } catch (err) {
+      return { error: err.message };
+    }
+  }
+
+  // 3. Pull/install package
+  if (action === 'pull' || action === 'install') {
+    const source = args.source || args.from || (args._ && args._[1]) || (args._ && args._[0]);
+    if (!source || source === 'pull') {
+      return { error: 'Source directory or path is required to pull standards' };
+    }
+    try {
+      const installed = StandardsPackageInstaller.installPackage(source, projectDir);
+      return {
+        success: true,
+        message: `Installed ${installed.installedCount} standards from package '${installed.package}'`,
+        ...installed
+      };
+    } catch (err) {
+      return { error: err.message };
+    }
+  }
+
+  // 4. Verify standards against codebase
+  if (action === 'verify' || action === 'check') {
+    try {
+      const engine = new SemanticRuleEngine(projectDir);
+      const report = await engine.verifyStandards(args.files || null);
+      return {
+        ...report,
+        message: report.pass 
+          ? `Standards Verification PASSED (${report.totalChecked} files checked, 0 errors/critical)`
+          : `Standards Verification FAILED (${report.summary.critical} critical, ${report.summary.error} errors)`
+      };
+    } catch (err) {
+      return { error: err.message };
+    }
+  }
+
+  // 5. Default / List standards
+  const filter = {};
+  if (args.category) filter.category = args.category;
+  if (args.domain) filter.domain = args.domain;
+  if (args.severity) filter.severity = args.severity;
+  if (args.tag) filter.tag = args.tag;
+
+  const catalog = StandardsRegistry.listStandards(filter, projectDir);
+
+  // Backward compatibility with legacy profile standards
+  const skyhookDir = ctx?.skyhookDir;
+  const projectYaml = skyhookDir && fs.existsSync(path.join(skyhookDir, 'project.yaml'))
+    ? readYaml(path.join(skyhookDir, 'project.yaml'))
+    : {};
   const profile = loadProfile(projectYaml?.profile || 'web-app');
-  const standards = ctx.readStandards();
+  const standardsData = ctx?.readStandards ? ctx.readStandards() : { overrides: [], adoptions: [] };
   
   const builtin = profile?.standards || {};
   const overrides = projectYaml?.configuration?.standardsOverrides || {};
-  const adoptions = standards.adoptions || [];
+  const adoptions = standardsData.adoptions || [];
   
   const allStandards = new Set([...Object.keys(builtin), ...Object.keys(overrides), ...adoptions.map(a => a.standard)]);
   
@@ -514,8 +610,12 @@ export async function cmdStandards(ctx, args) {
       notes: adoption?.notes
     });
   }
-  
-  return { standards: result };
+
+  return {
+    standards: result,
+    catalog,
+    count: catalog.length
+  };
 }
 
 export async function cmdInstall(ctx, args) {

@@ -1,0 +1,31 @@
+schemaVersion: "1.0.0"
+id: "STD-A11Y-001"
+title: "Accessible Text Alternatives for Non-Text Content"
+category: "accessibility"
+domain: "perceivable"
+tags: ["a11y", "accessibility", "wcag", "images", "alt"]
+severity: "critical"
+version: "1.0.0"
+
+summary: "All non-text content (images, icons, charts) must have descriptive text alternatives (WCAG 2.1 AA 1.1.1)."
+
+guidelines:
+  - "Every <img> element must include an alt attribute."
+  - "Decorative images must have alt=\"\" and aria-hidden=\"true\" to prevent screen reader noise."
+  - "Informative images must have concise, descriptive alt text explaining their meaning."
+  - "Complex diagrams or charts must provide an accessible text summary or data table."
+  - "Icon-only buttons must have aria-label or aria-labelledby specifying the action."
+
+acceptanceCriteria:
+  - "No <img> element rendered without an explicit alt attribute."
+  - "Interactive icon buttons without visible labels have valid aria-label attributes."
+
+automatedRules:
+  - ruleId: "require-img-alt"
+    type: "ast-pattern"
+    pattern: "<img(?!.*\\balt=)[^>]*>"
+    severity: "error"
+    message: "Accessibility violation: <img> element missing alt attribute."
+    suggestion: "Add alt=\"description\" or alt=\"\" for decorative images."
+
+remediation: "Add descriptive alt attributes or aria-labels to all image and icon elements."

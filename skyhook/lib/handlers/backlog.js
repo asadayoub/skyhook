@@ -104,7 +104,19 @@ export async function cmdGetNextTask(ctx, args = {}) {
     }
   }
 
-  return { task };
+  let governingStandards = [];
+  if (typeof ctx.resolveStandardsForStory === 'function') {
+    const res = ctx.resolveStandardsForStory(task);
+    governingStandards = res.governingStandards || [];
+  }
+
+  return {
+    task: {
+      ...task,
+      governingStandards
+    },
+    governingStandards
+  };
 }
 
 export async function cmdGetBlockers(ctx, args) {

@@ -10,6 +10,7 @@
 
 import fs from 'fs';
 import path from 'path';
+import { StandardsRegistry } from '../standards/StandardsRegistry.js';
 
 export class SemanticRuleEngine {
   /**
@@ -185,6 +186,45 @@ export class SemanticRuleEngine {
       }
     }
 
+    // Dynamically load automated rules from modular standards
+    try {
+      const standards = StandardsRegistry.loadAll(this.projectDir);
+      for (const std of standards) {
+        if (!Array.isArray(std.automatedRules)) continue;
+        for (const autoRule of std.automatedRules) {
+          if (!autoRule || !autoRule.pattern) continue;
+          try {
+            const regex = new RegExp(autoRule.pattern, autoRule.flags || '');
+            rules.push({
+              id: autoRule.ruleId || `${std.id}-${rules.length + 1}`,
+              standardId: std.id,
+              name: autoRule.name || autoRule.ruleId,
+              description: autoRule.message || std.title,
+              severity: autoRule.severity || std.severity || 'error',
+              targetPaths: autoRule.targetPaths || ['**/*'],
+              allowedPaths: autoRule.allowedPaths || null,
+              ignoredPaths: autoRule.ignoredPaths || ['**/node_modules/**', '**/test/**'],
+              check: (filePath, lineContent, lineNum) => {
+                if (regex.test(lineContent)) {
+                  return {
+                    matched: true,
+                    standardId: std.id,
+                    message: autoRule.message || `Standard [${std.id}] rule violation: ${autoRule.name || autoRule.ruleId}`,
+                    suggestion: `Satisfy standard ${std.id} (${std.title}) guidelines.`
+                  };
+                }
+                return { matched: false };
+              }
+            });
+          } catch (_) {
+            // Skip invalid regex pattern safely
+          }
+        }
+      }
+    } catch (_) {
+      // In environments where standards aren't initialized yet, proceed safely
+    }
+
     return rules;
   }
 
@@ -282,6 +322,7 @@ export class SemanticRuleEngine {
         if (result && result.matched) {
           violations.push({
             ruleId: rule.id,
+            standardId: rule.standardId || result.standardId || null,
             ruleName: rule.name,
             severity: rule.severity,
             file: relPath,
@@ -305,6 +346,7 @@ export class SemanticRuleEngine {
   async run(fileList = null) {
     const filesToScan = fileList || this.discoverSourceFiles(this.projectDir);
     const allViolations = [];
+    let criticalsCount = 0;
     let errorsCount = 0;
     let warningsCount = 0;
 
@@ -312,7 +354,8 @@ export class SemanticRuleEngine {
       const violations = this.checkFile(file);
       for (const v of violations) {
         allViolations.push(v);
-        if (v.severity === 'error') errorsCount++;
+        if (v.severity === 'critical') criticalsCount++;
+        else if (v.severity === 'error') errorsCount++;
         else warningsCount++;
       }
     }
@@ -320,9 +363,41 @@ export class SemanticRuleEngine {
     return {
       violations: allViolations,
       totalChecked: filesToScan.length,
+      criticalsCount,
       errorsCount,
       warningsCount,
-      pass: errorsCount === 0
+      pass: criticalsCount === 0 && errorsCount === 0
+    };
+  }
+
+  /**
+   * Verify all active engineering standards across project files
+   * Exits with code 1 on critical and error violations; logs warnings non-blockingly.
+   * @param {string[]} [fileList]
+   * @returns {Promise<Object>}
+   */
+  async verifyStandards(fileList = null) {
+    const report = await this.run(fileList);
+    const standardViolations = report.violations.filter(v => v.standardId);
+    const critical = report.violations.filter(v => v.severity === 'critical').length;
+    const error = report.violations.filter(v => v.severity === 'error').length;
+    const warning = report.violations.filter(v => v.severity === 'warning').length;
+    const advisory = report.violations.filter(v => v.severity === 'advisory' || v.severity === 'info').length;
+
+    const pass = critical === 0 && error === 0;
+    return {
+      pass,
+      exitCode: pass ? 0 : 1,
+      totalChecked: report.totalChecked,
+      summary: {
+        critical,
+        error,
+        warning,
+        advisory,
+        total: report.violations.length
+      },
+      violations: report.violations,
+      standardViolations
     };
   }
 

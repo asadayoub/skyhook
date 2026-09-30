@@ -7,6 +7,8 @@ import { generateADR } from './adr-generator.js';
 import { BacklogLock } from './backlog/BacklogLock.js';
 import { BacklogStateMachine } from './backlog/BacklogStateMachine.js';
 import { EventLedger, EVENT_TYPES } from './backlog/EventLedger.js';
+import { StandardsRegistry } from './standards/StandardsRegistry.js';
+import { StandardsResolver } from './standards/StandardsResolver.js';
 
 class SkyhookContext {
   constructor(skyhookDirOrProjectDir) {
@@ -125,6 +127,7 @@ class SkyhookContext {
       status: data.status || 'accepted',
       category: data.category || 'architecture',
       createdAt: getTimestamp(),
+      standards: data.standards || [],
       supersedes: data.supersedes || [],
       enforcement: data.enforcement || null
     };
@@ -226,6 +229,7 @@ class SkyhookContext {
             status: 'backlog',
             storyPoints: story.storyPoints || null,
             dependsOn: story.dependsOn || [],
+            standards: story.standards || [],
             createdAt: getTimestamp(),
             updatedAt: getTimestamp()
           });
@@ -269,8 +273,23 @@ class SkyhookContext {
     writeYaml(path.join(this.skyhookDir, 'tech-stack.yaml'), data);
   }
 
-  readStandards() {
-    return readYaml(path.join(this.skyhookDir, 'standards', 'index.yaml')) || { overrides: [], adoptions: [] };
+  readStandards(filter = {}) {
+    const standardsFile = path.join(this.skyhookDir, 'standards', 'index.yaml');
+    const indexData = fs.existsSync(standardsFile) ? (readYaml(standardsFile) || {}) : { overrides: [], adoptions: [] };
+    const catalog = StandardsRegistry.listStandards(filter, this.projectDir);
+    return {
+      overrides: indexData.overrides || [],
+      adoptions: indexData.adoptions || [],
+      standards: catalog
+    };
+  }
+
+  readStandard(id) {
+    return StandardsRegistry.getStandard(id, this.projectDir);
+  }
+
+  resolveStandardsForStory(story) {
+    return StandardsResolver.resolveBriefingForStory(story, this.projectDir);
   }
 
   readProjectYaml() {

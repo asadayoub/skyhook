@@ -51,6 +51,16 @@ function generateADR(decisionData, context) {
   const supersedesMeta = decisionData.supersedes && decisionData.supersedes.length > 0
     ? `\n**Supersedes**: ${Array.isArray(decisionData.supersedes) ? decisionData.supersedes.join(', ') : decisionData.supersedes}`
     : '';
+
+  const standardsMeta = decisionData.standards && decisionData.standards.length > 0
+    ? `\n**Governed Standards**: ${Array.isArray(decisionData.standards) ? decisionData.standards.join(', ') : decisionData.standards}`
+    : '';
+  
+  let governingStandardsSection = '';
+  if (decisionData.standards && decisionData.standards.length > 0) {
+    const list = Array.isArray(decisionData.standards) ? decisionData.standards : [decisionData.standards];
+    governingStandardsSection = `\n## Governing Standards\n\n${list.map(s => `- **${s}**`).join('\n')}\n`;
+  }
   
   const adr = `# Decision: ${decisionData.title}
 
@@ -58,7 +68,7 @@ function generateADR(decisionData, context) {
 **Status**: ${decisionData.status || 'proposed'}
 **Category**: ${decisionData.category || 'architecture'}
 **Date**: ${timestamp}
-**Author**: ${decisionData.author || 'AI Agent + Human'}${supersedesMeta}
+**Author**: ${decisionData.author || 'AI Agent + Human'}${supersedesMeta}${standardsMeta}
 
 ## Context
 
@@ -75,7 +85,7 @@ ${generateDecisionRationale(decisionData, context)}
 ## Architecture Diagram
 
 ${diagram}
-${comparativeSection}${enforcementSection}
+${comparativeSection}${enforcementSection}${governingStandardsSection}
 ## Consequences
 
 ### Positive

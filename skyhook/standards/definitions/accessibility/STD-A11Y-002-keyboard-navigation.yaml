@@ -1,0 +1,22 @@
+schemaVersion: "1.0.0"
+id: "STD-A11Y-002"
+title: "Full Keyboard Operability & Focus Management"
+category: "accessibility"
+domain: "operable"
+tags: ["a11y", "accessibility", "wcag", "keyboard", "focus"]
+severity: "critical"
+version: "1.0.0"
+
+summary: "All interactive elements must be fully operable via keyboard without trapping focus (WCAG 2.1 AA 2.1.1)."
+
+guidelines:
+  - "All buttons, links, inputs, and custom widgets must be reachable and operable using Tab, Enter, and Space."
+  - "Never set outline: none or remove focus styling without providing an equivalent visible focus ring."
+  - "Modal dialogs must trap focus inside while open and restore focus to trigger upon closing."
+  - "Do not use non-interactive elements (<div>, <span>) as click handlers without role='button' and tabIndex={0}."
+
+acceptanceCriteria:
+  - "All user journeys can be completed using keyboard navigation alone without mouse input."
+  - "Interactive elements have high-visibility focus indicators (minimum 3:1 contrast ratio against background)."
+
+remediation: "Ensure native button/anchor elements are used and visible focus outlines are preserved across all components."

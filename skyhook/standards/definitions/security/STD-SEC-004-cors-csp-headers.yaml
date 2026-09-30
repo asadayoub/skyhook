@@ -1,0 +1,23 @@
+schemaVersion: "1.0.0"
+id: "STD-SEC-004"
+title: "Strict CORS & Content Security Policy (CSP)"
+category: "security"
+domain: "network"
+tags: ["cors", "csp", "security", "headers", "xss"]
+severity: "error"
+version: "1.0.0"
+
+summary: "Restrict Cross-Origin Resource Sharing and enforce Content-Security-Policy to mitigate clickjacking and XSS."
+
+guidelines:
+  - "Never set Access-Control-Allow-Origin to '*' in authenticated endpoints."
+  - "Explicitly whitelist allowed CORS origins and methods."
+  - "Set X-Content-Type-Options: nosniff on all HTTP responses."
+  - "Set X-Frame-Options: DENY or SAMEORIGIN to prevent iframe clickjacking."
+  - "Deploy Content-Security-Policy (CSP) with nonce-based scripts and disallowed inline eval."
+
+acceptanceCriteria:
+  - "API responses do not return wildcard '*' origin header for credentials-bearing requests."
+  - "Security response headers include nosniff and frame-options."
+
+remediation: "Configure CORS middleware with an explicit allowed origins list and add security header middleware (e.g. helmet)."

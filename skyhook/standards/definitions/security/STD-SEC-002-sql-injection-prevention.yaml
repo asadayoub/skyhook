@@ -1,0 +1,31 @@
+schemaVersion: "1.0.0"
+id: "STD-SEC-002"
+title: "SQL Injection Prevention & Parameterized Queries"
+category: "security"
+domain: "database"
+tags: ["sql", "database", "security", "injection", "orm"]
+severity: "critical"
+version: "1.0.0"
+
+summary: "All database queries must use parameterized placeholders or type-safe ORM query builders."
+
+guidelines:
+  - "Never concatenate user input or dynamic variables into raw SQL strings."
+  - "Always use parameterized query bindings ($1, ?, :param) or ORM abstractions."
+  - "Sanitize dynamic table or column identifiers against a strict whitelist."
+  - "Do not write raw SQL literals inside HTTP controllers or presentation layers."
+
+acceptanceCriteria:
+  - "Zero raw string concatenation in SQL queries across all repositories and models."
+  - "All dynamic database queries pass variables as separate parameter arrays."
+
+automatedRules:
+  - ruleId: "no-raw-sql-in-controllers"
+    type: "ast-pattern"
+    pattern: "\\b(SELECT\\s+[\\w\\s,*]+\\s+FROM|INSERT\\s+INTO\\s+[\\w.]+|UPDATE\\s+[\\w.]+\\s+SET|DELETE\\s+FROM\\s+[\\w.]+|DROP\\s+TABLE|ALTER\\s+TABLE)\\b"
+    targetPaths: ["**/controllers/**", "**/routes/**", "**/handlers/**", "**/presentation/**", "**/api/**"]
+    severity: "critical"
+    message: "Raw SQL statement literal found in presentation or controller layer."
+    suggestion: "Encapsulate database queries in repositories or use an ORM."
+
+remediation: "Replace string interpolation in SQL calls with parameterized placeholders and move queries into repository methods."

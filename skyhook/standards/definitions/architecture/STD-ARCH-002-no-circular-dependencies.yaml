@@ -1,0 +1,20 @@
+schemaVersion: "1.0.0"
+id: "STD-ARCH-002"
+title: "Strict Prevention of Circular Module Dependencies"
+category: "architecture"
+domain: "coupling"
+tags: ["architecture", "cycles", "coupling", "graph", "boundaries"]
+severity: "critical"
+version: "1.0.0"
+
+summary: "Module import graphs must remain strictly acyclic (DAG); zero circular dependency loops."
+
+guidelines:
+  - "Module A must never directly or transitively import Module B if Module B imports Module A."
+  - "Break cycles using event publishing, dependency inversion (interfaces), or shared kernel extraction."
+  - "Circular dependencies cause undefined module export order, memory leaks, and brittle testing."
+
+acceptanceCriteria:
+  - "Architectural boundary analysis reports 0 circular dependency loops (health score 100%)."
+
+remediation: "Extract shared types or utilities to a lower-level module, or decouple modules using event emitters."

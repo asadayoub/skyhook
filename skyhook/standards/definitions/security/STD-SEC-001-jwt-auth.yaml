@@ -1,0 +1,32 @@
+schemaVersion: "1.0.0"
+id: "STD-SEC-001"
+title: "Secure JWT Authentication & Token Handling"
+category: "security"
+domain: "authentication"
+tags: ["auth", "jwt", "tokens", "session", "security"]
+severity: "critical"
+version: "1.0.0"
+
+summary: "Tokens must be signed with strong keys, have short expiration, and be stored in secure HttpOnly cookies."
+
+guidelines:
+  - "Never store JWTs in browser localStorage or sessionStorage (XSS vulnerability)."
+  - "Always store access tokens in HttpOnly, Secure, SameSite=Lax (or Strict) cookies."
+  - "Access tokens must have an expiration (TTL) of 15 minutes or less."
+  - "Refresh tokens must support single-use rotation and immediate revocation upon misuse."
+  - "Sign tokens using asymmetric algorithms (RS256, ES256, Ed25519) or minimum 256-bit high-entropy HMAC secret."
+
+acceptanceCriteria:
+  - "Set-Cookie response headers include HttpOnly; Secure; SameSite=Lax."
+  - "Token expiry 'exp' claim is validated on all protected endpoints."
+  - "Attempting to access protected endpoints with expired token returns HTTP 401 Unauthorized."
+
+automatedRules:
+  - ruleId: "no-localstorage-jwt"
+    type: "ast-pattern"
+    pattern: "localStorage\\.setItem\\(['\"](token|jwt|auth|access_token)['\"]"
+    severity: "critical"
+    message: "Security violation: Storing JWT in localStorage exposes tokens to XSS attacks."
+    suggestion: "Store authentication tokens in HttpOnly cookies."
+
+remediation: "Migrate client token storage from localStorage/sessionStorage to secure HttpOnly cookies issued by the auth endpoint."

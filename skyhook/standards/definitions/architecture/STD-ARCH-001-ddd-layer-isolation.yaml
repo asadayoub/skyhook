@@ -1,0 +1,22 @@
+schemaVersion: "1.0.0"
+id: "STD-ARCH-001"
+title: "Domain-Driven Design (DDD) Layer Isolation"
+category: "architecture"
+domain: "layers"
+tags: ["ddd", "architecture", "layers", "modularity", "clean-architecture"]
+severity: "critical"
+version: "1.0.0"
+
+summary: "Preserve strict one-way dependency flow: presentation -> application -> domain <- infrastructure."
+
+guidelines:
+  - "Domain models and business entities must never depend on HTTP frameworks, databases, or UI components."
+  - "Presentation controllers must not directly invoke database models or ORMs."
+  - "Dependencies must point inward toward the domain layer using interfaces/inversion of control."
+  - "Do not bypass service or application layers by embedding business logic inside UI components."
+
+acceptanceCriteria:
+  - "No imports of controllers, database drivers, or web frameworks inside core domain entity files."
+  - "Module dependency graph passes unidirectional acyclic layer verification."
+
+remediation: "Invert dependencies using repository interfaces and move domain calculations into pure entity models."

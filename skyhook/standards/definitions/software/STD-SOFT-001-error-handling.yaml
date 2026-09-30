@@ -1,0 +1,22 @@
+schemaVersion: "1.0.0"
+id: "STD-SOFT-001"
+title: "Robust Error Handling & Safe User Responses"
+category: "software"
+domain: "resilience"
+tags: ["software", "errors", "resilience", "exceptions", "clean-code"]
+severity: "error"
+version: "1.0.0"
+
+summary: "Use typed domain errors, handle all asynchronous rejections, and sanitize error responses exposed to clients."
+
+guidelines:
+  - "Never catch and silently swallow errors without logging or re-throwing."
+  - "Use custom error classes inheriting from Error (e.g. NotFoundError, ValidationError, UnauthorizedError)."
+  - "Never leak internal database stack traces or SQL errors to client responses in production."
+  - "Always attach meaningful error messages explaining what went wrong and how the user can resolve it."
+
+acceptanceCriteria:
+  - "All asynchronous promises have error handling (try/catch or catch handlers)."
+  - "API responses return standardized error JSON { error: string, code?: string, details?: any }."
+
+remediation: "Wrap dangerous operations in try/catch and map exceptions to domain error types."

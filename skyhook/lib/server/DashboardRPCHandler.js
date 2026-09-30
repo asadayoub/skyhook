@@ -30,6 +30,7 @@ import { inferArchitecturalDiff, generateComparativeDiagram } from '../adr/ADRCo
 import { parseADRMarkdown } from '../adr/ADRMarkdownParser.js';
 import { AgentDetector } from '../harness/AgentDetector.js';
 import { HarnessInjector } from '../harness/HarnessInjector.js';
+import { StandardsRegistry } from '../standards/StandardsRegistry.js';
 
 export class DashboardRPCHandler {
   /**
@@ -207,7 +208,15 @@ export class DashboardRPCHandler {
       constraints: readYaml(path.join(skyhookDir, 'requirements', 'constraints.yaml')) || { constraints: [] }
     };
     const techStack = readYaml(path.join(skyhookDir, 'tech-stack.yaml')) || { technologies: [] };
-    const standards = readYaml(path.join(skyhookDir, 'standards', 'index.yaml')) || { overrides: [], adoptions: [] };
+    const standardsIndex = readYaml(path.join(skyhookDir, 'standards', 'index.yaml')) || { overrides: [], adoptions: [] };
+    let standardsCatalog = [];
+    try {
+      standardsCatalog = StandardsRegistry.listStandards({}, projDir);
+    } catch (_) {}
+    const standards = {
+      ...standardsIndex,
+      catalog: standardsCatalog
+    };
 
     // Read Recent Events
     const events = EventLedger.readEvents(skyhookDir, 50);
@@ -902,6 +911,7 @@ export class DashboardRPCHandler {
         status: storyData.status || 'backlog',
         storyPoints: storyData.storyPoints !== undefined ? Number(storyData.storyPoints) : 1,
         priority: storyData.priority || 'medium',
+        standards: Array.isArray(storyData.standards) ? storyData.standards : [],
         relatedRequirements: Array.isArray(storyData.relatedRequirements) ? storyData.relatedRequirements : [],
         createdAt: now,
         updatedAt: now
@@ -941,6 +951,7 @@ export class DashboardRPCHandler {
       if (updates.status !== undefined) story.status = updates.status;
       if (updates.storyPoints !== undefined) story.storyPoints = Number(updates.storyPoints);
       if (updates.priority !== undefined) story.priority = updates.priority;
+      if (updates.standards !== undefined) story.standards = Array.isArray(updates.standards) ? updates.standards : [];
       if (updates.relatedRequirements !== undefined) story.relatedRequirements = updates.relatedRequirements;
       story.updatedAt = getTimestamp();
 
@@ -1113,13 +1124,15 @@ export class DashboardRPCHandler {
     const negConsequences = Array.isArray(adrData.consequences?.negative) ? adrData.consequences.negative : ['Requires adoption and adherence.'];
     const alternatives = Array.isArray(adrData.alternatives) ? adrData.alternatives : [];
     const relatedReqs = Array.isArray(adrData.relatedRequirements) ? adrData.relatedRequirements : [];
+    const standards = Array.isArray(adrData.standards) ? adrData.standards : [];
+    const standardsHeader = standards.length > 0 ? `  \n**Governed Standards**: ${standards.join(', ')}` : '';
 
     const markdownContent = `# ${adrId}: ${adrData.title || 'Untitled Decision'}
 
 **Status**: ${adrData.status || 'accepted'}  
 **Date**: ${now}  
 **Author**: ${adrData.author || 'User Dashboard'}  
-**Category**: ${adrData.category || 'Architecture'}  
+**Category**: ${adrData.category || 'Architecture'}${standardsHeader}  
 
 ## Context
 ${adrData.context || 'Context and problem statement.'}
@@ -1149,6 +1162,7 @@ ${relatedReqs.length > 0 ? relatedReqs.map(r => `- ${r}`).join('\n') : 'None rec
       status: adrData.status || 'accepted',
       date: now,
       file: `decisions/records/${filename}`,
+      standards,
       relatedRequirements: relatedReqs,
       category: adrData.category || 'Architecture'
     };
@@ -1172,6 +1186,7 @@ ${relatedReqs.length > 0 ? relatedReqs.map(r => `- ${r}`).join('\n') : 'None rec
     if (updates.title) entry.title = updates.title;
     if (updates.status) entry.status = updates.status;
     if (updates.category) entry.category = updates.category;
+    if (updates.standards !== undefined) entry.standards = Array.isArray(updates.standards) ? updates.standards : [];
     if (updates.relatedRequirements) entry.relatedRequirements = updates.relatedRequirements;
     entry.updatedAt = getTimestamp();
 

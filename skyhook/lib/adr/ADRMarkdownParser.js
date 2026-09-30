@@ -44,6 +44,7 @@ export function parseADRMarkdown(markdown) {
     author: '',
     supersedes: null,
     supersededBy: null,
+    standards: [],
     context: '',
     decision: '',
     consequences: { positive: [], negative: [], neutral: [] },
@@ -84,6 +85,11 @@ export function parseADRMarkdown(markdown) {
 
   const supersededByMatch = markdown.match(/\*\*Superseded By\*\*:\s*([^\n\r]+)/i);
   if (supersededByMatch) result.supersededBy = supersededByMatch[1].trim();
+
+  const standardsMatch = markdown.match(/\*\*Governed Standards\*\*:\s*([^\n\r]+)/i);
+  if (standardsMatch) {
+    result.standards = standardsMatch[1].split(',').map(s => s.trim()).filter(Boolean);
+  }
 
   // Helper to extract a section between ## SectionName and next ## or end of file
   function extractSection(headingRegex) {

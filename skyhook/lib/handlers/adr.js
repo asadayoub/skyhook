@@ -21,6 +21,7 @@ export async function cmdRecordDecision(ctx, args) {
     context: args.context,
     status: args.status || 'accepted',
     category: args.category || 'architecture',
+    standards: args.standards || [],
     alternatives: args.alternatives,
     relatedRequirements: args.relatedRequirements,
     consequences: args.consequences,
