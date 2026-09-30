@@ -37,6 +37,7 @@ export class CopilotHarness extends BaseAgentHarness {
   getTargetPaths(workspaceDir) {
     return [
       path.join(workspaceDir, '.github/copilot-instructions.md'),
+      path.join(workspaceDir, '.vscode/mcp.json'),
       path.join(workspaceDir, '.vscode/settings.json')
     ];
   }
@@ -45,6 +46,7 @@ export class CopilotHarness extends BaseAgentHarness {
     const githubDir = path.join(workspaceDir, '.github');
     const copilotMd = path.join(workspaceDir, '.github/copilot-instructions.md');
     const vscodeDir = path.join(workspaceDir, '.vscode');
+    const mcpJson = path.join(workspaceDir, '.vscode/mcp.json');
     const reasons = [];
     const paths = [];
 
@@ -56,7 +58,10 @@ export class CopilotHarness extends BaseAgentHarness {
       paths.push(githubDir);
     }
 
-    if (fs.existsSync(vscodeDir)) {
+    if (fs.existsSync(mcpJson)) {
+      reasons.push('Found .vscode/mcp.json in workspace');
+      paths.push(mcpJson);
+    } else if (fs.existsSync(vscodeDir)) {
       reasons.push('Found .vscode directory in workspace');
       paths.push(vscodeDir);
     }
@@ -78,6 +83,18 @@ export class CopilotHarness extends BaseAgentHarness {
           content: generateGovernanceRules(workspaceDir)
         },
         {
+          path: path.join(workspaceDir, '.vscode/mcp.json'),
+          type: 'merge-json',
+          content: JSON.stringify({
+            mcpServers: {
+              skyhook: {
+                command: 'node',
+                args: [mcpBin, '--dir', workspaceDir]
+              }
+            }
+          }, null, 2)
+        },
+        {
           path: path.join(workspaceDir, '.vscode/settings.json'),
           type: 'merge-json',
           content: JSON.stringify({
@@ -95,6 +112,7 @@ export class CopilotHarness extends BaseAgentHarness {
 
   async inject(workspaceDir, options = {}) {
     const copilotMd = path.join(workspaceDir, '.github/copilot-instructions.md');
+    const vscodeMcp = path.join(workspaceDir, '.vscode/mcp.json');
     const vscodeSettings = path.join(workspaceDir, '.vscode/settings.json');
     const mcpBin = resolveSkyhookMcpBin(workspaceDir);
     const modifiedFiles = [];
@@ -105,7 +123,19 @@ export class CopilotHarness extends BaseAgentHarness {
     modifiedFiles.push(copilotMd);
     actions.push('Injected Skyhook governance rules into .github/copilot-instructions.md');
 
-    // 2. Merge into .vscode/settings.json
+    // 2. Merge into .vscode/mcp.json (VS Code native MCP standard)
+    mergeJsonFile(vscodeMcp, (existing) => {
+      const servers = existing.mcpServers || {};
+      servers.skyhook = {
+        command: 'node',
+        args: [mcpBin, '--dir', workspaceDir]
+      };
+      return { ...existing, mcpServers: servers };
+    });
+    modifiedFiles.push(vscodeMcp);
+    actions.push('Configured Skyhook MCP server in .vscode/mcp.json');
+
+    // 3. Merge into .vscode/settings.json (Legacy Copilot setting support)
     mergeJsonFile(vscodeSettings, (existing) => {
       const servers = existing['github.copilot.chat.mcpServers'] || {};
       servers.skyhook = {
@@ -122,6 +152,7 @@ export class CopilotHarness extends BaseAgentHarness {
 
   async remove(workspaceDir, options = {}) {
     const copilotMd = path.join(workspaceDir, '.github/copilot-instructions.md');
+    const vscodeMcp = path.join(workspaceDir, '.vscode/mcp.json');
     const vscodeSettings = path.join(workspaceDir, '.vscode/settings.json');
     const removedFiles = [];
     const restoredFiles = [];
@@ -131,6 +162,20 @@ export class CopilotHarness extends BaseAgentHarness {
       if (removed) {
         if (!fs.existsSync(copilotMd)) removedFiles.push(copilotMd);
         else restoredFiles.push(copilotMd);
+      }
+    }
+
+    if (fs.existsSync(vscodeMcp)) {
+      const data = readJsonSafe(vscodeMcp);
+      if (data.mcpServers && data.mcpServers.skyhook) {
+        delete data.mcpServers.skyhook;
+        if (Object.keys(data.mcpServers).length === 0) {
+          fs.unlinkSync(vscodeMcp);
+          removedFiles.push(vscodeMcp);
+        } else {
+          atomicWriteFile(vscodeMcp, JSON.stringify(data, null, 2) + '\n');
+          restoredFiles.push(vscodeMcp);
+        }
       }
     }
 
@@ -156,6 +201,7 @@ export class CopilotHarness extends BaseAgentHarness {
 
   async status(workspaceDir) {
     const copilotMd = path.join(workspaceDir, '.github/copilot-instructions.md');
+    const vscodeMcp = path.join(workspaceDir, '.vscode/mcp.json');
     const vscodeSettings = path.join(workspaceDir, '.vscode/settings.json');
 
     let hasRules = false;
@@ -165,7 +211,13 @@ export class CopilotHarness extends BaseAgentHarness {
       const content = fs.readFileSync(copilotMd, 'utf-8');
       hasRules = content.includes(MARKER_START);
     }
-    if (fs.existsSync(vscodeSettings)) {
+    if (fs.existsSync(vscodeMcp)) {
+      const data = readJsonSafe(vscodeMcp);
+      if (data.mcpServers && data.mcpServers.skyhook) {
+        hasMcp = true;
+      }
+    }
+    if (!hasMcp && fs.existsSync(vscodeSettings)) {
       const data = readJsonSafe(vscodeSettings);
       hasMcp = !!(data['github.copilot.chat.mcpServers'] && data['github.copilot.chat.mcpServers'].skyhook);
     }
