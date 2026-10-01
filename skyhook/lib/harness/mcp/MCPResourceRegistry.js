@@ -1,12 +1,20 @@
 /**
  * MCPResourceRegistry - Pluggable Registry for Skyhook MCP Resources
  * Implements MCP Resources specification (resources/list and resources/read).
+ * Provides 11 live, streaming resources covering backlog, decisions, plan,
+ * boundaries, tech-stack, standards, blockers, drift-scorecard, dark-matter, profile, and trace-graph.
  */
 
 import fs from 'fs';
 import path from 'path';
 import { BaseMCPResource } from './BaseMCPResource.js';
 import { createSkyhookContext } from '../../context.js';
+import { StandardsRegistry } from '../../standards/StandardsRegistry.js';
+import { DependencyResolver } from '../../backlog/DependencyResolver.js';
+import { DriftAggregator } from '../../drift/DriftAggregator.js';
+import { generateCoverageHeatmap } from '../../tracer.js';
+import { loadProfile } from '../../utils.js';
+import { cmdGraph } from '../../handlers/sync.js';
 
 export class MCPResourceRegistry {
   constructor() {
@@ -66,7 +74,7 @@ export class MCPResourceRegistry {
   }
 
   /**
-   * Factory registering all 5 built-in Skyhook resources
+   * Factory registering all 11 built-in Skyhook resources
    * @returns {MCPResourceRegistry}
    */
   static createDefault() {
@@ -166,6 +174,128 @@ export class MCPResourceRegistry {
         const filePath = path.join(ctx.skyhookDir, 'tech-stack.yaml');
         const content = readFileSafely(filePath, 'technologies: []\n');
         return this.formatContent(uri, content);
+      }
+    }());
+
+    // 6. skyhook://standards
+    registry.register(new class extends BaseMCPResource {
+      constructor() {
+        super(
+          'skyhook://standards',
+          'Modular Engineering Standards Catalog',
+          'application/json',
+          'Complete engineering standards catalog active in this workspace, with guidelines, acceptance criteria, and rules.'
+        );
+      }
+      async read(uri, ctx) {
+        const projectDir = ctx.projectDir || (ctx.skyhookDir ? path.dirname(ctx.skyhookDir) : process.cwd());
+        const standards = StandardsRegistry.listStandards({}, projectDir);
+        return this.formatContent(uri, JSON.stringify({ count: standards.length, standards }, null, 2), 'application/json');
+      }
+    }());
+
+    // 7. skyhook://blockers
+    registry.register(new class extends BaseMCPResource {
+      constructor() {
+        super(
+          'skyhook://blockers',
+          'Active Backlog Blockers & Dependency Graph',
+          'application/json',
+          'Currently blocked backlog tasks with unmet prerequisites and blocker reasons.'
+        );
+      }
+      async read(uri, ctx) {
+        const backlog = (ctx.readBacklog ? ctx.readBacklog() : null) || {};
+        const allStories = backlog.stories || [];
+        const blocked = allStories.filter(s => DependencyResolver.isBlocked(s, allStories));
+        const details = blocked.map(s => ({
+          id: s.id,
+          title: s.title,
+          status: s.status,
+          blockerReason: s.blockerReason || null,
+          unmetDependencies: DependencyResolver.getUnmetDependencies(s, allStories)
+        }));
+        return this.formatContent(uri, JSON.stringify({ count: details.length, blockers: details }, null, 2), 'application/json');
+      }
+    }());
+
+    // 8. skyhook://drift-scorecard
+    registry.register(new class extends BaseMCPResource {
+      constructor() {
+        super(
+          'skyhook://drift-scorecard',
+          'Living Architecture Drift & Compliance Scorecard',
+          'application/json',
+          'Live architectural compliance health score (0-100%), circular dependency cycles, and layer violations.'
+        );
+      }
+      async read(uri, ctx) {
+        try {
+          const aggregator = new DriftAggregator(ctx);
+          const scorecard = await aggregator.analyze();
+          return this.formatContent(uri, JSON.stringify(scorecard, null, 2), 'application/json');
+        } catch (err) {
+          return this.formatContent(uri, JSON.stringify({ error: err.message, healthScore: 0 }, null, 2), 'application/json');
+        }
+      }
+    }());
+
+    // 9. skyhook://dark-matter
+    registry.register(new class extends BaseMCPResource {
+      constructor() {
+        super(
+          'skyhook://dark-matter',
+          'AST Dark Matter & Requirement Trace Coverage Heatmap',
+          'application/json',
+          'Analysis of untraced codebase symbols and percentage of code linked to functional requirements.'
+        );
+      }
+      async read(uri, ctx) {
+        try {
+          const projectDir = ctx.projectDir || (ctx.skyhookDir ? path.dirname(ctx.skyhookDir) : process.cwd());
+          const coverage = await generateCoverageHeatmap(projectDir);
+          return this.formatContent(uri, JSON.stringify(coverage, null, 2), 'application/json');
+        } catch (err) {
+          return this.formatContent(uri, JSON.stringify({ error: err.message }, null, 2), 'application/json');
+        }
+      }
+    }());
+
+    // 10. skyhook://profile
+    registry.register(new class extends BaseMCPResource {
+      constructor() {
+        super(
+          'skyhook://profile',
+          'Project Architectural Profile & Constraints',
+          'application/json',
+          'Active project profile configuration, expected conventions, and baseline tech stack expectations.'
+        );
+      }
+      async read(uri, ctx) {
+        const projectYaml = (ctx.readProjectYaml ? ctx.readProjectYaml() : null) || {};
+        const profile = loadProfile(projectYaml.profile || 'web-app') || {};
+        return this.formatContent(uri, JSON.stringify({ project: projectYaml, profile }, null, 2), 'application/json');
+      }
+    }());
+
+    // 11. skyhook://trace-graph
+    registry.register(new class extends BaseMCPResource {
+      constructor() {
+        super(
+          'skyhook://trace-graph',
+          'Living Requirement-to-Code Trace Graph',
+          'text/markdown',
+          'Visual Mermaid diagram linking Functional Requirements -> User Stories -> Code Symbols -> Tests.'
+        );
+      }
+      async read(uri, ctx) {
+        try {
+          const res = await cmdGraph(ctx, {});
+          const content = res.markdown || res.graph || '# Living Requirement Trace Graph\n\n```mermaid\ngraph TD\n  Start[Project Initialized]\n```\n';
+          return this.formatContent(uri, content, 'text/markdown');
+        } catch (err) {
+          return this.formatContent(uri, '# Living Requirement Trace Graph\n\nError generating graph: ' + err.message, 'text/markdown');
+        }
       }
     }());
 

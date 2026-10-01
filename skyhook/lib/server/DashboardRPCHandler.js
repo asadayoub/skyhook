@@ -913,6 +913,8 @@ export class DashboardRPCHandler {
         priority: storyData.priority || 'medium',
         standards: Array.isArray(storyData.standards) ? storyData.standards : [],
         relatedRequirements: Array.isArray(storyData.relatedRequirements) ? storyData.relatedRequirements : [],
+        acceptanceCriteria: Array.isArray(storyData.acceptanceCriteria) ? storyData.acceptanceCriteria : (storyData.acceptanceCriteria ? [storyData.acceptanceCriteria] : []),
+        dependsOn: Array.isArray(storyData.dependsOn) ? storyData.dependsOn : [],
         createdAt: now,
         updatedAt: now
       };

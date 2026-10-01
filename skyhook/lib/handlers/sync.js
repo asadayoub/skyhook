@@ -233,23 +233,23 @@ export async function cmdDrift(ctx, args = {}) {
 
 export async function cmdTrace(ctx, args) {
   if (!args.id) return { error: 'Missing required: id (requirement ID)' };
-  const projectDir = process.cwd();
+  const projectDir = ctx?.projectDir || (ctx?.skyhookDir ? path.dirname(ctx.skyhookDir) : process.cwd());
   return traceRequirement(projectDir, args.id, { lineage: Boolean(args.lineage) });
 }
 
 export async function cmdImpact(ctx, args) {
   if (!args.id) return { error: 'Missing required: id (requirement ID)' };
-  const projectDir = process.cwd();
+  const projectDir = ctx?.projectDir || (ctx?.skyhookDir ? path.dirname(ctx.skyhookDir) : process.cwd());
   return analyzeImpact(projectDir, args.id);
 }
 
 export async function cmdUntraced(ctx, args) {
-  const projectDir = process.cwd();
+  const projectDir = ctx?.projectDir || (ctx?.skyhookDir ? path.dirname(ctx.skyhookDir) : process.cwd());
   return findUntracedRequirements(projectDir);
 }
 
 export async function cmdCoverage(ctx, args) {
-  const projectDir = process.cwd();
+  const projectDir = ctx?.projectDir || (ctx?.skyhookDir ? path.dirname(ctx.skyhookDir) : process.cwd());
   return generateCoverageHeatmap(projectDir);
 }
 
