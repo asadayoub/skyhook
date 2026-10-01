@@ -235,16 +235,8 @@ flowchart TD
   - **Transports**:
     - `StdioTransport.js`: Pipes JSON-RPC messages over standard I/O. Redirects `console.log` to `process.stderr` to keep `stdout` pristine for client parsing.
     - `SSETransport.js`: Local HTTP loopback server listening on `127.0.0.1` serving `/sse` streams and `/messages` session endpoints.
-  - **8 Core MCP Tools**:
-    1. `skyhook_get_next_task`
-    2. `skyhook_update_status`
-    3. `skyhook_release_lease`
-    4. `skyhook_record_decision`
-    5. `skyhook_verify_policies`
-    6. `skyhook_check_drift`
-    7. `skyhook_trace_requirement`
-    8. `skyhook_get_context`
-  - **5 MCP Resources**: `skyhook://backlog`, `skyhook://plan`, `skyhook://decisions`, `skyhook://boundaries`, `skyhook://tech-stack`.
+  - **37 Autonomous MCP Tools**: Partitioned across 8 domains (Core, Planning, Standards, Backlog, ADR, Drift, Plan, Trace).
+  - **11 Streaming MCP Resources**: `skyhook://backlog`, `skyhook://plan`, `skyhook://decisions`, `skyhook://boundaries`, `skyhook://tech-stack`, `skyhook://standards`, `skyhook://blockers`, `skyhook://drift-scorecard`, `skyhook://dark-matter`, `skyhook://profile`, and `skyhook://trace-graph`.
   - **2 MCP Prompts**: `task_kickoff`, `architecture_review`.
   - **Poly-Agent Harness Matrix**:
     - **Cursor**: Generates `.cursor/rules/skyhook.mdc` and merges `.cursor/mcp.json`.
@@ -254,7 +246,18 @@ flowchart TD
     - **Windsurf**: Injects `.windsurfrules` and `.codeium/windsurf/mcp_config.json`.
     - **Google Antigravity**: Injects `.agents/rules/skyhook-governance.md` and `.agents/mcp_config.json`.
     - **Cline / Roo Code**: Injects `.clinerules` and global `cline_mcp_settings.json`.
+    - **OpenAI Codex**: Injects `.codex/agents.md` & `AGENTS.md`, `.codex/mcp.json` & `~/.codex/config.toml`, and auto-registers via `codex mcp add`.
   - **Non-Destructive Merging**: Encloses markdown rules in `<!-- SKYHOOK_RULES_START --> ... <!-- SKYHOOK_RULES_END -->` and performs deep recursive JSON object merges without clobbering user configs.
+
+---
+
+### 2.9 Modular Engineering Standards System
+- **Location**: [`skyhook/lib/standards/`](file:///Users/asad/Documents/Codex/2026-08-29/wh/skyhook-repo/skyhook/lib/standards/)
+- **Mechanism**:
+  - `StandardsRegistry.js`: Multi-tiered catalog discovering 16+ built-in standards and workspace-custom standards (`.skyhook/standards/`).
+  - `StandardsResolver.js`: Compiles concise LLM agent briefings injected into backlog tasks, ADRs, and prompt contexts.
+  - `StandardsPackageInstaller.js`: Scaffolds custom engineering standards and imports shared team standards bundles.
+  - Dynamically binds declarative compliance rules into `SemanticRuleEngine.js` during AST drift audits.
 
 ---
 
@@ -277,6 +280,8 @@ flowchart TD
 │   └── records/                     # Rich Markdown ADR files
 │       ├── ADR-001.md
 │       └── ADR-002.md
+├── standards/                       # Workspace-custom engineering standards
+│   └── custom-standard.yaml
 ├── plan/
 │   ├── PROJECT_PLAN.md              # Living compiled master plan with Mermaid Gantt
 │   ├── requirements/                # Scoped requirement plans
@@ -290,7 +295,7 @@ flowchart TD
 
 ## 4. Verification & Testing Standards
 
-Skyhook maintains 100% offline automated test suites with **148 comprehensive tests across 49 test suites**:
+Skyhook maintains 100% offline automated test suites with **199 comprehensive tests across 5 test suites**:
 - **Zero Network Invocations**: Tests use local filesystem fixtures (`os.tmpdir()`) and loopback servers (`127.0.0.1`).
 - **Clean Teardowns**: Tests shut down HTTP/WebSocket servers and clean up temporary workspaces on completion to prevent dangling handles.
 - **Run the full test suite**:

@@ -51,6 +51,7 @@ export class Header {
           <select id="editorSelect" class="project-select" aria-label="Editor Preference" title="Preferred Editor for Deep Links">
             <option value="vscode">VS Code (vscode://)</option>
             <option value="cursor">Cursor (cursor://)</option>
+            <option value="windsurf">Windsurf (windsurf://)</option>
             <option value="sublime">Sublime Text (subl://)</option>
             <option value="modal">In-Dashboard Viewer</option>
           </select>

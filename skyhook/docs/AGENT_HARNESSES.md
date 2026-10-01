@@ -17,6 +17,7 @@ flowchart TD
     Windsurf["Codeium Windsurf"]
     Antigravity["Google Antigravity"]
     Cline["Cline / Roo Code"]
+    Codex["OpenAI Codex"]
 
     SkyhookCore -->|Injected .cursor/rules/*.mdc & mcp.json| Cursor
     SkyhookCore -->|Merged claude_desktop_config.json| ClaudeDesk
@@ -25,6 +26,7 @@ flowchart TD
     SkyhookCore -->|Injected .windsurfrules & mcp_config.json| Windsurf
     SkyhookCore -->|Injected .agents/rules/ & mcp_config.json| Antigravity
     SkyhookCore -->|Injected .clinerules & cline_mcp_settings.json| Cline
+    SkyhookCore -->|Injected .codex/agents.md, mcp.json & codex mcp| Codex
 ```
 
 | Agent / Editor | Rules File Injected | MCP Config Injected | Detection Signature |
@@ -36,6 +38,7 @@ flowchart TD
 | **Codeium Windsurf** | `.windsurfrules` | `.codeium/windsurf/mcp_config.json` | `.windsurf/` or `.codeium/` |
 | **Google Antigravity**| `.agents/rules/skyhook-governance.md`| `.agents/mcp_config.json` | `.agents/` or `GEMINI.md` |
 | **Cline / Roo Code** | `.clinerules` | `cline_mcp_settings.json` | `.clinerules` or VS Code extension |
+| **OpenAI Codex** | `.codex/agents.md` & `AGENTS.md` | `.codex/mcp.json` & `~/.codex/config.toml` | `.codex/` directory, `AGENTS.md`, or `codex` CLI |
 
 ---
 
@@ -72,7 +75,7 @@ Calling `skyhook harness inject` refreshes only the text between the markers. Ca
 # 1. Scan repository and operating system for active agents
 skyhook harness detect
 
-# 2. Check current injection health across all 7 agents
+# 2. Check current injection health across all 8 agents
 skyhook harness status
 
 # 3. Dry-run planned file changes without modifying disk

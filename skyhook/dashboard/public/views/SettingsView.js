@@ -72,6 +72,10 @@ export class SettingsView extends BaseView {
               <span style="font-family: var(--font-mono); font-size: 0.85rem;">Cursor AI (cursor://file/...)</span>
             </label>
             <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+              <input type="radio" name="editorPrefRadio" value="windsurf" ${pref === 'windsurf' ? 'checked' : ''} />
+              <span style="font-family: var(--font-mono); font-size: 0.85rem;">Windsurf (windsurf://file/...)</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
               <input type="radio" name="editorPrefRadio" value="sublime" ${pref === 'sublime' ? 'checked' : ''} />
               <span style="font-family: var(--font-mono); font-size: 0.85rem;">Sublime Text (subl://file/...)</span>
             </label>

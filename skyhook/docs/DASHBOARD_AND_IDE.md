@@ -102,8 +102,8 @@ Skyhook uses **Hash-based client routing** (`#/view`) because hash routing funct
 | `#/decisions` | Decisions DAG | Interactive ADR graph with comparative diff viewer. |
 | `#/mermaid` | Mermaid Studio | Client-side Gantt charts and 1-click plan recompilation. |
 | `#/dark-matter` | Dark Matter Radar | Untraced AST code radar, heatmap, and risk tiers. |
-| `#/harness` | Harness Center | Poly-agent injector hub and offline MCP status. |
-| `#/settings` | Settings View | Workspace telemetry, profile specs, and editor preferences. |
+| `#/harness` | Harness Center | Poly-agent injector hub and offline MCP status across 8 supported AI coding agents (Cursor, Claude, Copilot, Windsurf, Antigravity, Cline, OpenAI Codex). |
+| `#/settings` | Settings View | Workspace telemetry, profile specs, and editor preferences (VS Code, Cursor, Windsurf, Sublime Text, Modal Viewer). |
 
 ### Query Parameter Support:
 Deep links can target specific items directly:

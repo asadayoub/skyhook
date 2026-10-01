@@ -45,11 +45,11 @@ Autonomous AI coding agents are powerful but **stateless**. Every new prompt or 
 
 1. **🤖 100% Offline Model Context Protocol (MCP) Server**:
    - Implements MCP Specification (2024-11-05) over stdio and loopback `127.0.0.1` SSE.
-   - Exposes **8 core tools** and **5 resources** (`skyhook://backlog`, `skyhook://plan`, `skyhook://decisions`, `skyhook://boundaries`, `skyhook://tech-stack`).
-   - Works natively with Cursor, Claude Desktop, Windsurf, and Cline without cloud relays.
+   - Exposes **37 autonomous tools** and **11 streaming resources** (`skyhook://backlog`, `skyhook://plan`, `skyhook://decisions`, `skyhook://boundaries`, `skyhook://tech-stack`, `skyhook://standards`, `skyhook://blockers`, `skyhook://drift-scorecard`, `skyhook://dark-matter`, `skyhook://profile`, `skyhook://trace-graph`).
+   - Works natively with Cursor, Claude Desktop, Claude Code, GitHub Copilot, Windsurf, Google Antigravity, Cline, and OpenAI Codex without cloud relays.
 
 2. **🔌 Poly-Agent Harness Injector**:
-   - Atomic, non-destructive configuration of AI instruction files (`.cursor/rules/*.mdc`, `CLAUDE.md`, `.github/copilot-instructions.md`, `.windsurfrules`, `.clinerules`).
+   - Atomic, non-destructive configuration across 8 supported AI coding agents (`.cursor/rules/*.mdc`, `CLAUDE.md`, `.github/copilot-instructions.md`, `.windsurfrules`, `.agents/`, `.clinerules`, `.codex/agents.md`, and native `codex mcp add`).
    - Deep JSON merges for `mcp.json` and settings without clobbering user customizations.
 
 3. **🖥️ Modular Cybernetic Web Dashboard & Native IDE Extension**:
@@ -137,7 +137,7 @@ Comprehensive manuals and deep-dives are available in [`docs/`](docs/):
 
 - 🏛️ **[System Architecture (v1.9.1)](docs/ARCHITECTURE.md)**: System design, dataflow diagrams, and sub-system specifications.
 - 📖 **[CLI Reference Manual](docs/CLI_REFERENCE.md)**: Exhaustive reference for all 40+ commands, options, and JSON outputs.
-- 🤖 **[100% Offline MCP Server Guide](docs/MCP_SERVER.md)**: Setting up Cursor, Claude Desktop, Windsurf, and Cline.
+- 🤖 **[100% Offline MCP Server Guide](docs/MCP_SERVER.md)**: Setting up Cursor, OpenAI Codex, Claude Desktop, Windsurf, Antigravity, and Cline.
 - 🖥️ **[Dashboard & Native IDE Extension Manual](docs/DASHBOARD_AND_IDE.md)**: MMPA architecture, hash routing, and VS Code extension packaging.
 - 🔌 **[Poly-Agent Harness Matrix](docs/AGENT_HARNESSES.md)**: Non-destructive merging and rule synchronization.
 - 🔍 **[Polyglot AST Traceability & Dark Matter](docs/TRACEABILITY_AND_AST.md)**: Multi-language parsers, symbol lineage, and coverage radar.
@@ -151,7 +151,7 @@ Comprehensive manuals and deep-dives are available in [`docs/`](docs/):
 
 ## 🧪 Verification & Testing
 
-Skyhook is thoroughly tested with **148 automated tests across 49 test suites**:
+Skyhook is thoroughly tested with **199 automated tests across 5 test suites**:
 ```bash
 npm test
 ```

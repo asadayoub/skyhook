@@ -268,10 +268,14 @@ Runs full architecture drift analysis across tech stack, boundaries, and semanti
 skyhook drift [--boundaries] [--c4] [--semantic] [--fix]
 ```
 - **Flags**:
-  - `--boundaries`: Enforces Domain-Driven Design (DDD) layer separation rules.
+  - `--boundaries`: Enforces Domain-Driven Design (DDD) layer separation rules and detects circular dependencies.
   - `--c4`: Diffs reverse-engineered C4 Container model against baseline.
   - `--semantic`: Runs AST code hygiene checks (raw SQL, `process.env`, `console.log`).
   - `--fix`: Automatically adopts newly detected dependencies into `tech-stack.yaml`.
+- **Directory Exclusions**:
+  - Automatically ignores package and virtualenv directories: `.venv`, `venv`, `env`, `.env`, `node_modules`, `dist`, `build`, `target`, `bin`, `obj`, `.tox`, `.nox`, `.pytest_cache`, `.mypy_cache`, `__pycache__`, `vendor`, `Pods`, and `.gemini`.
+  - Automatically parses `.gitignore` in project root.
+  - Supports custom workspace exclusions via `ignoreDirs` in `.skyhook/project.yaml`, `.skyhook/architecture-boundaries.yaml`, or `.skyhook/drift.yaml`.
 
 ---
 
@@ -400,7 +404,7 @@ skyhook harness detect
 ---
 
 ### `skyhook harness status`
-Reports injection and governance status across all 7 supported harnesses.
+Reports injection and governance status across all 8 supported harnesses (Cursor, Claude Desktop, Claude Code, GitHub Copilot, Windsurf, Antigravity, Cline, and OpenAI Codex).
 ```bash
 skyhook harness status
 ```
@@ -413,8 +417,9 @@ Injects rules and MCP configurations into detected or specified agent environmen
 skyhook harness inject [--target <agents>] [--all] [--dry-run]
 ```
 - **Options**:
-  - `--target <list>`: Comma-separated list (e.g. `--target=cursor,windsurf`).
+  - `--target <list>`: Comma-separated list (e.g. `--target=cursor,windsurf,codex`).
   - `--all`: Injects across all detected agents.
+  - Automatically invokes native `codex mcp add` when targeting OpenAI Codex.
 
 ---
 
@@ -432,7 +437,7 @@ Launches the 100% offline Model Context Protocol server.
 skyhook mcp [--stdio] [--sse] [--port <number>]
 ```
 - **Options**:
-  - `--stdio`: Standard I/O transport (default, used by Cursor, Claude Desktop, Windsurf, Cline).
+  - `--stdio`: Standard I/O transport (default, used by Cursor, OpenAI Codex, Claude Desktop, Windsurf, Cline).
   - `--sse`: Local HTTP Server-Sent Events loopback transport on `127.0.0.1`.
   - `--port <number>`: Port for SSE server (defaults to 31415).
 
@@ -485,7 +490,17 @@ skyhook question [category]
 ---
 
 ### `skyhook standards`
-Lists active architectural and coding standards applied to this workspace.
+Modular engineering standards catalog, exploration, and verification.
 ```bash
-skyhook standards [domain]
+# List all active standards (optionally filter by domain)
+skyhook standards [list] [domain]
+
+# View detailed guidelines, criteria, and rules for a standard
+skyhook standards view <id>
+
+# Scaffold a new workspace-custom engineering standard
+skyhook standards new <id> [title]
+
+# Run automated validation of codebase against standards rules
+skyhook standards verify [id]
 ```

@@ -1,6 +1,6 @@
 /**
  * HarnessView - Agent Harness Center & 100% Offline MCP Hub
- * Injects atomic MCP configs & governance rules into Cursor, Claude, Copilot, Windsurf, Antigravity, and Cline.
+ * Injects atomic MCP configs & governance rules into Cursor, Claude, Copilot, Windsurf, Antigravity, Cline, and OpenAI Codex.
  */
 
 import { BaseView } from '../core/BaseView.js';
@@ -35,7 +35,7 @@ export class HarnessView extends BaseView {
             <span style="font-size: 0.75rem; font-family: var(--font-mono); color: var(--neon-cyan); background: rgba(0, 240, 255, 0.1); border: 1px solid var(--border-neon); padding: 3px 8px; border-radius: 4px;">100% OFFLINE MCP</span>
           </h2>
           <div style="color: var(--text-secondary); font-size: 0.9rem;">
-            Inject atomic MCP tools, resources, and governance rule enforcement into Cursor, Claude, Copilot, Windsurf, Antigravity, and Cline.
+            Inject atomic MCP tools, resources, and governance rule enforcement into Cursor, Claude, Copilot, Windsurf, Antigravity, Cline, and OpenAI Codex.
           </div>
         </div>
 
@@ -124,14 +124,14 @@ export class HarnessView extends BaseView {
             </div>
           </div>
           <div style="font-family: var(--font-mono); font-size: 0.8rem; color: var(--neon-emerald); background: rgba(16, 185, 129, 0.15); border: 1px solid var(--neon-emerald); padding: 4px 10px; border-radius: 6px;">
-            ● 8 MCP Tools Active &bull; 5 Resources
+            ● 37 MCP Tools Active &bull; 11 Resources
           </div>
         </div>
 
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 16px;">
           <div style="background: rgba(0, 0, 0, 0.4); border: 1px solid var(--border-dim); border-radius: 8px; padding: 14px;">
             <div style="font-family: var(--font-mono); font-size: 0.78rem; color: var(--neon-cyan); margin-bottom: 6px; text-transform: uppercase;">
-              Stdio Transport Command (Cursor / Claude Desktop / Windsurf):
+              Stdio Transport Command (Cursor / Codex / Claude Desktop / Windsurf):
             </div>
             <pre style="font-family: var(--font-mono); font-size: 0.82rem; color: var(--text-primary); margin: 0; user-select: all; overflow-x: auto;"><code>node ./skyhook/cli/skyhook-mcp.js --dir .</code></pre>
           </div>

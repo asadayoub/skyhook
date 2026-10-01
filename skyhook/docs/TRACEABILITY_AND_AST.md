@@ -132,7 +132,7 @@ Output:
 
 ## 5. Circular Dependency Detection (Tarjan's Algorithm)
 
-[`ASTImportGraph.js`](file:///Users/asad/Documents/Codex/2026-08-29/wh/skyhook-repo/skyhook/lib/tracer/ASTImportGraph.js) resolves relative imports and path aliases (`@/`) across the repository, constructing a directed import graph.
+[`ASTImportGraph.js`](file:///Users/asad/Documents/Codex/2026-08-29/wh/skyhook-repo/skyhook/lib/drift/ASTImportGraph.js) resolves relative imports and path aliases (`@/`) across the repository, constructing a directed import graph.
 
 It executes **Tarjan's algorithm** to identify strongly connected components, pinpointing circular dependency cycles:
 
@@ -141,3 +141,30 @@ $ skyhook drift --boundaries
 ⚠️ Warning: 1 circular dependency cycle(s) detected:
    Cycle 1: src/models/User.ts ➔ src/services/Auth.ts ➔ src/models/User.ts
 ```
+
+---
+
+## 6. Directory & Environment Exclusion Rules
+
+To ensure fast AST scanning and eliminate false-positive dependency cycles or dark matter warnings from third-party vendor code:
+
+### Default Exclusions
+`ASTImportGraph.js` automatically skips:
+- **Package & Dependency Directories**: `node_modules`, `vendor`, `Pods`
+- **Python Virtual Environments**: `.venv`, `venv`, `env`, `.env`, `.tox`, `.nox`
+- **Caches**: `__pycache__`, `.pytest_cache`, `.mypy_cache`, `.ruff_cache`
+- **Build & Artifact Directories**: `dist`, `build`, `.next`, `target`, `bin`, `obj`, `coverage`
+- **VCS & IDE State**: `.git`, `.skyhook`, `.gemini`
+
+### Project Gitignore Integration
+Skyhook automatically parses `.gitignore` in the project root and excludes un-globbed directory entries from AST graph traversal.
+
+### Custom Workspace Exclusions
+Define additional directory exclusions in `.skyhook/project.yaml`, `.skyhook/architecture-boundaries.yaml`, or `.skyhook/drift.yaml`:
+```yaml
+ignoreDirs:
+  - generated
+  - fixtures
+  - legacy-python-env
+```
+Or pass directly via options when calling `ASTImportGraph` or drift check tools.
