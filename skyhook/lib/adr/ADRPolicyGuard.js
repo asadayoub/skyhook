@@ -110,7 +110,10 @@ export class ADRPolicyGuard {
    */
   findSourceFiles(dir) {
     const results = [];
-    const ignoreDirs = new Set(['node_modules', '.git', '.skyhook', 'dist', 'build', '.next', 'coverage']);
+    const ignoreDirs = new Set([
+      'node_modules', '.git', '.skyhook', 'dist', 'build', '.next', 'coverage',
+      '__pycache__', '.venv', 'venv', 'env', '.env', '.tox', '.nox', 'target', 'bin', 'obj'
+    ]);
 
     function scan(current) {
       if (!fs.existsSync(current)) return;

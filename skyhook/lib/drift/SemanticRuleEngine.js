@@ -409,7 +409,10 @@ export class SemanticRuleEngine {
   discoverSourceFiles(dir) {
     const results = [];
     const exts = new Set(['.js', '.mjs', '.cjs', '.ts', '.tsx', '.jsx', '.py', '.go', '.rs', '.java']);
-    const ignoreDirs = new Set(['node_modules', '.git', '.skyhook', 'dist', 'build', 'coverage', '.gemini']);
+    const ignoreDirs = new Set([
+      'node_modules', '.git', '.skyhook', 'dist', 'build', 'coverage', '.gemini',
+      '__pycache__', '.venv', 'venv', 'env', '.env', '.tox', '.nox', 'target', 'bin', 'obj'
+    ]);
 
     const walk = (current) => {
       let entries = [];

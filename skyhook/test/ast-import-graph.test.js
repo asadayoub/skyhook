@@ -151,3 +151,49 @@ test('ASTImportGraph: detects circular dependency cycles accurately using Tarjan
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
 });
+
+test('ASTImportGraph: ignores Python virtual environments (.venv, venv) and custom ignoreDirs', async () => {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'skyhook-venv-test-'));
+
+  try {
+    // 1. Create a Python project with real app and a .venv directory
+    const appDir = path.join(tmpDir, 'app');
+    const venvDir = path.join(tmpDir, '.venv', 'lib', 'python3.11', 'site-packages', 'thirdparty');
+    const customIgnoreDir = path.join(tmpDir, 'custom_build');
+    fs.mkdirSync(appDir, { recursive: true });
+    fs.mkdirSync(venvDir, { recursive: true });
+    fs.mkdirSync(customIgnoreDir, { recursive: true });
+
+    // App file
+    fs.writeFileSync(path.join(appDir, 'main.py'), 'import thirdparty\nprint("Hello")\n');
+
+    // .venv files that have internal circular imports
+    fs.writeFileSync(path.join(venvDir, 'pkg_a.py'), 'from . import pkg_b\n');
+    fs.writeFileSync(path.join(venvDir, 'pkg_b.py'), 'from . import pkg_a\n');
+
+    // Custom ignore file
+    fs.writeFileSync(path.join(customIgnoreDir, 'ignored.py'), 'import os\n');
+
+    // .gitignore with custom_build
+    fs.writeFileSync(path.join(tmpDir, '.gitignore'), 'custom_build/\n');
+
+    const graph = new ASTImportGraph(tmpDir);
+    await graph.build();
+
+    const discovered = graph.discoverSourceFiles(tmpDir);
+    const discoveredRel = discovered.map(p => path.relative(tmpDir, p).replace(/\\/g, '/'));
+
+    // Should include app/main.py
+    assert.ok(discoveredRel.includes('app/main.py'));
+
+    // Should NOT include any files from .venv or custom_build
+    assert.strictEqual(discoveredRel.filter(p => p.startsWith('.venv')).length, 0);
+    assert.strictEqual(discoveredRel.filter(p => p.startsWith('custom_build')).length, 0);
+
+    // Circular dependencies in .venv should NOT be reported
+    const cycles = graph.findCircularDependencies();
+    assert.strictEqual(cycles.length, 0);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});

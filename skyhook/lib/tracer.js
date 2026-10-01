@@ -108,7 +108,9 @@ export async function indexCodebase(projectDir) {
         if (entry.name === 'node_modules' || entry.name === '.git' || 
             entry.name === 'dist' || entry.name === 'build' || 
             entry.name === '.next' || entry.name === '.skyhook' ||
-            entry.name === 'coverage') {
+            entry.name === 'coverage' || entry.name === '__pycache__' ||
+            entry.name === '.venv' || entry.name === 'venv' ||
+            entry.name === 'env' || entry.name === '.env') {
           continue;
         }
 
