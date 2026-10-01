@@ -183,6 +183,17 @@ export class CodexHarness extends BaseAgentHarness {
       actions.push(`Injected governance rules into ${rootAgentsPath}`);
     }
 
+    // 4. Register with native Codex CLI if installed and not in test environment
+    if (!options.dryRun && !options.skipCli && process.env.NODE_ENV !== 'test') {
+      try {
+        const { execSync } = await import('child_process');
+        execSync(`codex mcp add skyhook -- node "${mcpBin}"`, { stdio: 'ignore' });
+        actions.push('Registered skyhook in Codex CLI global registry (codex mcp add)');
+      } catch (_) {
+        // Gracefully ignore if codex CLI is not in PATH or already configured
+      }
+    }
+
     return {
       success: true,
       modifiedFiles,
@@ -244,6 +255,14 @@ export class CodexHarness extends BaseAgentHarness {
           restoredFiles.push(rootAgentsPath);
         }
       }
+    }
+
+    // 4. Remove from native Codex CLI registry if installed and not in test environment
+    if (!options.dryRun && !options.skipCli && process.env.NODE_ENV !== 'test') {
+      try {
+        const { execSync } = await import('child_process');
+        execSync('codex mcp remove skyhook', { stdio: 'ignore' });
+      } catch (_) {}
     }
 
     return {
