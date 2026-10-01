@@ -6,13 +6,13 @@ import os from 'os';
 import { HarnessInjector } from '../lib/harness/HarnessInjector.js';
 import { MARKER_START, MARKER_END } from '../lib/harness/HarnessUtils.js';
 
-test('Agent Harness Matrix - Full Lifecycle across all 7 supported harnesses', async () => {
+test('Agent Harness Matrix - Full Lifecycle across all 8 supported harnesses', async () => {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'skyhook-matrix-test-'));
   const injector = new HarnessInjector();
 
   try {
     const harnesses = injector.registry.list();
-    assert.strictEqual(harnesses.length, 7, 'Must register exactly 7 agent harnesses');
+    assert.strictEqual(harnesses.length, 8, 'Must register exactly 8 agent harnesses');
 
     for (const harness of harnesses) {
       const harnessDir = path.join(tmpDir, harness.id);

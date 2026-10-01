@@ -22,7 +22,7 @@ test('Harness CLI Handlers - detect, inject, status, remove', async () => {
 
     // 1. Detect before anything is configured
     const detectBefore = await cmdHarnessDetect(ctx, { json: true });
-    assert.strictEqual(detectBefore.totalRegistered, 7);
+    assert.strictEqual(detectBefore.totalRegistered, 8);
 
     // 2. Inject Cursor harness in dry-run mode
     const dryRunResult = await cmdHarnessInject(ctx, {

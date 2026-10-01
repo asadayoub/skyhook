@@ -11,16 +11,18 @@ import { cmdInit } from '../lib/handlers/general.js';
 test('Dashboard Harness API - detect, status, inject, remove & WebSocket push', async () => {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'skyhook-dash-harness-test-'));
   const skyhookDir = path.join(tmpDir, '.skyhook');
+  let server;
+  let ws;
 
   try {
     await cmdInit({ skyhookDir, projectDir: tmpDir }, { name: 'Dashboard Harness Test' });
 
     // Start Skyhook server
-    const server = new SkyhookServer({ port: 31630, workspaceDir: tmpDir });
+    server = new SkyhookServer({ port: 31630, workspaceDir: tmpDir });
     const { port } = await server.start();
 
     // Connect WebSocket
-    const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`);
+    ws = new WebSocket(`ws://127.0.0.1:${port}/ws`);
     const receivedEvents = [];
     ws.on('message', (data) => {
       try {
@@ -38,7 +40,7 @@ test('Dashboard Harness API - detect, status, inject, remove & WebSocket push', 
         res.on('end', () => resolve(JSON.parse(body)));
       }).on('error', reject);
     });
-    assert.strictEqual(detectData.totalRegistered, 7);
+    assert.strictEqual(detectData.totalRegistered, 8);
 
     // 2. GET /api/harness/status
     const statusData = await new Promise((resolve, reject) => {
@@ -102,11 +104,9 @@ test('Dashboard Harness API - detect, status, inject, remove & WebSocket push', 
 
     await new Promise(r => setTimeout(r, 60));
     assert.ok(receivedEvents.some(e => e.type === 'HARNESS_REMOVED'), 'Should broadcast HARNESS_REMOVED event');
-
-    // Teardown
-    ws.close();
-    await server.stop();
   } finally {
+    try { ws?.close(); } catch (_) {}
+    try { await server?.stop(); } catch (_) {}
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
 });

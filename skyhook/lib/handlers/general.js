@@ -670,50 +670,19 @@ export async function cmdSetup(ctx, args) {
   
   switch (agent) {
     case 'codex': {
-      const agentsPath = path.join(cwd, '.codex', 'agents.md');
-      const agentsDir = path.dirname(agentsPath);
-      if (!fs.existsSync(agentsDir)) fs.mkdirSync(agentsDir, { recursive: true });
-      
-      const agentsMd = '# Skyhook Agents\n\n' +
-'This project uses Skyhook for persistent, structured project intelligence.\n\n' +
-'## Available Commands\n\n' +
-'All Skyhook commands are available via `skyhook-cmd` binary (stdio JSON protocol).\n\n' +
-'### Key Slash Commands\n\n' +
-'- `/skyhook-listCurrentFeatures` - List all features with status\n' +
-'- `/skyhook-getFeature --id=EPIC-XXX` - Get detailed feature info\n' +
-'- `/skyhook-getNextTask` - Get highest priority ready task\n' +
-'- `/skyhook-getBlockers` - Get all blocked items\n' +
-'- `/skyhook-recordDecision` - Record architectural decision (auto-generates ADR)\n' +
-'- `/skyhook-updateStatus` - Update story status\n' +
-'- `/skyhook-getContext` - Get relevant context for a topic\n' +
-'- `/skyhook-sync` - Check code vs documentation drift\n' +
-'- `/skyhook-addFeature` - Add new feature with stories\n' +
-'- `/skyhook-trace --id=REQ-XXX` - Trace requirement to code\n' +
-'- `/skyhook-impact --id=REQ-XXX` - Analyze impact of changing a requirement\n' +
-'- `/skyhook-untraced` - Find requirements with no code references\n' +
-'- `/skyhook-dashboard start` - Start web dashboard (http://localhost:4343)\n' +
-'- `/skyhook-init` - Initialize project with profile\n' +
-'- `/skyhook-discover` - Run discovery workflow\n' +
-'- `/skyhook-question` - Get contextual questions\n' +
-'- `/skyhook-plan` - Generate project plan\n' +
-'- `/skyhook-standards` - Show applicable standards\n' +
-'- `/skyhook-profile` - Show profile details\n' +
-'- `/skyhook-version` - Show version info\n' +
-'- `/skyhook-decide` - Shorthand for recordDecision\n' +
-'- `/skyhook-batchCreate` - Bulk create features/stories/requirements/decisions\n' +
-'- `/skyhook-setup` - Auto-configure agent harness\n' +
-'- `/skyhook-help` - Show this help\n\n' +
-'## Traceability\n\n' +
-'Use `@skyhook-implements REQ-XXX` comments in code:\n\n' +
-'```typescript\n// @skyhook-implements REQ-003\nexport function RevenueChart() { ... }\n```\n\n' +
-'Then use:\n' +
-'- `/skyhook-trace --id=REQ-003` - Find code implementing a requirement\n' +
-'- `/skyhook-impact --id=REQ-003` - Analyze change impact\n' +
-'- `/skyhook-untraced` - Find requirements with no code refs\n\n' +
-'## Setup\n\n' +
-'Run `skyhook setup codex` to create this file.\n';
-      fs.writeFileSync(agentsPath, agentsMd);
-      return { success: true, files: ['.codex/agents.md'] };
+      try {
+        const { HarnessInjector } = await import('../harness/HarnessInjector.js');
+        const injector = new HarnessInjector();
+        const result = await injector.inject(cwd, { targets: ['codex'] });
+        const modified = result.injected[0]?.modifiedFiles || ['.codex/mcp.json', '.codex/agents.md'];
+        return { success: true, files: modified };
+      } catch (_) {
+        const agentsPath = path.join(cwd, '.codex', 'agents.md');
+        const agentsDir = path.dirname(agentsPath);
+        if (!fs.existsSync(agentsDir)) fs.mkdirSync(agentsDir, { recursive: true });
+        fs.writeFileSync(agentsPath, '# Skyhook Agents\n\nThis project uses Skyhook.\n');
+        return { success: true, files: ['.codex/agents.md'] };
+      }
     }
     
     case 'claude': {

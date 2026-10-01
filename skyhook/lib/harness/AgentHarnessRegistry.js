@@ -11,6 +11,7 @@ import { CopilotHarness } from './plugins/CopilotHarness.js';
 import { WindsurfHarness } from './plugins/WindsurfHarness.js';
 import { AntigravityHarness } from './plugins/AntigravityHarness.js';
 import { ClineHarness } from './plugins/ClineHarness.js';
+import { CodexHarness } from './plugins/CodexHarness.js';
 
 export class AgentHarnessRegistry {
   constructor() {
@@ -91,6 +92,7 @@ export class AgentHarnessRegistry {
     registry.register(new WindsurfHarness());
     registry.register(new AntigravityHarness());
     registry.register(new ClineHarness());
+    registry.register(new CodexHarness());
     return registry;
   }
 }

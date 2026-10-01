@@ -26,22 +26,33 @@ test('AgentDetector - Detects installed editors and agent signatures', async () 
     // 4. Create Antigravity markers
     fs.mkdirSync(path.join(tmpDir, '.agents'));
 
-    // 5. Scan again
+    // 5. Create Codex markers
+    fs.mkdirSync(path.join(tmpDir, '.codex'));
+    fs.writeFileSync(path.join(tmpDir, '.codex', 'agents.md'), '# Codex agent rules\n');
+
+    // 6. Scan again
     const scanResult = await detector.scan(tmpDir);
     const detectedIds = scanResult.detectedAgents.map(a => a.id);
 
     assert.ok(detectedIds.includes('cursor'), 'Should detect Cursor from .cursor / .cursorrules');
     assert.ok(detectedIds.includes('windsurf'), 'Should detect Windsurf from .windsurfrules');
     assert.ok(detectedIds.includes('antigravity'), 'Should detect Antigravity from .agents directory');
+    assert.ok(detectedIds.includes('codex'), 'Should detect Codex from .codex directory and agents.md');
 
-    // 6. Verify detection payload structure
+    // 7. Verify detection payload structure
     const cursorResult = scanResult.detectedAgents.find(a => a.id === 'cursor');
     assert.strictEqual(cursorResult.name, 'Cursor AI');
     assert.strictEqual(cursorResult.vendor, 'Anysphere');
     assert.ok(cursorResult.reasons.length >= 1);
     assert.ok(cursorResult.paths.length >= 1);
 
-    assert.strictEqual(scanResult.totalRegistered, 7);
+    const codexResult = scanResult.detectedAgents.find(a => a.id === 'codex');
+    assert.strictEqual(codexResult.name, 'OpenAI Codex');
+    assert.strictEqual(codexResult.vendor, 'OpenAI');
+    assert.ok(codexResult.reasons.length >= 1);
+    assert.ok(codexResult.paths.length >= 1);
+
+    assert.strictEqual(scanResult.totalRegistered, 8);
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
