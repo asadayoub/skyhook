@@ -340,20 +340,23 @@ export class DashboardRPCHandler {
   }
 
   /**
-   * Release active agent lease
+   * Release active agent lease (supports both story and task)
    */
-  static releaseLease(skyhookDir, storyId, force = true) {
+  static releaseLease(skyhookDir, itemId, force = true) {
     const ctx = createSkyhookContext(path.dirname(skyhookDir));
     if (!ctx) throw new Error('Failed to create context');
 
     const backlog = ctx.readBacklog();
-    const story = (backlog.stories || []).find(s => s.id === storyId);
-    if (!story) throw new Error(`Story ${storyId} not found`);
+    const story = (backlog.stories || []).find(s => s.id === itemId);
+    const task = (backlog.tasks || []).find(t => t.id === itemId);
+    const item = story || task;
+    if (!item) throw new Error(`Work item ${itemId} not found`);
 
-    TaskLeaseManager.releaseLease(story, story.leasedTo || 'unknown', force);
+    const agent = item.lease?.agentId || item.leasedTo || 'unknown';
+    TaskLeaseManager.releaseLease(item, agent, force);
     ctx.writeBacklog(backlog);
 
-    return { success: true, storyId };
+    return { success: true, storyId: item.id, taskId: item.id };
   }
 
   /**
@@ -1089,6 +1092,143 @@ export class DashboardRPCHandler {
       writeYaml(epicsPath, backlog);
       return { success: true, epicId };
     });
+  }
+
+  // =========================================================================
+  // --- Task & Subtask CRUD Operations ---
+  // =========================================================================
+
+  /**
+   * Create a task in backlog/epics.yaml
+   */
+  static async createTask(skyhookDir, taskData = {}) {
+    if (!skyhookDir) throw new Error('skyhookDir is required');
+    const ctx = createSkyhookContext(path.dirname(skyhookDir));
+    if (!ctx) throw new Error('Failed to create context');
+
+    const task = ctx.addTask(taskData);
+    return { success: true, task };
+  }
+
+  /**
+   * Update a task in backlog/epics.yaml
+   */
+  static async updateTask(skyhookDir, taskId, updates = {}) {
+    if (!skyhookDir) throw new Error('skyhookDir is required');
+    if (!taskId) throw new Error('taskId is required');
+    const epicsPath = path.join(skyhookDir, 'backlog', 'epics.yaml');
+
+    return await BacklogLock.withLock(skyhookDir, async () => {
+      const backlog = readYaml(epicsPath) || { epics: [], stories: [], tasks: [] };
+      if (!Array.isArray(backlog.tasks)) backlog.tasks = [];
+
+      const task = backlog.tasks.find(t => t.id === taskId);
+      if (!task) throw new Error(`Task '${taskId}' not found`);
+
+      if (updates.title !== undefined) task.title = updates.title;
+      if (updates.description !== undefined) task.description = updates.description;
+      if (updates.status !== undefined) task.status = updates.status;
+      if (updates.priority !== undefined) task.priority = updates.priority;
+      if (updates.type !== undefined) task.type = updates.type;
+      if (updates.storyPoints !== undefined) task.storyPoints = updates.storyPoints ? Number(updates.storyPoints) : null;
+      if (updates.estimatedMinutes !== undefined) task.estimatedMinutes = updates.estimatedMinutes ? Number(updates.estimatedMinutes) : null;
+      if (updates.targetFiles !== undefined) task.targetFiles = Array.isArray(updates.targetFiles) ? updates.targetFiles : [];
+      if (updates.standards !== undefined) task.standards = Array.isArray(updates.standards) ? updates.standards : [];
+      if (updates.dependsOn !== undefined) task.dependsOn = Array.isArray(updates.dependsOn) ? updates.dependsOn : [];
+      if (updates.subtasks !== undefined) task.subtasks = updates.subtasks;
+      task.updatedAt = getTimestamp();
+
+      writeYaml(epicsPath, backlog);
+
+      EventLedger.appendEvent(skyhookDir, {
+        type: 'TASK_UPDATED',
+        actor: 'user-dashboard',
+        payload: { taskId, updates }
+      });
+
+      return { success: true, task };
+    });
+  }
+
+  /**
+   * Delete a task from backlog/epics.yaml
+   */
+  static async deleteTask(skyhookDir, taskId) {
+    if (!skyhookDir) throw new Error('skyhookDir is required');
+    if (!taskId) throw new Error('taskId is required');
+    const epicsPath = path.join(skyhookDir, 'backlog', 'epics.yaml');
+
+    return await BacklogLock.withLock(skyhookDir, async () => {
+      const backlog = readYaml(epicsPath) || { epics: [], stories: [], tasks: [] };
+      if (!Array.isArray(backlog.tasks)) backlog.tasks = [];
+
+      const initialCount = backlog.tasks.length;
+      backlog.tasks = backlog.tasks.filter(t => t.id !== taskId);
+      if (backlog.tasks.length === initialCount) {
+        throw new Error(`Task '${taskId}' not found`);
+      }
+
+      // Remove from parent story or epic childTasks
+      for (const s of (backlog.stories || [])) {
+        if (s.childTasks) s.childTasks = s.childTasks.filter(id => id !== taskId);
+      }
+      for (const e of (backlog.epics || [])) {
+        if (e.childTasks) e.childTasks = e.childTasks.filter(id => id !== taskId);
+      }
+
+      writeYaml(epicsPath, backlog);
+
+      EventLedger.appendEvent(skyhookDir, {
+        type: 'TASK_DELETED',
+        actor: 'user-dashboard',
+        payload: { taskId }
+      });
+
+      return { success: true, taskId };
+    });
+  }
+
+  /**
+   * Add a subtask under a task
+   */
+  static async createSubtask(skyhookDir, taskId, title) {
+    if (!skyhookDir) throw new Error('skyhookDir is required');
+    const ctx = createSkyhookContext(path.dirname(skyhookDir));
+    if (!ctx) throw new Error('Failed to create context');
+
+    const subtask = ctx.addSubtask(taskId, title);
+    return { success: true, subtask };
+  }
+
+  /**
+   * Toggle or update a subtask
+   */
+  static async toggleSubtask(skyhookDir, taskId, subtaskId, completed) {
+    if (!skyhookDir) throw new Error('skyhookDir is required');
+    const ctx = createSkyhookContext(path.dirname(skyhookDir));
+    if (!ctx) throw new Error('Failed to create context');
+
+    const subtask = ctx.toggleSubtask(taskId, subtaskId, completed);
+    return { success: true, subtask };
+  }
+
+  /**
+   * Heartbeat / extend a lease
+   */
+  static async heartbeatLease(skyhookDir, itemId, agentId, extendMinutes = 30) {
+    if (!skyhookDir) throw new Error('skyhookDir is required');
+    const ctx = createSkyhookContext(path.dirname(skyhookDir));
+    if (!ctx) throw new Error('Failed to create context');
+
+    const backlog = ctx.readBacklog();
+    const story = (backlog.stories || []).find(s => s.id === itemId);
+    const task = (backlog.tasks || []).find(t => t.id === itemId);
+    const item = story || task;
+    if (!item) throw new Error(`Work item '${itemId}' not found`);
+
+    const lease = TaskLeaseManager.heartbeatLease(item, agentId, Number(extendMinutes));
+    ctx.writeBacklog(backlog);
+    return { success: true, itemId: item.id, lease };
   }
 
   // =========================================================================

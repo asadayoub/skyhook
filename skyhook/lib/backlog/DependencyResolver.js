@@ -1,27 +1,31 @@
 /**
  * Dependency Resolver
- * Directed Acyclic Graph (DAG) validator and dependency checker for stories.
- * Enforces that prerequisite work is completed before tasks can be marked ready.
+ * Directed Acyclic Graph (DAG) validator and dependency checker for stories and technical tasks.
+ * Enforces that prerequisite work is completed before tasks/stories can be marked ready.
  */
 
 export class DependencyResolver {
   /**
-   * Get all unmet dependencies for a given story
-   * @param {Object} story - The story to inspect
+   * Get all unmet dependencies for a given story or task
+   * @param {Object} item - The story or task to inspect
    * @param {Array} allStories - Full list of stories in the backlog
-   * @returns {Array<Object>} List of dependency stories that are not 'done'
+   * @param {Array} [allTasks=[]] - Full list of tasks in the backlog
+   * @returns {Array<Object>} List of dependency items that are not 'done'
    */
-  static getUnmetDependencies(story, allStories = []) {
-    const dependsOn = story.dependsOn || [];
+  static getUnmetDependencies(item, allStories = [], allTasks = []) {
+    const dependsOn = item.dependsOn || [];
     if (!Array.isArray(dependsOn) || dependsOn.length === 0) {
       return [];
     }
 
-    const storyMap = new Map(allStories.map(s => [s.id, s]));
+    const itemMap = new Map();
+    for (const s of allStories) itemMap.set(s.id, s);
+    for (const t of allTasks) itemMap.set(t.id, t);
+
     const unmet = [];
 
     for (const depId of dependsOn) {
-      const dep = storyMap.get(depId);
+      const dep = itemMap.get(depId);
       if (!dep) {
         unmet.push({ id: depId, title: 'Unknown Dependency', status: 'missing' });
       } else if (dep.status !== 'done') {
@@ -33,25 +37,26 @@ export class DependencyResolver {
   }
 
   /**
-   * Check if a story is blocked by unfulfilled dependencies or explicit blockers
-   * @param {Object} story
+   * Check if a story or task is blocked by unfulfilled dependencies or explicit blockers
+   * @param {Object} item
    * @param {Array} allStories
+   * @param {Array} [allTasks=[]]
    * @returns {boolean}
    */
-  static isBlocked(story, allStories = []) {
-    if (story.status === 'blocked') return true;
-    const unmet = this.getUnmetDependencies(story, allStories);
+  static isBlocked(item, allStories = [], allTasks = []) {
+    if (item.status === 'blocked') return true;
+    const unmet = this.getUnmetDependencies(item, allStories, allTasks);
     return unmet.length > 0;
   }
 
   /**
-   * Detect circular dependencies in a collection of stories
-   * @param {Array} stories - Array of stories with id and dependsOn
+   * Detect circular dependencies in a collection of items (stories, tasks, or combined)
+   * @param {Array} items - Array of items with id and dependsOn
    * @returns {Array<Array<string>>} List of detected cycles, or empty array if DAG is acyclic
    */
-  static detectCycles(stories = []) {
+  static detectCycles(items = []) {
     const adj = new Map();
-    stories.forEach(s => adj.set(s.id, s.dependsOn || []));
+    items.forEach(s => adj.set(s.id, s.dependsOn || []));
 
     const visited = new Set();
     const inStack = new Set();
@@ -75,9 +80,9 @@ export class DependencyResolver {
       inStack.delete(node);
     }
 
-    for (const story of stories) {
-      if (!visited.has(story.id)) {
-        dfs(story.id, []);
+    for (const item of items) {
+      if (!visited.has(item.id)) {
+        dfs(item.id, []);
       }
     }
 
@@ -85,25 +90,31 @@ export class DependencyResolver {
   }
 
   /**
-   * Find downstream stories that were waiting on `completedStoryId`
+   * Find downstream stories or tasks that were waiting on `completedId`
    * and now have ALL of their dependencies completed.
-   * @param {string} completedStoryId
+   * @param {string} completedId
    * @param {Array} allStories
-   * @returns {Array<Object>} Newly unblocked stories
+   * @param {Array} [allTasks=[]]
+   * @returns {Array<Object>} Newly unblocked items
    */
-  static findNewlyUnblockedStories(completedStoryId, allStories = []) {
+  static findNewlyUnblockedStories(completedId, allStories = [], allTasks = []) {
     const unblocked = [];
+    const allCombined = [...allStories, ...allTasks];
+
     const simulatedStories = allStories.map(s => 
-      s.id === completedStoryId ? { ...s, status: 'done' } : s
+      s.id === completedId ? { ...s, status: 'done' } : s
+    );
+    const simulatedTasks = allTasks.map(t =>
+      t.id === completedId ? { ...t, status: 'done' } : t
     );
 
-    for (const s of allStories) {
-      if (s.id === completedStoryId) continue;
-      const deps = s.dependsOn || [];
-      if (deps.includes(completedStoryId)) {
-        const remainingUnmet = this.getUnmetDependencies(s, simulatedStories);
-        if (remainingUnmet.length === 0 && (s.status === 'blocked' || s.status === 'backlog')) {
-          unblocked.push(s);
+    for (const item of allCombined) {
+      if (item.id === completedId) continue;
+      const deps = item.dependsOn || [];
+      if (deps.includes(completedId)) {
+        const remainingUnmet = this.getUnmetDependencies(item, simulatedStories, simulatedTasks);
+        if (remainingUnmet.length === 0 && (item.status === 'blocked' || item.status === 'backlog')) {
+          unblocked.push(item);
         }
       }
     }

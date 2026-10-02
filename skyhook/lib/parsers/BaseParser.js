@@ -65,7 +65,7 @@ export class BaseParser {
    */
   extractRequirementId(text) {
     if (!text || typeof text !== 'string') return null;
-    const match = text.match(/(@skyhook-implements|implements:|@implements|@skyhookimplements)(?:\s+|(?:\(["']))([A-Za-z0-9_-]+)/i);
+    const match = text.match(/(@skyhook-implements|implements:|@implements|@skyhookimplements|@skyhook-story|@skyhook-task|@task)(?:\s+|(?:\(["']))([A-Za-z0-9_-]+)/i);
     return match ? match[2] : null;
   }
 

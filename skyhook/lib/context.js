@@ -160,43 +160,270 @@ class SkyhookContext {
     writeYaml(path.join(backlogDir, 'epics.yaml'), data);
   }
   
-  updateStoryStatus(storyId, status, metadata = {}, options = {}) {
+  updateStoryStatus(workId, status, metadata = {}, options = {}) {
     return BacklogLock.withLockSync(this.skyhookDir, () => {
       const backlog = this.readBacklog();
-      const story = (backlog.stories || []).find(s => s.id === storyId);
-      if (!story) return false;
+      const story = (backlog.stories || []).find(s => s.id === workId);
+      const task = (backlog.tasks || []).find(t => t.id === workId);
+      if (!story && !task) return false;
 
-      const oldStatus = story.status;
-      const result = BacklogStateMachine.transition(backlog, storyId, status, metadata, options);
+      const item = story || task;
+      const isTask = !!task;
+      const oldStatus = item.status;
+      const result = BacklogStateMachine.transition(backlog, workId, status, metadata, options);
 
       this.writeBacklog(backlog);
 
       if (this.skyhookDir) {
         EventLedger.appendEvent(this.skyhookDir, {
-          type: EVENT_TYPES.STATE_TRANSITIONED,
+          type: isTask ? EVENT_TYPES.TASK_STATE_TRANSITIONED : EVENT_TYPES.STATE_TRANSITIONED,
           actor: metadata.agentId || metadata.actor || 'system',
           payload: {
-            storyId,
+            workId,
+            storyId: isTask ? item.parentId : workId,
+            taskId: isTask ? workId : null,
             from: oldStatus,
             to: status,
             ...metadata
           }
         });
 
-        if (result.epicCompleted && story.epicId) {
+        if (result.rolledUpStory) {
+          EventLedger.appendEvent(this.skyhookDir, {
+            type: EVENT_TYPES.STATE_TRANSITIONED,
+            actor: 'state-machine',
+            payload: {
+              storyId: result.rolledUpStory.id,
+              to: result.rolledUpStory.status,
+              reason: `Rolled up from child task ${workId}`
+            }
+          });
+        }
+
+        if (result.epicCompleted) {
           EventLedger.appendEvent(this.skyhookDir, {
             type: EVENT_TYPES.EPIC_COMPLETED,
             actor: 'state-machine',
-            payload: { epicId: story.epicId }
+            payload: { epicId: result.rolledUpEpic?.id || (story ? story.epicId : null) }
           });
         }
       }
 
-      appendChangelog(this.skyhookDir, '- Story ' + storyId + ': ' + oldStatus + ' to ' + status);
+      appendChangelog(this.skyhookDir, '- ' + (isTask ? 'Task ' : 'Story ') + workId + ': ' + oldStatus + ' to ' + status);
       return true;
     });
   }
-  
+
+  updateTaskStatus(taskId, status, metadata = {}, options = {}) {
+    return this.updateStoryStatus(taskId, status, metadata, options);
+  }
+
+  addTask(taskData = {}) {
+    return BacklogLock.withLockSync(this.skyhookDir, () => {
+      const backlog = this.readBacklog();
+      backlog.tasks = backlog.tasks || [];
+      backlog.stories = backlog.stories || [];
+      backlog.epics = backlog.epics || [];
+
+      let maxNum = 0;
+      for (const t of backlog.tasks) {
+        const match = String(t.id).match(/^TASK-(\d+)$/i);
+        if (match) {
+          const num = parseInt(match[1], 10);
+          if (num > maxNum) maxNum = num;
+        }
+      }
+      const taskId = taskData.id || `TASK-${String(maxNum + 1).padStart(3, '0')}`;
+      const now = getTimestamp();
+
+      const parentType = taskData.parentType || (taskData.epicId ? 'epic' : 'story');
+      const parentId = taskData.parentId || taskData.storyId || taskData.epicId;
+
+      if (!parentId) {
+        throw new Error('Task requires a parent story or epic ID (parentId/storyId/epicId)');
+      }
+
+      const newTask = {
+        id: taskId,
+        title: taskData.title || 'Untitled Task',
+        description: taskData.description || '',
+        parentType,
+        parentId,
+        type: taskData.type || 'feature',
+        status: taskData.status || 'ready',
+        priority: taskData.priority || 'medium',
+        storyPoints: taskData.storyPoints !== undefined && taskData.storyPoints !== null ? Number(taskData.storyPoints) : null,
+        estimatedMinutes: taskData.estimatedMinutes ? Number(taskData.estimatedMinutes) : null,
+        targetFiles: Array.isArray(taskData.targetFiles) ? taskData.targetFiles : (taskData.targetFiles ? [taskData.targetFiles] : []),
+        standards: Array.isArray(taskData.standards) ? taskData.standards : [],
+        dependsOn: Array.isArray(taskData.dependsOn) ? taskData.dependsOn : [],
+        subtasks: Array.isArray(taskData.subtasks) ? taskData.subtasks.map((s, i) => ({
+          id: s.id || `SUB-${String(i + 1).padStart(3, '0')}`,
+          title: typeof s === 'string' ? s : s.title,
+          completed: !!s.completed,
+          createdAt: s.createdAt || now
+        })) : [],
+        createdAt: now,
+        updatedAt: now
+      };
+
+      if (parentType === 'story') {
+        const parentStory = backlog.stories.find(s => s.id === parentId);
+        if (parentStory) {
+          parentStory.childTasks = parentStory.childTasks || [];
+          if (!parentStory.childTasks.includes(taskId)) parentStory.childTasks.push(taskId);
+        }
+      } else if (parentType === 'epic') {
+        const parentEpic = backlog.epics.find(e => e.id === parentId);
+        if (parentEpic) {
+          parentEpic.childTasks = parentEpic.childTasks || [];
+          if (!parentEpic.childTasks.includes(taskId)) parentEpic.childTasks.push(taskId);
+        }
+      }
+
+      backlog.tasks.push(newTask);
+      this.writeBacklog(backlog);
+
+      if (this.skyhookDir) {
+        EventLedger.appendEvent(this.skyhookDir, {
+          type: EVENT_TYPES.TASK_CREATED,
+          actor: taskData.actor || 'system',
+          payload: { id: taskId, title: newTask.title, parentId, parentType, type: newTask.type }
+        });
+      }
+
+      appendChangelog(this.skyhookDir, '- Added task: ' + newTask.title + ' (' + taskId + ') under ' + parentType + ' ' + parentId);
+      return newTask;
+    });
+  }
+
+  addSubtask(taskId, title) {
+    return BacklogLock.withLockSync(this.skyhookDir, () => {
+      const backlog = this.readBacklog();
+      const task = (backlog.tasks || []).find(t => t.id === taskId);
+      if (!task) throw new Error(`Task '${taskId}' not found`);
+
+      task.subtasks = task.subtasks || [];
+      const subId = `SUB-${String(task.subtasks.length + 1).padStart(3, '0')}`;
+      const now = getTimestamp();
+      const newSub = {
+        id: subId,
+        title,
+        completed: false,
+        createdAt: now
+      };
+      task.subtasks.push(newSub);
+      task.updatedAt = now;
+
+      this.writeBacklog(backlog);
+
+      if (this.skyhookDir) {
+        EventLedger.appendEvent(this.skyhookDir, {
+          type: EVENT_TYPES.SUBTASK_CREATED,
+          actor: 'system',
+          payload: { taskId, subtaskId: subId, title }
+        });
+      }
+
+      return newSub;
+    });
+  }
+
+  toggleSubtask(taskId, subtaskId, completed) {
+    return BacklogLock.withLockSync(this.skyhookDir, () => {
+      const backlog = this.readBacklog();
+      const task = (backlog.tasks || []).find(t => t.id === taskId);
+      if (!task) throw new Error(`Task '${taskId}' not found`);
+
+      task.subtasks = task.subtasks || [];
+      const sub = task.subtasks.find(s => s.id === subtaskId);
+      if (!sub) throw new Error(`Subtask '${subtaskId}' not found on task '${taskId}'`);
+
+      const now = getTimestamp();
+      sub.completed = completed !== undefined ? !!completed : !sub.completed;
+      if (sub.completed) sub.completedAt = now;
+      else delete sub.completedAt;
+      task.updatedAt = now;
+
+      this.writeBacklog(backlog);
+
+      if (this.skyhookDir) {
+        EventLedger.appendEvent(this.skyhookDir, {
+          type: EVENT_TYPES.SUBTASK_TOGGLED,
+          actor: 'system',
+          payload: { taskId, subtaskId, completed: sub.completed }
+        });
+      }
+
+      return sub;
+    });
+  }
+
+  addStory(storyData) {
+    return BacklogLock.withLockSync(this.skyhookDir, () => {
+      const backlog = this.readBacklog();
+      backlog.stories = backlog.stories || [];
+      backlog.epics = backlog.epics || [];
+
+      let storyId = storyData.id;
+      if (!storyId) {
+        let maxNum = 0;
+        for (const s of backlog.stories) {
+          const match = String(s.id).match(/^STORY-(\d+)$/i);
+          if (match) {
+            const num = parseInt(match[1], 10);
+            if (num > maxNum) maxNum = num;
+          }
+        }
+        storyId = maxNum > 0 ? `STORY-${maxNum + 1}` : generateULID();
+      }
+
+      const now = getTimestamp();
+      const epicId = storyData.epicId || (backlog.epics[0]?.id) || null;
+      const newStory = {
+        id: storyId,
+        epicId,
+        title: storyData.title || 'Untitled Story',
+        description: storyData.description || '',
+        userStory: storyData.userStory || '',
+        acceptanceCriteria: Array.isArray(storyData.acceptanceCriteria) ? storyData.acceptanceCriteria : (storyData.acceptanceCriteria ? [storyData.acceptanceCriteria] : []),
+        priority: storyData.priority || 'medium',
+        status: storyData.status || 'backlog',
+        storyPoints: storyData.storyPoints !== undefined && storyData.storyPoints !== null ? Number(storyData.storyPoints) : null,
+        dependsOn: Array.isArray(storyData.dependsOn) ? storyData.dependsOn : [],
+        standards: Array.isArray(storyData.standards) ? storyData.standards : [],
+        targetFiles: Array.isArray(storyData.targetFiles) ? storyData.targetFiles : [],
+        childTasks: [],
+        createdAt: now,
+        updatedAt: now
+      };
+
+      if (epicId) {
+        const parentEpic = backlog.epics.find(e => e.id === epicId);
+        if (parentEpic) {
+          parentEpic.childStories = parentEpic.childStories || [];
+          if (!parentEpic.childStories.includes(storyId)) parentEpic.childStories.push(storyId);
+        }
+      }
+
+      backlog.stories.push(newStory);
+      backlog.metadata = backlog.metadata || {};
+      backlog.metadata.updatedAt = now;
+      this.writeBacklog(backlog);
+
+      if (this.skyhookDir) {
+        EventLedger.appendEvent(this.skyhookDir, {
+          type: EVENT_TYPES.STORY_CREATED,
+          actor: storyData.actor || 'system',
+          payload: { id: storyId, epicId, title: newStory.title, priority: newStory.priority }
+        });
+      }
+
+      appendChangelog(this.skyhookDir, '- Added story: ' + newStory.title + ' (' + storyId + ')' + (epicId ? ' under epic ' + epicId : ''));
+      return newStory;
+    });
+  }
+
   addFeature(featureData) {
     return BacklogLock.withLockSync(this.skyhookDir, () => {
       const backlog = this.readBacklog();

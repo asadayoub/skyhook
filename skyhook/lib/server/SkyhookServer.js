@@ -606,6 +606,75 @@ export class SkyhookServer {
           }
         }
 
+        // Task CRUD
+        if (pathname === '/api/crud/task') {
+          const defaultSkyhookDir = path.join(this.workspaceDir, '.skyhook');
+          if (req.method === 'POST') {
+            const body = await SkyhookServer.parseJsonBody(req);
+            const skyhookDir = body.skyhookDir || defaultSkyhookDir;
+            const result = await DashboardRPCHandler.createTask(skyhookDir, body.task);
+            if (this.gateway) this.gateway.broadcast('BACKLOG_UPDATED', result);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(result));
+            return;
+          }
+          if (req.method === 'PUT') {
+            const body = await SkyhookServer.parseJsonBody(req);
+            const skyhookDir = body.skyhookDir || defaultSkyhookDir;
+            const result = await DashboardRPCHandler.updateTask(skyhookDir, body.taskId, body.updates);
+            if (this.gateway) this.gateway.broadcast('BACKLOG_UPDATED', result);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(result));
+            return;
+          }
+          if (req.method === 'DELETE') {
+            const body = await SkyhookServer.parseJsonBody(req);
+            const skyhookDir = body.skyhookDir || defaultSkyhookDir;
+            const result = await DashboardRPCHandler.deleteTask(skyhookDir, body.taskId);
+            if (this.gateway) this.gateway.broadcast('BACKLOG_UPDATED', result);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(result));
+            return;
+          }
+        }
+
+        // Subtask CRUD
+        if (pathname === '/api/crud/subtask') {
+          const defaultSkyhookDir = path.join(this.workspaceDir, '.skyhook');
+          if (req.method === 'POST') {
+            const body = await SkyhookServer.parseJsonBody(req);
+            const skyhookDir = body.skyhookDir || defaultSkyhookDir;
+            const result = await DashboardRPCHandler.createSubtask(skyhookDir, body.taskId, body.title);
+            if (this.gateway) this.gateway.broadcast('BACKLOG_UPDATED', result);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(result));
+            return;
+          }
+          if (req.method === 'PUT') {
+            const body = await SkyhookServer.parseJsonBody(req);
+            const skyhookDir = body.skyhookDir || defaultSkyhookDir;
+            const result = await DashboardRPCHandler.toggleSubtask(skyhookDir, body.taskId, body.subtaskId, body.completed);
+            if (this.gateway) this.gateway.broadcast('BACKLOG_UPDATED', result);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(result));
+            return;
+          }
+        }
+
+        // POST /api/action/heartbeat
+        if (pathname === '/api/action/heartbeat' && req.method === 'POST') {
+          const body = await SkyhookServer.parseJsonBody(req);
+          const defaultSkyhookDir = path.join(this.workspaceDir, '.skyhook');
+          const skyhookDir = body.skyhookDir || defaultSkyhookDir;
+          const result = await DashboardRPCHandler.heartbeatLease(skyhookDir, body.itemId || body.taskId || body.storyId, body.agentId, body.extendMinutes);
+          if (this.gateway) {
+            this.gateway.broadcast('LEASE_HEARTBEAT', result);
+          }
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(result));
+          return;
+        }
+
         // ADR CRUD
         if (pathname === '/api/crud/adr/supersede' && req.method === 'POST') {
           const body = await SkyhookServer.parseJsonBody(req);

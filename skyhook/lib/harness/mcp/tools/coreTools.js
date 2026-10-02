@@ -15,12 +15,15 @@ export function registerCoreTools(registry) {
     constructor() {
       super(
         'skyhook_get_next_task',
-        'Get the next highest-priority ready task from the project backlog and acquire an advisory agent lease.',
+        'Get the next highest-priority ready task or story from the project backlog and acquire an advisory agent lease.',
         {
           type: 'object',
           properties: {
             assignee: { type: 'string', description: 'Agent identifier or human name claiming the task' },
+            level: { type: 'string', enum: ['task', 'story', 'any'], default: 'any', description: 'Hierarchy level: task (fine-grained), story (coarse-grained), or any (task first, fallback story)' },
+            story: { type: 'string', description: 'Filter tasks belonging to a specific story ID' },
             epic: { type: 'string', description: 'Filter task by epic ID' },
+            type: { type: 'string', enum: ['feature', 'bug', 'chore', 'spike', 'test', 'refactor'], description: 'Filter task by work item type' },
             lease: { type: 'number', description: 'Lease duration in minutes (default 30)' }
           }
         }
@@ -30,7 +33,10 @@ export function registerCoreTools(registry) {
       const res = await cmdGetNextTask(ctx, {
         agent: args.assignee,
         assignee: args.assignee,
+        level: args.level || 'any',
+        story: args.story,
         epic: args.epic,
+        type: args.type,
         lease: args.lease
       });
       return this.formatSuccess(res);
@@ -42,28 +48,36 @@ export function registerCoreTools(registry) {
     constructor() {
       super(
         'skyhook_update_status',
-        'Transition a story status through the Agile state machine (backlog -> ready -> in-progress -> in-review -> done) and record events.',
+        'Transition a story or task status through the Agile state machine (backlog -> ready -> in-progress -> in-review -> done) and record events.',
         {
           type: 'object',
           properties: {
-            storyId: { type: 'string', description: 'The story ID (e.g. STORY-001 or ULID)' },
+            storyId: { type: 'string', description: 'The story or task ID (e.g. STORY-001, TASK-001, or ULID)' },
+            taskId: { type: 'string', description: 'Optional explicit task ID alias' },
             status: {
               type: 'string',
               enum: ['backlog', 'ready', 'in-progress', 'in-review', 'done', 'blocked', 'cancelled'],
-              description: 'Target story status'
+              description: 'Target work item status'
             },
             reason: { type: 'string', description: 'Reason for transition or blocker description' },
+            agentId: { type: 'string', description: 'Agent ID performing the transition' },
             force: { type: 'boolean', description: 'Force illegal state transition if authorized' }
           },
-          required: ['storyId', 'status']
+          required: ['status']
         }
       );
     }
     async execute(args, ctx) {
+      const itemId = args.storyId || args.taskId;
+      if (!itemId) {
+        return this.formatError('Missing required parameter: storyId or taskId');
+      }
       const res = await cmdUpdateStatus(ctx, {
-        storyId: args.storyId,
+        storyId: itemId,
+        taskId: itemId,
         status: args.status,
         reason: args.reason,
+        agent: args.agentId,
         force: !!args.force
       });
       return this.formatSuccess(res);
@@ -75,20 +89,27 @@ export function registerCoreTools(registry) {
     constructor() {
       super(
         'skyhook_release_lease',
-        'Release an active task lease on a story, allowing other agents or developers to work on it.',
+        'Release an active task lease on a story or task, allowing other agents or developers to work on it.',
         {
           type: 'object',
           properties: {
-            storyId: { type: 'string', description: 'The story ID' },
+            storyId: { type: 'string', description: 'The story or task ID' },
+            taskId: { type: 'string', description: 'Optional explicit task ID alias' },
+            agentId: { type: 'string', description: 'Agent releasing the lease' },
             force: { type: 'boolean', description: 'Force break a stale lease' }
-          },
-          required: ['storyId']
+          }
         }
       );
     }
     async execute(args, ctx) {
+      const itemId = args.storyId || args.taskId;
+      if (!itemId) {
+        return this.formatError('Missing required parameter: storyId or taskId');
+      }
       const res = await cmdReleaseLease(ctx, {
-        storyId: args.storyId,
+        storyId: itemId,
+        taskId: itemId,
+        agent: args.agentId,
         force: !!args.force
       });
       return this.formatSuccess(res);

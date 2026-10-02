@@ -7,7 +7,7 @@ Persistent, structured, version-controlled project memory, active architectural 
 
 [![Version](https://img.shields.io/badge/version-1.9.1-blue.svg)](https://github.com/asadayoub/skyhook/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-148%20passing-brightgreen.svg)](TESTING.md)
+[![Tests](https://img.shields.io/badge/tests-207%20passing-brightgreen.svg)](TESTING.md)
 [![MCP](https://img.shields.io/badge/MCP-100%25%20Offline-cyan.svg)](skyhook/docs/MCP_SERVER.md)
 [![Dashboard](https://img.shields.io/badge/dashboard-modular%20MMPA-purple.svg)](skyhook/docs/DASHBOARD_AND_IDE.md)
 [![Agents](https://img.shields.io/badge/agents-Cursor%20%7C%20Claude%20%7C%20Copilot%20%7C%20Windsurf%20%7C%20Antigravity%20%7C%20Cline-orange.svg)](skyhook/docs/AGENT_HARNESSES.md)
@@ -52,6 +52,7 @@ flowchart TD
         Windsurf["Codeium Windsurf"]
         Antigravity["Google Antigravity"]
         Cline["Cline / Roo Code"]
+        Codex["OpenAI Codex"]
     end
 
     subgraph Interface["Universal Access Layer"]
@@ -61,7 +62,7 @@ flowchart TD
     end
 
     subgraph Core["Skyhook Sub-System Engines"]
-        BacklogEngine["Agile FSM & Advisory Leases"]
+        BacklogEngine["Two-Tier FSM & Multi-Agent Leases"]
         ADREngine["Automated ADR & AST Policy Guard"]
         DriftEngine["DDD Layer Guard & Semantic Engine"]
         TracerEngine["Polyglot AST Tracer & Dark Matter Radar"]
@@ -74,7 +75,7 @@ flowchart TD
 
 ### 1. 🤖 100% Offline Model Context Protocol (MCP) Server
 - Implements MCP Specification (2024-11-05) over stdio and loopback `127.0.0.1` SSE.
-- Exposes **37 autonomous tools** across 8 operational domains (Core, Planning, Standards, Backlog, ADR, Drift, Plan, Trace).
+- Exposes **44 autonomous tools** across 8 operational domains (Core, Planning, Standards, Backlog, ADR, Drift, Plan, Trace).
 - Exposes **11 streaming resources** (`skyhook://backlog`, `skyhook://plan`, `skyhook://decisions`, `skyhook://boundaries`, `skyhook://tech-stack`, `skyhook://standards`, `skyhook://blockers`, `skyhook://drift-scorecard`, `skyhook://dark-matter`, `skyhook://profile`, `skyhook://trace-graph`).
 - Works natively with Cursor, Claude Desktop, Claude Code, GitHub Copilot, Windsurf, Google Antigravity, Cline, and OpenAI Codex without cloud relays.
 
@@ -89,9 +90,10 @@ flowchart TD
 - Sub-5ms reactive WebSocket push stream.
 - Universal Platform Bridge runs identically in browsers and inside native VS Code / Cursor extension Webviews.
 
-### 4. 🔀 Multi-Agent Agile Backlog & Advisory Leases
-- Finite state machine: `backlog ➔ ready ➔ in-progress ➔ in-review ➔ done`.
-- Prevents concurrent agent collisions via time-boxed advisory leases (`skyhook get-next-task --agent="Cursor"`).
+### 4. 🔀 Two-Tier Multi-Agent Agile Backlog & Advisory Leases
+- Hierarchy: `Epics ➔ Stories / Direct Chores ➔ Tasks ➔ Subtasks (DoD)`.
+- Two-tier locking: concurrent execution across sibling tasks (`TASK-XXX`) without collision, exclusive story locks, AST file conflict warnings, and heartbeat renewals (`skyhook task heartbeat`).
+- Bottom-up FSM rollups auto-advance parent stories (`in-progress`, `in-review`) and epics (`done`), with Definition of Done (DoD) subtask checklist invariants.
 - Append-only event ledger (`events.jsonl`) with Lead/Cycle time metrics and replay.
 
 ### 5. 🏛️ Automated ADR Engine & Active Policy Guard ("Decisions with Teeth")
@@ -183,7 +185,7 @@ Comprehensive manuals and deep-dives are available in [`skyhook/docs/`](skyhook/
 
 ## 🧪 Verification & Testing
 
-Skyhook is thoroughly tested with **199 automated tests across 5 test suites**:
+Skyhook is thoroughly tested with **207 automated tests across 6 test suites**:
 ```bash
 npm test
 ```

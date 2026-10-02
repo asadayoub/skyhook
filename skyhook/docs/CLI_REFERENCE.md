@@ -73,39 +73,127 @@ skyhook version
 ## Multi-Agent Backlog & Task Coordination
 
 ### `skyhook get-next-task`
-Acquires the next highest-priority ready task from the backlog and issues an advisory agent lease.
+Acquires the next highest-priority ready task or story from the backlog and issues an advisory agent lease.
 ```bash
-skyhook get-next-task [--agent <name>] [--epic <epic-id>] [--json]
+skyhook get-next-task [--agent <name>] [--level task|story|any] [--story <story-id>] [--epic <epic-id>] [--type <type>] [--lease <mins>] [--json]
 ```
 - **Options**:
-  - `--agent <string>`: Identifier of the agent claiming the task (e.g. `Cursor-Cascade`).
-  - `--epic <string>`: Filter ready tasks to a specific parent Epic ID.
+  - `--agent <string>`: Identifier of the agent claiming the task (e.g. `Codex-01`, `Cursor-Cascade`).
+  - `--level <task|story|any>`: Level of granularity (defaults to `any`: selects highest-priority ready task, falling back to ready story).
+  - `--story <string>`: Filter tasks under a specific story ID.
+  - `--epic <string>`: Filter tasks or stories under a specific parent Epic ID.
+  - `--type <string>`: Filter by work item type (`feature`, `bug`, `chore`, `spike`, `test`, `refactor`).
+  - `--lease <number>`: Lease duration in minutes (default: 30).
 - **Example**:
   ```bash
-  skyhook get-next-task --agent="Cursor-01"
+  skyhook get-next-task --agent="Codex-01" --level=task
   ```
 - **Example Output**:
   ```
-  ✓ Acquired task STORY-002: Double Entry Ledger
-  ℹ Priority: High (WSJF: 12.5) | Story Points: 5
-  ℹ Acceptance Criteria:
-    1. Transaction commits must be atomic
-    2. Sum of debits must equal sum of credits
-  ℹ Advisory lease active for: 60 minutes
+  ✓ Task [TASK-003] - Implement refresh token rotation handler
+  Status: ready | Priority: high | Parent: story:STORY-001
+  Leased by: Codex-01 (expires: 2026-10-02T19:30:00.000Z)
+  Subtasks (1/2 completed):
+    ☑ [SUB-001] Invalidate prior token
+    ☐ [SUB-002] Issue cryptographic rotating pair
   ```
 
 ---
 
+### `skyhook task add`
+Creates a fine-grained task under an existing Story or Epic with optional target file conflict prevention and subtask checklist.
+```bash
+skyhook task add <title> --parent <story-id|epic-id> [--type <feature|bug|chore|spike|test|refactor>] [--priority <critical|high|medium|low>] [--targetFiles <files>] [--points <number>]
+```
+- **Example**:
+  ```bash
+  skyhook task add "Implement OAuth PKCE code challenge" --parent=STORY-001 --type=feature --priority=high --targetFiles="lib/auth/pkce.js"
+  ```
+
+---
+
+### `skyhook task list`
+Lists fine-grained tasks in the backlog with optional parent, status, or type filtering.
+```bash
+skyhook task list [<parent-id>] [--status <status>] [--type <type>] [--priority <priority>]
+```
+- **Example**:
+  ```bash
+  skyhook task list STORY-001
+  ```
+
+---
+
+### `skyhook task view`
+Displays detailed information for a specific task including subtasks, active agent lease, and target files.
+```bash
+skyhook task view <task-id>
+```
+
+---
+
+### `skyhook task update`
+Transitions a task status through the Agile state machine with automatic parent story status rollup.
+```bash
+skyhook task update <task-id> <new-status> [--force]
+```
+- **Example**:
+  ```bash
+  skyhook task update TASK-001 in-progress
+  ```
+
+---
+
+### `skyhook task heartbeat`
+Extends an active lease on a task or story during long-running agent workflows to prevent lease timeout.
+```bash
+skyhook task heartbeat <task-id> --agent <agent-id> [--extendMinutes <number>]
+```
+
+---
+
+### `skyhook subtask add`
+Adds a checklist subtask to a task's Definition of Done (DoD).
+```bash
+skyhook subtask add <task-id> <subtask-title>
+```
+- **Example**:
+  ```bash
+  skyhook subtask add TASK-001 "Write unit test for token expiry"
+  ```
+
+---
+
+### `skyhook subtask toggle`
+Toggles or sets the completion status of a checklist subtask.
+```bash
+skyhook subtask toggle <task-id> <subtask-id> [--completed <true|false>]
+```
+- **Example**:
+  ```bash
+  skyhook subtask toggle TASK-001 SUB-001
+  ```
+
+---
+
+### `skyhook story add`
+Creates a new story under an epic.
+```bash
+skyhook story add <title> [--epic <epic-id>] [--points <number>] [--priority <priority>]
+```
+
+---
+
 ### `skyhook update-status`
-Transitions a story across the finite state machine:
+Transitions a story or task across the finite state machine:
 $$\text{backlog} \longrightarrow \text{ready} \longrightarrow \text{in-progress} \longrightarrow \text{in-review} \longrightarrow \text{done}$$
 ```bash
-skyhook update-status <story-id> <new-status> [--force]
+skyhook update-status <item-id> <new-status> [--force]
 ```
 - **Options**:
-  - `<story-id>`: ID of the story (e.g. `STORY-002`).
+  - `<item-id>`: ID of the story or task (e.g. `STORY-002`, `TASK-001`).
   - `<new-status>`: Target status (`backlog`, `ready`, `in-progress`, `in-review`, `done`).
-  - `--force`: Overrides prerequisite dependency blocking or invalid leap prevention.
+  - `--force`: Overrides prerequisite dependency blocking, uncompleted subtask DoD checks, or invalid leap prevention.
 - **Example**:
   ```bash
   skyhook update-status STORY-002 in-progress
@@ -114,9 +202,9 @@ skyhook update-status <story-id> <new-status> [--force]
 ---
 
 ### `skyhook backlog release`
-Explicitly releases an active agent lease, returning the task to the ready pool.
+Explicitly releases an active agent lease on a story or task, returning the item to the ready pool.
 ```bash
-skyhook backlog release <story-id>
+skyhook backlog release <item-id>
 ```
 
 ---

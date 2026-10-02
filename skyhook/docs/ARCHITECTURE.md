@@ -101,24 +101,36 @@ flowchart LR
 
 ---
 
-### 2.2 Agile Backlog FSM, Leases & Event Ledger
+### 2.2 Agile Backlog FSM, Two-Tier Leases & Event Ledger
 - **Location**: [`skyhook/lib/backlog/`](file:///Users/asad/Documents/Codex/2026-08-29/wh/skyhook-repo/skyhook/lib/backlog/)
-- **Mechanism**:
-  - `BacklogStateMachine.js`: Enforces the 5-stage task lifecycle:
+- **Hierarchy & Decomposition**:
+  $$\text{Epic} \longrightarrow \text{Story} \longrightarrow \text{Task} \longrightarrow \text{Subtask (DoD)}$$
+  - Epics can also directly own technical chores, architectural spikes, and infrastructure tasks (`TASK-XXX`).
+- **Core Components**:
+  - `BacklogStateMachine.js`: Enforces the 5-stage lifecycle across both stories and tasks:
     $$\text{backlog} \longrightarrow \text{ready} \longrightarrow \text{in-progress} \longrightarrow \text{in-review} \longrightarrow \text{done}$$
-    Enforces prerequisite dependency satisfaction before allowing a story to enter `ready`. Cascades automatic unblocks to dependent stories when blockers reach `done`, and auto-completes parent Epics when all child stories are finished.
-  - `BacklogLeaseManager.js`: Grants advisory leases to agents (`assignee: "Cursor-Agent"`) with configurable TTL (default 60 minutes). Prevents concurrent agent collisions. Automatically reclaims expired leases.
-  - `EventLedger.js`: Append-only event ledger in `.skyhook/backlog/events.jsonl`. Replays events to reconstitute state at any historical timestamp, and calculates empirical **Lead Time** (creation to completion) and **Cycle Time** (in-progress to completion).
+    - **Hierarchical Bottom-Up Rollups**:
+      - When the first child task transitions to `in-progress`, its parent story automatically advances to `in-progress`.
+      - When all child tasks reach `done`, the parent story automatically advances to `in-review`.
+      - When all stories and direct tasks under an epic reach `done`, the parent epic transitions to `done`.
+    - **Definition of Done (DoD) Checklist Invariants**: Any incomplete subtask (`SUB-XXX`) blocks its parent task or story from transitioning to `done`.
+  - `TaskLeaseManager.js`: Implements the **Two-Tier Multi-Agent Locking System**:
+    - **Task-Level Concurrency**: Grants time-boxed advisory leases on specific tasks (`TASK-XXX`). Sibling tasks under the same story can be leased concurrently by different AI agents (`assignee: "Cursor-Cascade"`, `assignee: "Codex"`) without collision.
+    - **Story-Level Exclusive Locks**: Acquiring an exclusive story lease verifies that no child tasks are leased by other agents.
+    - **Lease Heartbeats & Dual Sweep**: Agents can extend active leases using `skyhook task heartbeat` / `skyhook_heartbeat_lease`. Expired story and task leases are automatically reclaimed on sweep.
+    - **AST Target File Overlap Prevention**: Inspects `targetFiles` across concurrently active leases and emits warnings when multiple agents plan modifications to the same source files.
+  - `DependencyResolver.js`: Resolves DAG prerequisites across stories and tasks (`dependsOn: ["STORY-001", "TASK-002"]`), preventing items from entering `ready` until blockers reach `done`.
+  - `EventLedger.js`: Append-only event ledger in `.skyhook/backlog/events.jsonl` recording 8 granular lifecycle events (`TASK_CREATED`, `TASK_LEASED`, `TASK_STATE_TRANSITIONED`, `SUBTASK_TOGGLED`, etc.) for historical replay and exact Lead/Cycle time metrics.
   - `BacklogLock.js`: Cross-process advisory lock file (`.skyhook/backlog/.lock`) with stale-lock detection and automatic recovery.
-  - `GitLifecycleSync.js`: Monitors git branch checkouts (e.g. `feature/STORY-001-auth`) and commit messages (e.g. `fix: complete STORY-001 [closes STORY-001]`), automatically driving FSM state transitions.
+  - `GitLifecycleSync.js`: Monitors git branch checkouts (e.g. `feature/TASK-003-auth`) and commit messages (e.g. `fix: complete TASK-003 [closes TASK-003]`), automatically driving FSM state transitions.
 
 ```mermaid
 stateDiagram-v2
     [*] --> Backlog
     Backlog --> Ready: Dependencies Resolved
-    Ready --> InProgress: Agent Claims Lease (skyhook_get_next_task)
+    Ready --> InProgress: Agent Claims Lease (Story or Task)
     InProgress --> InReview: Code Authored & Tests Pass
-    InReview --> Done: Review Passed / Git Commit Sync
+    InReview --> Done: Review Passed & All Subtasks (DoD) Checked
     InProgress --> Ready: Lease Expired or Released
     Done --> [*]
 ```
@@ -235,7 +247,7 @@ flowchart TD
   - **Transports**:
     - `StdioTransport.js`: Pipes JSON-RPC messages over standard I/O. Redirects `console.log` to `process.stderr` to keep `stdout` pristine for client parsing.
     - `SSETransport.js`: Local HTTP loopback server listening on `127.0.0.1` serving `/sse` streams and `/messages` session endpoints.
-  - **37 Autonomous MCP Tools**: Partitioned across 8 domains (Core, Planning, Standards, Backlog, ADR, Drift, Plan, Trace).
+  - **44 Autonomous MCP Tools**: Partitioned across 8 domains (Core, Planning, Standards, Backlog, ADR, Drift, Plan, Trace).
   - **11 Streaming MCP Resources**: `skyhook://backlog`, `skyhook://plan`, `skyhook://decisions`, `skyhook://boundaries`, `skyhook://tech-stack`, `skyhook://standards`, `skyhook://blockers`, `skyhook://drift-scorecard`, `skyhook://dark-matter`, `skyhook://profile`, and `skyhook://trace-graph`.
   - **2 MCP Prompts**: `task_kickoff`, `architecture_review`.
   - **Poly-Agent Harness Matrix**:
@@ -272,7 +284,7 @@ flowchart TD
 │   ├── non-functional.yaml          # Performance, security, accessibility criteria
 │   └── constraints.yaml             # Architectural, business, and regulatory constraints
 ├── backlog/
-│   ├── epics.yaml                   # Epics, child stories, points, and dependencies
+│   ├── epics.yaml                   # Epics, direct tasks, stories, child tasks, & DoD subtasks
 │   ├── events.jsonl                 # Append-only event ledger for FSM replay & metrics
 │   └── .lock                        # Cross-process advisory lock file
 ├── decisions/
@@ -295,7 +307,7 @@ flowchart TD
 
 ## 4. Verification & Testing Standards
 
-Skyhook maintains 100% offline automated test suites with **199 comprehensive tests across 5 test suites**:
+Skyhook maintains 100% offline automated test suites with **207 comprehensive tests across 6 test suites**:
 - **Zero Network Invocations**: Tests use local filesystem fixtures (`os.tmpdir()`) and loopback servers (`127.0.0.1`).
 - **Clean Teardowns**: Tests shut down HTTP/WebSocket servers and clean up temporary workspaces on completion to prevent dangling handles.
 - **Run the full test suite**:

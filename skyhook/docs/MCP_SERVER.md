@@ -152,9 +152,9 @@ Add to `cline_mcp_settings.json`:
 
 ---
 
-## 3. Registered MCP Tools (37 Tools across 8 Domains)
+## 3. Registered MCP Tools (44 Tools across 8 Domains)
 
-Skyhook registers 37 full-lifecycle autonomous tools partitioned across 8 operational domains:
+Skyhook registers 44 full-lifecycle autonomous tools partitioned across 8 operational domains:
 
 ### 1. Core & Environment Tools
 | Tool Name | Description | Key Arguments |
@@ -184,9 +184,16 @@ Skyhook registers 37 full-lifecycle autonomous tools partitioned across 8 operat
 ### 4. Backlog & Task Management Tools
 | Tool Name | Description | Key Arguments |
 |---|---|---|
-| `skyhook_get_next_task` | Claims next highest-priority task and issues advisory lease with standards briefing | `assignee`, `epic` |
-| `skyhook_update_status` | Transitions story lifecycle (`backlog` ➔ `ready` ➔ `in-progress` ➔ `in-review` ➔ `done`) | `storyId`, `status`, `force` |
-| `skyhook_release_lease` | Releases advisory lease on a story without completing it | `storyId` (*required*) |
+| `skyhook_get_next_task` | Claims next highest-priority task or story and issues advisory lease with standards briefing | `assignee`, `level` (`task`\|`story`\|`any`), `story`, `epic`, `type`, `lease` |
+| `skyhook_update_status` | Transitions story or task lifecycle (`backlog` ➔ `ready` ➔ `in-progress` ➔ `in-review` ➔ `done`) | `storyId`, `taskId`, `status`, `reason`, `force` |
+| `skyhook_release_lease` | Releases advisory lease on a story or task without completing it | `storyId`, `taskId`, `force` |
+| `skyhook_create_task` | Creates a fine-grained task under an existing Story or Epic | `title`, `parentId`, `type`, `priority`, `targetFiles`, `subtasks` |
+| `skyhook_list_tasks` | Lists fine-grained tasks in the backlog with optional parent or status filters | `parentId`, `status`, `type`, `priority` |
+| `skyhook_get_task` | Retrieves detailed information for a task including subtasks and active lease | `taskId` (*required*) |
+| `skyhook_update_task_status`| Transitions a task status through the Agile state machine with automatic parent rollup | `taskId`, `status`, `reason`, `force` |
+| `skyhook_create_subtask` | Adds a checklist subtask to a task's Definition of Done checklist | `taskId`, `title` (*required*) |
+| `skyhook_update_subtask` | Toggles or updates completion of a checklist subtask | `taskId`, `subtaskId`, `completed` |
+| `skyhook_heartbeat_lease` | Extends an active lease on a task or story during long-running execution | `itemId`, `agentId`, `extendMinutes` |
 | `skyhook_list_features` | Lists backlog epics and high-level features | `status` |
 | `skyhook_add_feature` | Adds a new feature/epic to the backlog | `title`, `description`, `points` |
 | `skyhook_create_story` | Creates a child user story under an epic | `epicId`, `title`, `points`, `criteria` |

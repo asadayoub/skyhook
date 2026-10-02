@@ -96,6 +96,20 @@ export class GanttGenerator {
           }
         }
       }
+
+      // Direct epic tasks (e.g. spikes, chores, architectural investigations)
+      const directEpicTasks = (backlog.tasks || []).filter(t => (t.parentId === epic.id || t.epicId === epic.id) && t.parentType === 'epic');
+      for (const task of directEpicTasks) {
+        const title = this.sanitize(task.title) || task.id;
+        const taskId = `t_${task.id.replace(/[^a-zA-Z0-9_]/g, '_')}`;
+        const tags = [];
+        if (task.status === 'done') tags.push('done');
+        else if (task.status === 'in-progress') tags.push('active');
+        const tagStr = tags.length ? `:${tags.join(', ')}, ` : ': ';
+        const durationDays = task.estimatedMinutes ? Math.max(1, Math.round(task.estimatedMinutes / 480)) : 2;
+        const start = this.formatDate(task.startedAt || task.createdAt);
+        mermaid += `    [Task] ${title} ${tagStr}${taskId}, ${start}, ${durationDays}d\n`;
+      }
       mermaid += '\n';
     }
 

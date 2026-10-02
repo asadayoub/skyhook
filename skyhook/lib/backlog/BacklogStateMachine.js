@@ -1,7 +1,8 @@
 /**
  * Backlog State Machine
- * Deterministic Finite State Machine (FSM) governing work item lifecycles.
- * Enforces valid transition paths, entry/exit guards, and Definition of Done (DoD) invariants.
+ * Deterministic Finite State Machine (FSM) governing work item lifecycles across Epics, Stories, and Tasks.
+ * Enforces valid transition paths, entry/exit guards, Definition of Done (DoD) invariants,
+ * and hierarchical bottom-up/top-down status rollups.
  */
 
 import { getTimestamp } from '../utils.js';
@@ -30,16 +31,16 @@ export const ALLOWED_TRANSITIONS = {
 
 export class BacklogStateMachine {
   /**
-   * Validate whether a story can transition to targetStatus
-   * @param {Object} story - The story object
+   * Validate whether a story or task can transition to targetStatus
+   * @param {Object} item - The story or task object
    * @param {string} targetStatus - The desired new status
-   * @param {Array} allStories - Complete list of stories for dependency checking
-   * @param {Object} options - { force: boolean, metadata: Object }
+   * @param {Array} allItems - Complete list of stories/tasks for dependency checking
+   * @param {Object} options - { force: boolean, metadata: Object, allTasks: Array }
    * @returns {Object} { valid: boolean, error?: string, warnings?: Array<string> }
    */
-  static validateTransition(story, targetStatus, allStories = [], options = {}) {
-    if (!story) {
-      return { valid: false, error: 'Story is null or undefined' };
+  static validateTransition(item, targetStatus, allItems = [], options = {}) {
+    if (!item) {
+      return { valid: false, error: 'Work item is null or undefined' };
     }
 
     if (!VALID_STATUSES.includes(targetStatus)) {
@@ -49,7 +50,10 @@ export class BacklogStateMachine {
       };
     }
 
-    const currentStatus = story.status || 'backlog';
+    const noun = (item && item.id && item.id.startsWith('TASK-')) ? 'task' : 'story';
+    const Noun = (item && item.id && item.id.startsWith('TASK-')) ? 'Task' : 'Story';
+
+    const currentStatus = item.status || 'backlog';
     if (currentStatus === targetStatus) {
       return { valid: true, noop: true };
     }
@@ -60,7 +64,7 @@ export class BacklogStateMachine {
     if (!isDirectAllowed && !options.force) {
       return {
         valid: false,
-        error: `Illegal state transition: Cannot move story from '${currentStatus}' to '${targetStatus}'. Valid target states are: [${allowed.join(', ')}]. Use --force to override.`
+        error: `Illegal state transition: Cannot move ${noun} from '${currentStatus}' to '${targetStatus}'. Valid target states are: [${allowed.join(', ')}]. Use --force to override.`
       };
     }
 
@@ -68,24 +72,24 @@ export class BacklogStateMachine {
 
     // Guard 1: Transitioning to 'ready' requires checking dependencies
     if (targetStatus === 'ready' && !options.force) {
-      const unmet = DependencyResolver.getUnmetDependencies(story, allStories);
+      const unmet = DependencyResolver.getUnmetDependencies(item, allItems, options.allTasks || []);
       if (unmet.length > 0) {
         const unmetDesc = unmet.map(d => `${d.id} (${d.status})`).join(', ');
         return {
           valid: false,
-          error: `Cannot transition to 'ready': Story has unresolved dependencies: ${unmetDesc}. Resolve dependencies or move to 'blocked'.`
+          error: `Cannot transition to 'ready': ${Noun} has unresolved dependencies: ${unmetDesc}. Resolve dependencies or move to 'blocked'.`
         };
       }
     }
 
     // Guard 2: Transitioning to 'in-progress' checks lease lockouts
     if (targetStatus === 'in-progress' && !options.force) {
-      if (TaskLeaseManager.isLeased(story)) {
+      if (TaskLeaseManager.isLeased(item)) {
         const currentAgent = options.agentId || options.assignee;
-        if (currentAgent && story.lease.agentId !== currentAgent) {
+        if (currentAgent && item.lease.agentId !== currentAgent) {
           return {
             valid: false,
-            error: `Cannot transition to 'in-progress': Story is leased by agent '${story.lease.agentId}' until ${story.lease.expiresAt}`
+            error: `Cannot transition to 'in-progress': ${Noun} is leased by agent '${item.lease.agentId}' until ${item.lease.expiresAt}`
           };
         }
       }
@@ -93,16 +97,27 @@ export class BacklogStateMachine {
 
     // Guard 3: Transitioning to 'blocked' requires a reason
     if (targetStatus === 'blocked') {
-      const reason = (options.metadata && options.metadata.reason) || story.blockerReason;
+      const reason = (options.metadata && options.metadata.reason) || item.blockerReason;
       if (!reason && !options.force) {
-        warnings.push('Story transitioned to blocked without an explicit blocker reason.');
+        warnings.push(`${Noun} transitioned to blocked without an explicit blocker reason.`);
       }
     }
 
-    // Guard 4: Transitioning to 'done' checks acceptance criteria
+    // Guard 4: Definition of Done (DoD) - Transitioning to 'done'
     if (targetStatus === 'done' && !options.force) {
-      const ac = story.acceptanceCriteria || [];
-      if (ac.length === 0) {
+      // Subtask completeness check
+      if (Array.isArray(item.subtasks) && item.subtasks.length > 0) {
+        const uncompleted = item.subtasks.filter(s => !s.completed);
+        if (uncompleted.length > 0) {
+          return {
+            valid: false,
+            error: `Cannot mark '${item.id}' as done: ${uncompleted.length} uncompleted subtask(s) remain. Complete all subtasks or use --force to override.`
+          };
+        }
+      }
+
+      const ac = item.acceptanceCriteria || [];
+      if (ac.length === 0 && !item.subtasks) {
         warnings.push('Story marked done with no acceptance criteria defined.');
       }
     }
@@ -111,84 +126,139 @@ export class BacklogStateMachine {
   }
 
   /**
-   * Execute a state transition on a backlog story
-   * @param {Object} backlog - The backlog containing epics and stories
-   * @param {string} storyId - The story ULID or ID
+   * Execute a state transition on a backlog story or task with automatic hierarchical rollup
+   * @param {Object} backlog - The backlog containing epics, stories, and tasks
+   * @param {string} itemId - The story ID or task ID (ULID or STORY-XXX or TASK-XXX)
    * @param {string} targetStatus - The desired target status
    * @param {Object} metadata - Optional metadata (reason, agentId, commitHash, etc.)
    * @param {Object} options - Optional flags (force: boolean)
    * @returns {Object} Result of transition
    */
-  static transition(backlog, storyId, targetStatus, metadata = {}, options = {}) {
-    const stories = backlog.stories || [];
-    const story = stories.find(s => s.id === storyId);
+  static transition(backlog, itemId, targetStatus, metadata = {}, options = {}) {
+    backlog.stories = backlog.stories || [];
+    backlog.tasks = backlog.tasks || [];
+    backlog.epics = backlog.epics || [];
 
-    if (!story) {
-      throw new Error(`Story not found: ${storyId}`);
+    const story = backlog.stories.find(s => s.id === itemId);
+    const task = backlog.tasks.find(t => t.id === itemId);
+
+    if (!story && !task) {
+      throw new Error(`Work item not found: ${itemId}`);
     }
 
-    const validation = this.validateTransition(story, targetStatus, stories, { ...options, metadata });
+    const item = story || task;
+    const isTask = !!task;
+    const allItems = isTask ? backlog.tasks : backlog.stories;
+
+    const validation = this.validateTransition(item, targetStatus, allItems, {
+      ...options,
+      metadata,
+      allTasks: backlog.tasks
+    });
     if (!validation.valid) {
       throw new Error(validation.error);
     }
 
-    const oldStatus = story.status || 'backlog';
+    const oldStatus = item.status || 'backlog';
     const now = getTimestamp();
 
     // Apply state change
-    story.status = targetStatus;
-    story.updatedAt = now;
+    item.status = targetStatus;
+    item.updatedAt = now;
 
     // Manage timestamps
-    if (targetStatus === 'in-progress' && !story.startedAt) {
-      story.startedAt = now;
+    if (targetStatus === 'in-progress' && !item.startedAt) {
+      item.startedAt = now;
     }
     if (targetStatus === 'done') {
-      story.completedAt = now;
-      // Clear active lease upon completion
-      delete story.lease;
-      delete story.blockerReason;
+      item.completedAt = now;
+      delete item.lease;
+      delete item.blockerReason;
+      delete item.fileConflictWarnings;
     }
     if (targetStatus === 'blocked' && metadata.reason) {
-      story.blockerReason = metadata.reason;
+      item.blockerReason = metadata.reason;
     }
     if (targetStatus !== 'blocked' && oldStatus === 'blocked') {
-      delete story.blockerReason;
+      delete item.blockerReason;
     }
 
-    // Handle agent assignment or lease if passed
+    // Handle agent assignment or lease
     if (metadata.agentId) {
       if (metadata.leaseMinutes) {
-        TaskLeaseManager.acquireLease(story, metadata.agentId, metadata.leaseMinutes);
+        TaskLeaseManager.acquireLease(item, metadata.agentId, metadata.leaseMinutes, { backlog });
       } else {
-        story.assignee = { type: 'agent', identifier: metadata.agentId, name: metadata.agentId };
+        item.assignee = { type: 'agent', identifier: metadata.agentId, name: metadata.agentId };
       }
     }
 
-    // Check if downstream dependencies are now unblocked
-    let unblockedStories = [];
-    if (targetStatus === 'done') {
-      unblockedStories = DependencyResolver.findNewlyUnblockedStories(storyId, stories);
-      for (const u of unblockedStories) {
-        if (u.status === 'blocked') {
-          u.status = 'ready';
-          delete u.blockerReason;
-          u.updatedAt = now;
+    let rolledUpStory = null;
+    let rolledUpEpic = null;
+
+    // Hierarchical Rollups
+    if (isTask) {
+      // 1. Task -> Story Rollup
+      if (item.parentType === 'story' && item.parentId) {
+        const parentStory = backlog.stories.find(s => s.id === item.parentId);
+        if (parentStory) {
+          // If task starts, story advances to in-progress
+          if (targetStatus === 'in-progress' && (parentStory.status === 'backlog' || parentStory.status === 'ready')) {
+            parentStory.status = 'in-progress';
+            parentStory.updatedAt = now;
+            if (!parentStory.startedAt) parentStory.startedAt = now;
+            rolledUpStory = { id: parentStory.id, status: 'in-progress' };
+          }
+          // If task finishes, check if all sibling tasks are done
+          if (targetStatus === 'done') {
+            const siblingTasks = backlog.tasks.filter(t => t.parentId === parentStory.id);
+            const allTasksDone = siblingTasks.length > 0 && siblingTasks.every(t => t.status === 'done');
+            if (allTasksDone && parentStory.status !== 'done') {
+              parentStory.status = 'in-review';
+              parentStory.updatedAt = now;
+              rolledUpStory = { id: parentStory.id, status: 'in-review' };
+            }
+          }
+        }
+      } else if (item.parentType === 'epic' && item.parentId) {
+        // Direct epic task rollup
+        const parentEpic = backlog.epics.find(e => e.id === item.parentId);
+        if (parentEpic && targetStatus === 'in-progress' && parentEpic.status === 'backlog') {
+          parentEpic.status = 'in-progress';
+          parentEpic.updatedAt = now;
+          rolledUpEpic = { id: parentEpic.id, status: 'in-progress' };
         }
       }
     }
 
-    // Check if parent epic should be marked done
+    // Check if parent epic should be marked done when story is done
     let epicCompleted = false;
-    if (targetStatus === 'done' && story.epicId) {
-      const parentEpic = (backlog.epics || []).find(e => e.id === story.epicId);
+    const targetStory = isTask ? (rolledUpStory ? backlog.stories.find(s => s.id === rolledUpStory.id) : null) : story;
+
+    if (targetStory && targetStory.status === 'done' && targetStory.epicId) {
+      const parentEpic = backlog.epics.find(e => e.id === targetStory.epicId);
       if (parentEpic && parentEpic.status !== 'done') {
-        const siblingStories = stories.filter(s => s.epicId === story.epicId);
-        const allCompleted = siblingStories.every(s => s.status === 'done');
+        const siblingStories = backlog.stories.filter(s => s.epicId === targetStory.epicId);
+        const siblingDirectTasks = backlog.tasks.filter(t => t.parentType === 'epic' && t.parentId === parentEpic.id);
+        const allCompleted = siblingStories.every(s => s.status === 'done') &&
+                             siblingDirectTasks.every(t => t.status === 'done');
         if (allCompleted) {
           parentEpic.status = 'done';
           parentEpic.updatedAt = now;
           epicCompleted = true;
+          rolledUpEpic = { id: parentEpic.id, status: 'done' };
+        }
+      }
+    }
+
+    // Check if downstream dependencies are now unblocked
+    let unblockedItems = [];
+    if (targetStatus === 'done') {
+      unblockedItems = DependencyResolver.findNewlyUnblockedStories(itemId, backlog.stories, backlog.tasks);
+      for (const u of unblockedItems) {
+        if (u.status === 'blocked') {
+          u.status = 'ready';
+          delete u.blockerReason;
+          u.updatedAt = now;
         }
       }
     }
@@ -198,13 +268,24 @@ export class BacklogStateMachine {
 
     return {
       success: true,
-      storyId,
+      itemId,
+      storyId: isTask ? item.parentId : itemId,
+      taskId: isTask ? itemId : null,
       oldStatus,
       newStatus: targetStatus,
-      story,
-      unblockedStories: unblockedStories.map(s => s.id),
+      item,
+      rolledUpStory,
+      rolledUpEpic,
+      unblockedStories: unblockedItems.map(s => s.id),
       epicCompleted,
       warnings: validation.warnings || []
     };
+  }
+
+  /**
+   * Convenience alias for transitioning a task
+   */
+  static transitionTask(backlog, taskId, targetStatus, metadata = {}, options = {}) {
+    return this.transition(backlog, taskId, targetStatus, metadata, options);
   }
 }
