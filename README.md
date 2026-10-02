@@ -5,7 +5,7 @@ Persistent, structured, version-controlled project memory, active architectural 
 **Repository:** https://github.com/asadayoub/skyhook  
 **Latest Release:** https://github.com/asadayoub/skyhook/releases/latest  
 
-[![Version](https://img.shields.io/badge/version-1.9.1-blue.svg)](https://github.com/asadayoub/skyhook/releases)
+[![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://github.com/asadayoub/skyhook/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Tests](https://img.shields.io/badge/tests-207%20passing-brightgreen.svg)](TESTING.md)
 [![MCP](https://img.shields.io/badge/MCP-100%25%20Offline-cyan.svg)](skyhook/docs/MCP_SERVER.md)
@@ -169,7 +169,7 @@ skyhook plan
 
 Comprehensive manuals and deep-dives are available in [`skyhook/docs/`](skyhook/docs/):
 
-- 🏛️ **[System Architecture (v1.9.1)](skyhook/docs/ARCHITECTURE.md)**: System design, dataflow diagrams, and sub-system specifications.
+- 🏛️ **[System Architecture (v2.0.0)](skyhook/docs/ARCHITECTURE.md)**: System design, dataflow diagrams, and sub-system specifications.
 - 📖 **[CLI Reference Manual](skyhook/docs/CLI_REFERENCE.md)**: Exhaustive reference for all 40+ commands, options, and JSON outputs.
 - 🤖 **[100% Offline MCP Server Guide](skyhook/docs/MCP_SERVER.md)**: Setting up Cursor, OpenAI Codex, Claude Desktop, Windsurf, Antigravity, and Cline.
 - 🖥️ **[Dashboard & Native IDE Extension Manual](skyhook/docs/DASHBOARD_AND_IDE.md)**: MMPA architecture, hash routing, and VS Code extension packaging.

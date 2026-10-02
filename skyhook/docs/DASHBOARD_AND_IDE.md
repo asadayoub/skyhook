@@ -151,7 +151,7 @@ The file [`skyhook/dashboard/public/ide/ExtensionManifest.json`](file:///Users/a
 ```json
 {
   "name": "skyhook-ide-webview",
-  "version": "1.9.1",
+  "version": "2.0.0",
   "contentSecurityPolicy": {
     "defaultSrc": ["'none'"],
     "scriptSrc": ["'self'", "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js", "'unsafe-eval'", "'unsafe-inline'"],

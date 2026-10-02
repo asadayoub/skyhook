@@ -1,4 +1,4 @@
-# Skyhook Architecture (v1.9.1)
+# Skyhook Architecture (v2.0.0)
 
 Universal Project Intelligence & Architecture Governance for Autonomous AI Agents and Engineering Teams.
 

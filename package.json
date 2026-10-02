@@ -1,6 +1,6 @@
 {
   "name": "@skyhook/skill",
-  "version": "1.9.1",
+  "version": "2.0.0",
   "type": "module",
   "description": "Universal Project Intelligence for AI Agents",
     "bin": {
