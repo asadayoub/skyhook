@@ -4,10 +4,11 @@
 
 import fs from 'fs';
 import path from 'path';
-import { readYaml, loadProjectIgnoreRules } from './utils.js';
+import { readYaml, writeYaml, loadProjectIgnoreRules } from './utils.js';
 import { parseFile, getParserStatus } from './parsers/index.js';
 import { SymbolLineageTracker } from './tracer/SymbolLineageTracker.js';
 import { DarkMatterAnalyzer } from './tracer/DarkMatterAnalyzer.js';
+import { parseADRMarkdown } from './adr/ADRMarkdownParser.js';
 
 export { SymbolLineageTracker, DarkMatterAnalyzer };
 
@@ -55,13 +56,75 @@ export async function traceRequirement(projectDir, requirementId, options = {}) 
     );
   }
 
-  // 3. Find linked decisions
-  const decisions = readYaml(path.join(skyhookDir, 'decisions', 'index.yaml')) || { decisions: [] };
-  if (decisions.decisions) {
-    results.decisions = decisions.decisions.filter(d => 
-      d.relatedRequirements?.includes(requirementId)
-    );
+  // 3. Find linked decisions (check decisions/index.yaml + defensive markdown fallback)
+  const decisionsIndexPath = path.join(skyhookDir, 'decisions', 'index.yaml');
+  const decisionsData = readYaml(decisionsIndexPath) || { decisions: [] };
+  const allDecisions = Array.isArray(decisionsData.decisions) ? decisionsData.decisions : [];
+  const matchedDecisionsMap = new Map();
+
+  for (const d of allDecisions) {
+    const reqs = Array.isArray(d.relatedRequirements) ? d.relatedRequirements : [];
+    if (reqs.includes(requirementId) || (d.title && d.title.includes(requirementId))) {
+      matchedDecisionsMap.set(d.id, {
+        id: d.id,
+        title: d.title || d.id,
+        status: d.status || 'accepted',
+        category: d.category || 'architecture',
+        standards: d.standards || [],
+        file: d.file || `decisions/records/${d.id}.md`,
+        relatedRequirements: reqs
+      });
+    }
   }
+
+  // Defensive fallback: inspect decisions/records/*.md for requirement references written in the ADR
+  const recordsDir = path.join(skyhookDir, 'decisions', 'records');
+  if (fs.existsSync(recordsDir)) {
+    try {
+      const recordFiles = fs.readdirSync(recordsDir).filter(f => f.endsWith('.md'));
+      let indexRepaired = false;
+
+      for (const file of recordFiles) {
+        const fullPath = path.join(recordsDir, file);
+        const content = fs.readFileSync(fullPath, 'utf-8');
+        const parsed = parseADRMarkdown(content);
+        if (!parsed || !parsed.id) continue;
+
+        const reqs = Array.isArray(parsed.relatedRequirements) ? parsed.relatedRequirements : [];
+        if (reqs.includes(requirementId)) {
+          if (!matchedDecisionsMap.has(parsed.id)) {
+            matchedDecisionsMap.set(parsed.id, {
+              id: parsed.id,
+              title: parsed.title || file.replace('.md', ''),
+              status: parsed.status || 'accepted',
+              category: parsed.category || 'architecture',
+              standards: parsed.standards || [],
+              file: path.relative(skyhookDir, fullPath),
+              relatedRequirements: reqs
+            });
+          }
+
+          // Auto-repair index.yaml if missing
+          const indexEntry = allDecisions.find(d => d.id === parsed.id);
+          if (indexEntry) {
+            const currentReqs = Array.isArray(indexEntry.relatedRequirements) ? indexEntry.relatedRequirements : [];
+            if (!currentReqs.includes(requirementId)) {
+              indexEntry.relatedRequirements = [...new Set([...currentReqs, ...reqs])];
+              indexRepaired = true;
+            }
+          }
+        }
+      }
+
+      if (indexRepaired) {
+        writeYaml(decisionsIndexPath, decisionsData);
+      }
+    } catch {
+      // Ignore record directory read errors
+    }
+  }
+
+  results.decisions = Array.from(matchedDecisionsMap.values());
 
   // 4. Search codebase for annotations using the AST Parser
   results.codeReferences = await searchCodeForRequirement(projectDir, requirementId);

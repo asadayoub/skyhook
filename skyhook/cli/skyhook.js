@@ -73,7 +73,40 @@ function formatResult(result, args = {}) {
   }
 
   if (result.requirementId && result.codeReferences) {
-    log('info', `Requirement: ${result.requirementId} (${result.codeReferences.length} code references)`);
+    const reqTitle = result.requirement?.title ? ` - ${result.requirement.title}` : '';
+    const reqStatus = result.requirement?.status ? ` [${result.requirement.status}]` : '';
+    log('info', `Requirement Trace: ${result.requirementId}${reqTitle}${reqStatus}`);
+
+    // 1. Governing Architectural Decisions (ADRs)
+    if (Array.isArray(result.decisions) && result.decisions.length > 0) {
+      console.log(`\n\x1b[1m\x1b[36m🏛️  Governing Architectural Decisions (ADRs):\x1b[0m`);
+      console.table(result.decisions.map(d => ({
+        id: d.id,
+        status: d.status || 'accepted',
+        category: d.category || 'architecture',
+        title: d.title || 'Untitled',
+        file: d.file || `${d.id}.md`
+      })));
+    } else {
+      console.log(`\n\x1b[90m🏛️  Governing ADRs: None recorded.\x1b[0m`);
+    }
+
+    // 2. Backlog Stories
+    if (Array.isArray(result.stories) && result.stories.length > 0) {
+      console.log(`\n\x1b[1m\x1b[35m📋 Linked Backlog Stories:\x1b[0m`);
+      console.table(result.stories.map(s => ({
+        id: s.id,
+        status: s.status || 'ready',
+        priority: s.priority || 'medium',
+        title: s.title || 'Untitled',
+        epic: s.epicId || 'none'
+      })));
+    } else {
+      console.log(`\x1b[90m📋 Linked Stories: None recorded.\x1b[0m`);
+    }
+
+    // 3. Implementing Code References
+    console.log(`\n\x1b[1m\x1b[32m💻 AST Implementing Code Symbols (${result.codeReferences.length}):\x1b[0m`);
     if (result.codeReferences.length > 0) {
       console.table(result.codeReferences.map(c => ({
         file: c.file,
@@ -81,7 +114,10 @@ function formatResult(result, args = {}) {
         type: c.symbolType,
         line: c.line
       })));
+    } else {
+      console.log(`  \x1b[33m⚠ No implementing code symbols found for ${result.requirementId}\x1b[0m`);
     }
+
     if (result.lineage && result.lineage.length > 0) {
       log('warn', `Suggested Lineage / Refactored Recoveries:`);
       console.table(result.lineage);

@@ -125,15 +125,13 @@ export function parseADRMarkdown(markdown) {
   // Related Requirements
   const reqsSection = extractSection(/\n##\s+Related Requirements\b[^\n]*/i);
   if (reqsSection) {
-    const reqMatches = [...reqsSection.matchAll(/-\s+\*\*([A-Za-z0-9_-]+)\*\*:\s*([^\n\r]+)/g)];
-    result.relatedRequirements = reqMatches.map(m => m[1].trim());
+    result.relatedRequirements = extractReferencedIds(reqsSection);
   }
 
   // Related Decisions
   const decisionsSection = extractSection(/\n##\s+Related Decisions\b[^\n]*/i);
   if (decisionsSection) {
-    const decMatches = [...decisionsSection.matchAll(/-\s+\*\*([A-Za-z0-9_-]+)\*\*:\s*([^\n\r]+)/g)];
-    result.relatedDecisions = decMatches.map(m => m[1].trim());
+    result.relatedDecisions = extractReferencedIds(decisionsSection);
   }
 
   // Validation Criteria
@@ -210,4 +208,90 @@ function parseAlternativesTable(sectionText) {
   }
 
   return alternatives;
+}
+
+/**
+ * Extract referenced IDs (requirements or decisions) from a markdown section
+ * Supports bold, plain bullets, markdown links, numbered lists, and comma-separated tokens.
+ */
+export function extractReferencedIds(sectionText) {
+  if (!sectionText || typeof sectionText !== 'string') return [];
+  const ids = [];
+  const lines = sectionText.split('\n');
+
+  const ignoreWords = new Set([
+    'none', 'no', 'n/a', 'see', 'tbd', 'all', 'requirements', 'related',
+    'governs', 'decision', 'decisions', 'reqs', 'ref', 'refs'
+  ]);
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith('#')) continue;
+    if (
+      line.toLowerCase().includes('no directly related') ||
+      line.toLowerCase().includes('none recorded') ||
+      line.toLowerCase().includes('no related decisions') ||
+      line.toLowerCase().includes('none documented')
+    ) {
+      continue;
+    }
+
+    // Strip bullet markers: -, *, +, or 1.
+    const bulletMatch = line.match(/^[-*+]\s+(.*)$/) || line.match(/^\d+\.\s+(.*)$/);
+    let content = bulletMatch ? bulletMatch[1].trim() : line;
+
+    // Strip common labels at beginning of content (e.g. "Requirements:", "Related:")
+    content = content.replace(/^(?:requirements|related(?:\s+requirements|\s+decisions)?|governs|references):\s*/i, '');
+
+    let foundOnLine = false;
+
+    // 1. Match bold tokens: **REQ-001** or **[REQ-001]**
+    const boldMatches = [...content.matchAll(/\*\*\[?([A-Za-z0-9_-]+)\]?\*\*/g)];
+    if (boldMatches.length > 0) {
+      for (const m of boldMatches) {
+        const id = m[1].trim();
+        if (id && !ignoreWords.has(id.toLowerCase()) && !ids.includes(id)) {
+          ids.push(id);
+          foundOnLine = true;
+        }
+      }
+    }
+
+    // 2. Match markdown links: [REQ-001](...)
+    const linkMatches = [...content.matchAll(/\[([A-Za-z0-9_-]+)\](?:\([^)]*\))?/g)];
+    if (linkMatches.length > 0) {
+      for (const m of linkMatches) {
+        const id = m[1].trim();
+        if (id && !ignoreWords.has(id.toLowerCase()) && !ids.includes(id)) {
+          ids.push(id);
+          foundOnLine = true;
+        }
+      }
+    }
+
+    // 3. Scan for ID-like tokens across content: e.g. REQ-001, ADR-123, US-01
+    const idTokens = [...content.matchAll(/\b([A-Za-z0-9]+-[A-Za-z0-9_-]+)\b/g)];
+    if (idTokens.length > 0) {
+      for (const m of idTokens) {
+        const id = m[1].trim();
+        if (id && !ignoreWords.has(id.toLowerCase()) && !ids.includes(id)) {
+          ids.push(id);
+          foundOnLine = true;
+        }
+      }
+    }
+
+    if (foundOnLine) continue;
+
+    // 4. Fallback: single leading word before colon or whitespace (e.g. "REQ001: Description" or "01HXABC")
+    const prefixMatch = content.match(/^([A-Za-z0-9_-]+)(?::|\s|-|$)/);
+    if (prefixMatch) {
+      const candidate = prefixMatch[1].trim();
+      if (!ignoreWords.has(candidate.toLowerCase()) && !ids.includes(candidate)) {
+        ids.push(candidate);
+      }
+    }
+  }
+
+  return ids;
 }

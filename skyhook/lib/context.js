@@ -121,6 +121,17 @@ class SkyhookContext {
     if (!Array.isArray(index.decisions)) index.decisions = [];
 
     const existingIdx = index.decisions.findIndex(d => d.id === id);
+    const relatedRequirements = Array.isArray(data.relatedRequirements)
+      ? data.relatedRequirements
+      : (typeof data.relatedRequirements === 'string' && data.relatedRequirements.trim()
+          ? [data.relatedRequirements.trim()]
+          : []);
+    const relatedDecisions = Array.isArray(data.relatedDecisions)
+      ? data.relatedDecisions
+      : (typeof data.relatedDecisions === 'string' && data.relatedDecisions.trim()
+          ? [data.relatedDecisions.trim()]
+          : []);
+
     const entry = {
       id,
       title: data.title,
@@ -129,6 +140,8 @@ class SkyhookContext {
       createdAt: getTimestamp(),
       standards: data.standards || [],
       supersedes: data.supersedes || [],
+      relatedRequirements,
+      relatedDecisions,
       enforcement: data.enforcement || null
     };
 

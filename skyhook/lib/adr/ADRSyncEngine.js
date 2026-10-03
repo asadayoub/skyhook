@@ -96,6 +96,20 @@ export class ADRSyncEngine {
             changed = true;
           }
         }
+        if (parsed.relatedRequirements && Array.isArray(parsed.relatedRequirements)) {
+          const currentReqs = Array.isArray(existingIndex.relatedRequirements) ? existingIndex.relatedRequirements : [];
+          if (JSON.stringify([...parsed.relatedRequirements].sort()) !== JSON.stringify([...currentReqs].sort())) {
+            existingIndex.relatedRequirements = parsed.relatedRequirements;
+            changed = true;
+          }
+        }
+        if (parsed.relatedDecisions && Array.isArray(parsed.relatedDecisions)) {
+          const currentDecs = Array.isArray(existingIndex.relatedDecisions) ? existingIndex.relatedDecisions : [];
+          if (JSON.stringify([...parsed.relatedDecisions].sort()) !== JSON.stringify([...currentDecs].sort())) {
+            existingIndex.relatedDecisions = parsed.relatedDecisions;
+            changed = true;
+          }
+        }
 
         existingIndex.contentHash = parsed.contentHash;
         existingIndex.updatedAt = getTimestamp();
@@ -115,6 +129,8 @@ export class ADRSyncEngine {
           standards: parsed.standards || [],
           supersedes: parsed.supersedes || null,
           supersededBy: parsed.supersededBy || null,
+          relatedRequirements: parsed.relatedRequirements || [],
+          relatedDecisions: parsed.relatedDecisions || [],
           contentHash: parsed.contentHash,
           file: path.relative(this.skyhookDir, filePath)
         };
