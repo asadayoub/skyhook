@@ -6,7 +6,7 @@
 
 import fs from 'fs';
 import path from 'path';
-import { parseYaml } from '../utils.js';
+import { parseYaml, loadProjectIgnoreRules } from '../utils.js';
 
 export class ASTImportGraph {
   constructor(projectDir = process.cwd(), options = {}) {
@@ -16,16 +16,8 @@ export class ASTImportGraph {
     this.edges = []; // Array of EdgeInfo
     this.externalPackages = new Map(); // packageName -> Set of importing files
     this.pathAliases = []; // Array of { prefix, targetPattern }
-    this.ignoredDirs = new Set([
-      'node_modules', '.git', '.skyhook', 'dist', 'build', '.next', 'coverage',
-      '__pycache__', 'target', 'bin', 'obj',
-      '.venv', 'venv', 'env', '.env', '.tox', '.nox', '.pytest_cache', '.mypy_cache', '.ruff_cache',
-      'vendor', 'Pods', '.gemini'
-    ]);
-    if (options.ignoreDirs) {
-      for (const d of options.ignoreDirs) this.ignoredDirs.add(d);
-    }
-    this.loadIgnoreConfigurations();
+    this.ignoreFilter = loadProjectIgnoreRules(this.projectDir, options.ignoreDirs);
+    this.ignoredDirs = this.ignoreFilter.ignoredDirs;
     this.loadCompilerOptions();
   }
 
@@ -33,47 +25,8 @@ export class ASTImportGraph {
    * Load ignore rules from .gitignore, .skyhook/project.yaml, or architecture-boundaries.yaml
    */
   loadIgnoreConfigurations() {
-    // 1. Read .gitignore in project root if present
-    const gitignorePath = path.join(this.projectDir, '.gitignore');
-    if (fs.existsSync(gitignorePath)) {
-      try {
-        const content = fs.readFileSync(gitignorePath, 'utf-8');
-        for (const line of content.split('\n')) {
-          const trimmed = line.trim();
-          if (!trimmed || trimmed.startsWith('#')) continue;
-          const clean = trimmed.replace(/^[/\\]+|[/\\]+$/g, '');
-          if (!clean.includes('*') && !clean.includes('/')) {
-            this.ignoredDirs.add(clean);
-          }
-        }
-      } catch (_) {}
-    }
-
-    // 2. Read .skyhook/project.yaml or architecture-boundaries.yaml
-    const candidateFiles = [
-      path.join(this.projectDir, '.skyhook', 'project.yaml'),
-      path.join(this.projectDir, '.skyhook', 'architecture-boundaries.yaml'),
-      path.join(this.projectDir, '.skyhook', 'drift.yaml')
-    ];
-    for (const confFile of candidateFiles) {
-      if (fs.existsSync(confFile)) {
-        try {
-          const raw = fs.readFileSync(confFile, 'utf-8');
-          const parsed = parseYaml(raw);
-          if (parsed && typeof parsed === 'object') {
-            const customIgnores = parsed.ignoreDirs || parsed.ignoredDirs || parsed.ignore || [];
-            if (Array.isArray(customIgnores)) {
-              for (const item of customIgnores) {
-                if (typeof item === 'string') {
-                  const clean = item.replace(/^[/\\]+|[/\\]+$/g, '');
-                  this.ignoredDirs.add(clean);
-                }
-              }
-            }
-          }
-        } catch (_) {}
-      }
-    }
+    this.ignoreFilter = loadProjectIgnoreRules(this.projectDir, this.options.ignoreDirs);
+    this.ignoredDirs = this.ignoreFilter.ignoredDirs;
   }
 
   /**
@@ -465,12 +418,7 @@ export class ASTImportGraph {
    */
   discoverSourceFiles(dir) {
     const results = [];
-    const ignoreDirs = this.ignoredDirs || new Set([
-      'node_modules', '.git', '.skyhook', 'dist', 'build', '.next', 'coverage',
-      '__pycache__', 'target', 'bin', 'obj',
-      '.venv', 'venv', 'env', '.env', '.tox', '.nox', '.pytest_cache', '.mypy_cache', '.ruff_cache',
-      'vendor', 'Pods', '.gemini'
-    ]);
+    const filter = this.ignoreFilter || loadProjectIgnoreRules(this.projectDir, this.options?.ignoreDirs);
 
     const codeExts = new Set([
       '.js', '.jsx', '.ts', '.tsx', '.mjs', '.cjs',
@@ -482,14 +430,19 @@ export class ASTImportGraph {
       const entries = fs.readdirSync(current, { withFileTypes: true });
 
       for (const entry of entries) {
+        const fullPath = path.join(current, entry.name);
+        const relPath = path.relative(this.projectDir, fullPath).replace(/\\/g, '/');
+
+        if (filter.shouldIgnore(entry.name, relPath, entry.isDirectory())) {
+          continue;
+        }
+
         if (entry.isDirectory()) {
-          if (!ignoreDirs.has(entry.name)) {
-            scan(path.join(current, entry.name));
-          }
+          scan(fullPath);
         } else if (entry.isFile()) {
           const ext = path.extname(entry.name).toLowerCase();
           if (codeExts.has(ext) && !entry.name.endsWith('.d.ts')) {
-            results.push(path.join(current, entry.name));
+            results.push(fullPath);
           }
         }
       }

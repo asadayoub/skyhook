@@ -7,6 +7,7 @@
 import fs from 'fs';
 import path from 'path';
 import { ASTImportGraph } from '../drift/ASTImportGraph.js';
+import { loadProjectIgnoreRules } from '../utils.js';
 
 export class ADRPolicyGuard {
   constructor(skyhookDir, projectDir = process.cwd()) {
@@ -110,29 +111,30 @@ export class ADRPolicyGuard {
    */
   findSourceFiles(dir) {
     const results = [];
-    const ignoreDirs = new Set([
-      'node_modules', '.git', '.skyhook', 'dist', 'build', '.next', 'coverage',
-      '__pycache__', '.venv', 'venv', 'env', '.env', '.tox', '.nox', 'target', 'bin', 'obj'
-    ]);
+    const filter = loadProjectIgnoreRules(this.projectDir);
 
-    function scan(current) {
+    function scan(current, projectDir) {
       if (!fs.existsSync(current)) return;
       const entries = fs.readdirSync(current, { withFileTypes: true });
 
       for (const entry of entries) {
+        const fullPath = path.join(current, entry.name);
+        const relPath = path.relative(projectDir, fullPath).replace(/\\/g, '/');
+        if (filter.shouldIgnore(entry.name, relPath, entry.isDirectory())) {
+          continue;
+        }
+
         if (entry.isDirectory()) {
-          if (!ignoreDirs.has(entry.name)) {
-            scan(path.join(current, entry.name));
-          }
+          scan(fullPath, projectDir);
         } else if (entry.isFile()) {
           if (/\.(js|jsx|ts|tsx|mjs|cjs)$/.test(entry.name) && !entry.name.endsWith('.d.ts')) {
-            results.push(path.join(current, entry.name));
+            results.push(fullPath);
           }
         }
       }
     }
 
-    scan(dir);
+    scan(dir, this.projectDir);
     return results;
   }
 

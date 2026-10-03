@@ -11,6 +11,7 @@
 import fs from 'fs';
 import path from 'path';
 import { StandardsRegistry } from '../standards/StandardsRegistry.js';
+import { loadProjectIgnoreRules } from '../utils.js';
 
 export class SemanticRuleEngine {
   /**
@@ -20,6 +21,8 @@ export class SemanticRuleEngine {
   constructor(projectDir = process.cwd(), config = {}) {
     this.projectDir = path.resolve(projectDir);
     this.config = config.semantic_rules || config || {};
+    this.ignoreFilter = loadProjectIgnoreRules(this.projectDir, config.ignoreDirs || this.config.ignoreDirs);
+    this.ignoredDirs = this.ignoreFilter.ignoredDirs;
     this.rules = this.initRules();
   }
 
@@ -409,10 +412,7 @@ export class SemanticRuleEngine {
   discoverSourceFiles(dir) {
     const results = [];
     const exts = new Set(['.js', '.mjs', '.cjs', '.ts', '.tsx', '.jsx', '.py', '.go', '.rs', '.java']);
-    const ignoreDirs = new Set([
-      'node_modules', '.git', '.skyhook', 'dist', 'build', 'coverage', '.gemini',
-      '__pycache__', '.venv', 'venv', 'env', '.env', '.tox', '.nox', 'target', 'bin', 'obj'
-    ]);
+    const filter = this.ignoreFilter || loadProjectIgnoreRules(this.projectDir, this.config?.ignoreDirs);
 
     const walk = (current) => {
       let entries = [];
@@ -423,14 +423,16 @@ export class SemanticRuleEngine {
       }
 
       for (const entry of entries) {
-        if (ignoreDirs.has(entry.name)) continue;
         const full = path.join(current, entry.name);
+        const relPath = path.relative(this.projectDir, full).replace(/\\/g, '/');
+        if (filter.shouldIgnore(entry.name, relPath, entry.isDirectory())) continue;
+
         if (entry.isDirectory()) {
           walk(full);
         } else if (entry.isFile()) {
           const ext = path.extname(entry.name).toLowerCase();
           if (exts.has(ext)) {
-            results.push(path.relative(this.projectDir, full).replace(/\\/g, '/'));
+            results.push(relPath);
           }
         }
       }

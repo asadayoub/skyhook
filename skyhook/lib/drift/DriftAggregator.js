@@ -31,7 +31,7 @@ export class DriftAggregator {
    * @returns {Promise<Object>} Unified architecture scorecard
    */
   async analyze() {
-    const importGraph = new ASTImportGraph(this.projectDir);
+    const importGraph = new ASTImportGraph(this.projectDir, this.options);
     await importGraph.build();
 
     // 1. DDD & Module Boundary Guard
@@ -40,7 +40,10 @@ export class DriftAggregator {
     const boundaryConfig = boundaryGuard.loadConfiguration(this.ctx);
 
     // 2. Semantic Rule Engine (AST Pattern Linter)
-    const semanticEngine = new SemanticRuleEngine(this.projectDir, boundaryConfig);
+    const semanticEngine = new SemanticRuleEngine(this.projectDir, {
+      ...boundaryConfig,
+      ignoreDirs: importGraph.ignoredDirs
+    });
     const semanticResult = await semanticEngine.run();
 
     // 3. Living C4 Architecture Model & Diff

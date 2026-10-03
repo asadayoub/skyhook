@@ -7,7 +7,7 @@ Persistent, structured, version-controlled project memory, active architectural 
 
 [![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://github.com/asadayoub/skyhook/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-207%20passing-brightgreen.svg)](TESTING.md)
+[![Tests](https://img.shields.io/badge/tests-213%20passing-brightgreen.svg)](TESTING.md)
 [![MCP](https://img.shields.io/badge/MCP-100%25%20Offline-cyan.svg)](skyhook/docs/MCP_SERVER.md)
 [![Dashboard](https://img.shields.io/badge/dashboard-modular%20MMPA-purple.svg)](skyhook/docs/DASHBOARD_AND_IDE.md)
 [![Agents](https://img.shields.io/badge/agents-Cursor%20%7C%20Claude%20%7C%20Copilot%20%7C%20Windsurf%20%7C%20Antigravity%20%7C%20Cline-orange.svg)](skyhook/docs/AGENT_HARNESSES.md)
@@ -185,7 +185,7 @@ Comprehensive manuals and deep-dives are available in [`skyhook/docs/`](skyhook/
 
 ## 🧪 Verification & Testing
 
-Skyhook is thoroughly tested with **207 automated tests across 6 test suites**:
+Skyhook is thoroughly tested with **213 automated tests across 6 test suites**:
 ```bash
 npm test
 ```

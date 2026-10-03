@@ -4,7 +4,7 @@
 
 import fs from 'fs';
 import path from 'path';
-import { readYaml } from './utils.js';
+import { readYaml, loadProjectIgnoreRules } from './utils.js';
 import { parseFile, getParserStatus } from './parsers/index.js';
 import { SymbolLineageTracker } from './tracer/SymbolLineageTracker.js';
 import { DarkMatterAnalyzer } from './tracer/DarkMatterAnalyzer.js';
@@ -97,20 +97,16 @@ export async function searchCodeForRequirement(projectDir, requirementId) {
  */
 export async function indexCodebase(projectDir) {
   const allSymbols = [];
+  const ignoreFilter = loadProjectIgnoreRules(projectDir);
   
   async function searchDir(dir) {
     try {
       const entries = fs.readdirSync(dir, { withFileTypes: true });
       for (const entry of entries) {
         const fullPath = path.join(dir, entry.name);
+        const relPath = path.relative(projectDir, fullPath).replace(/\\/g, '/');
         
-        // Skip common ignore dirs
-        if (entry.name === 'node_modules' || entry.name === '.git' || 
-            entry.name === 'dist' || entry.name === 'build' || 
-            entry.name === '.next' || entry.name === '.skyhook' ||
-            entry.name === 'coverage' || entry.name === '__pycache__' ||
-            entry.name === '.venv' || entry.name === 'venv' ||
-            entry.name === 'env' || entry.name === '.env') {
+        if (ignoreFilter.shouldIgnore(entry.name, relPath, entry.isDirectory())) {
           continue;
         }
 

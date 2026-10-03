@@ -307,7 +307,7 @@ flowchart TD
 
 ## 4. Verification & Testing Standards
 
-Skyhook maintains 100% offline automated test suites with **207 comprehensive tests across 6 test suites**:
+Skyhook maintains 100% offline automated test suites with **213 comprehensive tests across 6 test suites**:
 - **Zero Network Invocations**: Tests use local filesystem fixtures (`os.tmpdir()`) and loopback servers (`127.0.0.1`).
 - **Clean Teardowns**: Tests shut down HTTP/WebSocket servers and clean up temporary workspaces on completion to prevent dangling handles.
 - **Run the full test suite**:
