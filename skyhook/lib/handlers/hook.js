@@ -24,3 +24,7 @@ export async function cmdHookStatus(ctx, args = {}) {
   const manager = new GitHookManager(projectDir);
   return manager.getStatus();
 }
+
+export const cmdGitInstall = cmdHookInstall;
+export const cmdGitUninstall = cmdHookUninstall;
+export const cmdGitStatus = cmdHookStatus;

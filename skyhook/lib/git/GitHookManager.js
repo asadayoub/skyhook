@@ -1,12 +1,15 @@
 /**
  * Git Hook Manager
- * Installs, checks, and uninstalls automated pre-commit policy enforcement hooks.
+ * Installs, checks, and uninstalls automated Git lifecycle and policy enforcement hooks.
  */
 
 import fs from 'fs';
 import path from 'path';
 
-export const HOOK_MARKER = '# Skyhook Pre-Commit Architecture Guard';
+export const PRE_COMMIT_MARKER = '# Skyhook Pre-Commit Architecture Guard';
+export const HOOK_MARKER = PRE_COMMIT_MARKER; // backward compatibility
+export const POST_CHECKOUT_MARKER = '# Skyhook Post-Checkout Lifecycle Guard';
+export const POST_COMMIT_MARKER = '# Skyhook Post-Commit Lifecycle Guard';
 
 export const HOOK_SCRIPT_BODY = `
 ${HOOK_MARKER}
@@ -24,31 +27,93 @@ if [ $? -ne 0 ]; then
 fi
 `;
 
+export const POST_CHECKOUT_SCRIPT_BODY = `
+${POST_CHECKOUT_MARKER}
+BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
+if command -v skyhook >/dev/null 2>&1; then
+  skyhook sync --branch "$BRANCH" --quiet
+elif [ -f "./node_modules/.bin/skyhook" ]; then
+  ./node_modules/.bin/skyhook sync --branch "$BRANCH" --quiet
+fi
+`;
+
+export const POST_COMMIT_SCRIPT_BODY = `
+${POST_COMMIT_MARKER}
+LAST_MSG=$(git log -1 --pretty=%B 2>/dev/null)
+COMMIT_HASH=$(git log -1 --pretty=%H 2>/dev/null)
+if command -v skyhook >/dev/null 2>&1; then
+  skyhook sync --commit-message "$LAST_MSG" --commit-hash "$COMMIT_HASH" --quiet
+elif [ -f "./node_modules/.bin/skyhook" ]; then
+  ./node_modules/.bin/skyhook sync --commit-message "$LAST_MSG" --commit-hash "$COMMIT_HASH" --quiet
+fi
+`;
+
 export class GitHookManager {
   constructor(projectDir = process.cwd()) {
     this.projectDir = projectDir;
     this.gitDir = path.join(projectDir, '.git');
     this.hooksDir = path.join(this.gitDir, 'hooks');
     this.preCommitPath = path.join(this.hooksDir, 'pre-commit');
+    this.postCheckoutPath = path.join(this.hooksDir, 'post-checkout');
+    this.postCommitPath = path.join(this.hooksDir, 'post-commit');
   }
 
   isGitRepo() {
     return fs.existsSync(this.gitDir);
   }
 
+  _isHookInstalled(filePath, marker) {
+    if (!fs.existsSync(filePath)) return false;
+    const content = fs.readFileSync(filePath, 'utf-8');
+    return content.includes(marker);
+  }
+
   getStatus() {
     if (!this.isGitRepo()) {
-      return { isGitRepo: false, hookInstalled: false };
+      return {
+        isGitRepo: false,
+        hookInstalled: false,
+        hooks: { preCommit: false, postCheckout: false, postCommit: false }
+      };
     }
-    if (!fs.existsSync(this.preCommitPath)) {
-      return { isGitRepo: true, hookInstalled: false };
-    }
-    const content = fs.readFileSync(this.preCommitPath, 'utf-8');
+
+    const preCommit = this._isHookInstalled(this.preCommitPath, PRE_COMMIT_MARKER);
+    const postCheckout = this._isHookInstalled(this.postCheckoutPath, POST_CHECKOUT_MARKER);
+    const postCommit = this._isHookInstalled(this.postCommitPath, POST_COMMIT_MARKER);
+
     return {
       isGitRepo: true,
-      hookInstalled: content.includes(HOOK_MARKER),
+      hookInstalled: preCommit && postCheckout && postCommit,
+      hooks: {
+        preCommit,
+        postCheckout,
+        postCommit
+      },
       hookPath: this.preCommitPath
     };
+  }
+
+  _installHook(filePath, marker, scriptBody) {
+    let content = '';
+    if (fs.existsSync(filePath)) {
+      content = fs.readFileSync(filePath, 'utf-8');
+      if (content.includes(marker)) {
+        return { installed: true, alreadyInstalled: true };
+      }
+      content += '\n' + scriptBody;
+    } else {
+      content = '#!/usr/bin/env sh\n' + scriptBody;
+    }
+
+    fs.writeFileSync(filePath, content.trim() + '\n', 'utf-8');
+
+    try {
+      fs.chmodSync(filePath, 0o755);
+    } catch {
+      // Best-effort on platforms that support chmod
+    }
+
+    return { installed: true, alreadyInstalled: false };
   }
 
   install() {
@@ -60,77 +125,78 @@ export class GitHookManager {
       fs.mkdirSync(this.hooksDir, { recursive: true });
     }
 
-    let content = '';
-    if (fs.existsSync(this.preCommitPath)) {
-      content = fs.readFileSync(this.preCommitPath, 'utf-8');
-      if (content.includes(HOOK_MARKER)) {
-        return {
-          success: true,
-          message: 'Skyhook pre-commit hook is already installed.',
-          hookPath: this.preCommitPath
-        };
-      }
-      content += '\n' + HOOK_SCRIPT_BODY;
-    } else {
-      content = '#!/usr/bin/env sh\n' + HOOK_SCRIPT_BODY;
-    }
+    const preRes = this._installHook(this.preCommitPath, PRE_COMMIT_MARKER, HOOK_SCRIPT_BODY);
+    const checkoutRes = this._installHook(this.postCheckoutPath, POST_CHECKOUT_MARKER, POST_CHECKOUT_SCRIPT_BODY);
+    const commitRes = this._installHook(this.postCommitPath, POST_COMMIT_MARKER, POST_COMMIT_SCRIPT_BODY);
 
-    fs.writeFileSync(this.preCommitPath, content.trim() + '\n', 'utf-8');
-
-    // Make executable
-    try {
-      fs.chmodSync(this.preCommitPath, 0o755);
-    } catch {
-      // Best-effort on platforms that support chmod
-    }
+    const allAlreadyInstalled = preRes.alreadyInstalled && checkoutRes.alreadyInstalled && commitRes.alreadyInstalled;
 
     return {
       success: true,
-      message: 'Git pre-commit hook installed successfully.',
+      message: allAlreadyInstalled
+        ? 'Skyhook git hooks are already installed.'
+        : 'Git lifecycle hooks (pre-commit, post-checkout, post-commit) installed successfully.',
+      installed: ['pre-commit', 'post-checkout', 'post-commit'],
       hookPath: this.preCommitPath
     };
   }
 
-  uninstall() {
-    if (!this.isGitRepo() || !fs.existsSync(this.preCommitPath)) {
-      return { success: true, message: 'No pre-commit hook found.' };
-    }
+  _uninstallHook(filePath, marker) {
+    if (!fs.existsSync(filePath)) return false;
+    const content = fs.readFileSync(filePath, 'utf-8');
+    if (!content.includes(marker)) return false;
 
-    let content = fs.readFileSync(this.preCommitPath, 'utf-8');
-    if (!content.includes(HOOK_MARKER)) {
-      return { success: true, message: 'Skyhook hook was not installed in pre-commit.' };
-    }
-
-    // Remove the Skyhook block
     const lines = content.split('\n');
     const filtered = [];
     let skipping = false;
 
     for (const line of lines) {
-      if (line.includes(HOOK_MARKER)) {
+      if (line.includes(marker)) {
         skipping = true;
         continue;
       }
-      if (skipping && line.includes('exit 1')) {
-        skipping = false;
+      if (skipping) {
+        if (line.trim() === 'fi' || line.includes('exit 1')) {
+          skipping = false;
+          continue;
+        }
         continue;
       }
-      if (!skipping) {
-        filtered.push(line);
-      }
+      filtered.push(line);
     }
 
     const remaining = filtered.join('\n').trim();
 
     if (!remaining || remaining === '#!/usr/bin/env sh') {
-      fs.unlinkSync(this.preCommitPath);
+      try {
+        fs.unlinkSync(filePath);
+      } catch {
+        // Best-effort
+      }
     } else {
-      fs.writeFileSync(this.preCommitPath, remaining + '\n', 'utf-8');
+      fs.writeFileSync(filePath, remaining + '\n', 'utf-8');
     }
+
+    return true;
+  }
+
+  uninstall() {
+    if (!this.isGitRepo()) {
+      return { success: true, message: 'No git repository found.' };
+    }
+
+    const preRemoved = this._uninstallHook(this.preCommitPath, PRE_COMMIT_MARKER);
+    const checkoutRemoved = this._uninstallHook(this.postCheckoutPath, POST_CHECKOUT_MARKER);
+    const commitRemoved = this._uninstallHook(this.postCommitPath, POST_COMMIT_MARKER);
 
     return {
       success: true,
-      message: 'Skyhook pre-commit hook uninstalled successfully.'
+      message: 'Skyhook git hooks uninstalled successfully.',
+      uninstalled: {
+        preCommit: preRemoved,
+        postCheckout: checkoutRemoved,
+        postCommit: commitRemoved
+      }
     };
   }
 }

@@ -48,6 +48,27 @@ export function formatResult(result, args = {}) {
     return;
   }
 
+  if (result.hooks) {
+    log('info', `Git Repository: ${result.isGitRepo ? 'Yes' : 'No'}`);
+    log(result.hookInstalled ? 'success' : 'warn', `Hooks Installed: ${result.hookInstalled ? 'All Active' : 'Partial / None'}`);
+    console.log(`  • pre-commit:    ${result.hooks.preCommit ? '\x1b[32mInstalled ✓\x1b[0m' : '\x1b[31mNot installed ✗\x1b[0m'}`);
+    console.log(`  • post-checkout: ${result.hooks.postCheckout ? '\x1b[32mInstalled ✓\x1b[0m' : '\x1b[31mNot installed ✗\x1b[0m'}`);
+    console.log(`  • post-commit:   ${result.hooks.postCommit ? '\x1b[32mInstalled ✓\x1b[0m' : '\x1b[31mNot installed ✗\x1b[0m'}`);
+    return;
+  }
+
+  if (result.gitSync) {
+    if (result.gitSync.synced) {
+      log('success', `Git Lifecycle Sync: ${result.gitSync.actions.length} work item(s) updated.`);
+      for (const a of result.gitSync.actions) {
+        console.log(`  • [${a.type}] ${a.workId}: ${a.transition} (${a.trigger})`);
+      }
+    } else {
+      log('info', `Git Lifecycle Sync: No active backlog items matched branch/commit.`);
+    }
+    return;
+  }
+
   if (result.message) {
     if (result.status === 'no_policies' || result.status === 'unconfigured' || result.evaluated === false) {
       log('warn', result.message);
@@ -438,6 +459,18 @@ async function main() {
   } else if (command === 'boundaries') {
     parsedArgs.boundaries = true;
     effectiveCommand = 'drift';
+  } else if (command === 'git') {
+    const sub = parsedArgs._.shift() || 'status';
+    if (sub === 'install') effectiveCommand = 'hook-install';
+    else if (sub === 'uninstall') effectiveCommand = 'hook-uninstall';
+    else if (sub === 'status') effectiveCommand = 'hook-status';
+    else effectiveCommand = 'hook-status';
+  } else if (command === 'hook') {
+    const sub = parsedArgs._.shift() || 'status';
+    if (sub === 'install') effectiveCommand = 'hook-install';
+    else if (sub === 'uninstall') effectiveCommand = 'hook-uninstall';
+    else if (sub === 'status') effectiveCommand = 'hook-status';
+    else effectiveCommand = 'hook-status';
   } else if (command === 'backlog') {
     const sub = parsedArgs._.shift() || 'list';
     if (sub === 'events') effectiveCommand = 'backlog-events';

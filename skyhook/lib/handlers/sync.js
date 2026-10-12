@@ -8,9 +8,36 @@ import { ADRSyncEngine } from '../adr/ADRSyncEngine.js';
 import { PlanCompiler } from '../plan/PlanCompiler.js';
 import { DriftAggregator } from '../drift/DriftAggregator.js';
 import { DriftAutoFixer } from '../drift/DriftAutoFixer.js';
+import { GitLifecycleSync } from '../backlog/GitLifecycleSync.js';
 
 export async function cmdSync(ctx, args = {}) {
   const projectDir = process.cwd();
+
+  // 0. Run Git Lifecycle Synchronization if branch or commit information provided
+  const branch = args.branch;
+  const commitMessage = args['commit-message'] || args.commitMessage;
+  const commitHash = args['commit-hash'] || args.commitHash;
+
+  let gitLifecycleResult = null;
+  if (branch || commitMessage) {
+    gitLifecycleResult = GitLifecycleSync.sync(ctx, { branch, commitMessage, commitHash });
+    if (!args.quiet) {
+      if (gitLifecycleResult.synced) {
+        console.log(`\n🌿 Git Lifecycle Sync: ${gitLifecycleResult.actions.length} backlog item(s) synchronized.`);
+        for (const a of gitLifecycleResult.actions) {
+          console.log(`  - [${a.type}] ${a.workId}: ${a.transition} (triggered by ${a.trigger})`);
+        }
+      } else {
+        console.log(`\n🌿 Git Lifecycle Sync: No matching backlog items for branch '${branch || ''}' / commit.`);
+      }
+    }
+    // If invoked specifically from git hooks with branch or commit message, return early
+    return {
+      gitSync: gitLifecycleResult,
+      synced: gitLifecycleResult.synced,
+      actions: gitLifecycleResult.actions
+    };
+  }
 
   // 1. Run Bi-Directional ADR Synchronization
   let adrSyncResult = null;

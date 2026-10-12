@@ -99,25 +99,29 @@ export class GitLifecycleSync {
         const task = tasks.find(t => t.id === id);
         const story = stories.find(s => s.id === id);
 
+        const meta = {
+          commitMessage: gitContext.commitMessage,
+          reason: `Referenced in commit: ${gitContext.commitMessage.slice(0, 60)}`
+        };
+        if (gitContext.commitHash) {
+          meta.commitHash = gitContext.commitHash;
+          meta.evidence = {
+            type: 'git-commit',
+            commitHash: gitContext.commitHash,
+            commitMessage: gitContext.commitMessage
+          };
+        }
+
         if (task && task.status !== 'done') {
           if (typeof ctx.updateTaskStatus === 'function') {
-            ctx.updateTaskStatus(id, 'in-review', {
-              commitMessage: gitContext.commitMessage,
-              reason: `Referenced in commit: ${gitContext.commitMessage.slice(0, 60)}`
-            });
+            ctx.updateTaskStatus(id, 'in-review', meta);
           } else {
-            ctx.updateStoryStatus(id, 'in-review', {
-              commitMessage: gitContext.commitMessage,
-              reason: `Referenced in commit: ${gitContext.commitMessage.slice(0, 60)}`
-            });
+            ctx.updateStoryStatus(id, 'in-review', meta);
           }
-          results.push({ workId: id, transition: `${task.status} -> in-review`, trigger: 'commit', type: 'task' });
+          results.push({ workId: id, transition: `${task.status} -> in-review`, trigger: 'commit', type: 'task', commitHash: gitContext.commitHash || null });
         } else if (story && story.status !== 'done') {
-          ctx.updateStoryStatus(id, 'in-review', {
-            commitMessage: gitContext.commitMessage,
-            reason: `Referenced in commit: ${gitContext.commitMessage.slice(0, 60)}`
-          });
-          results.push({ workId: id, storyId: id, transition: `${story.status} -> in-review`, trigger: 'commit', type: 'story' });
+          ctx.updateStoryStatus(id, 'in-review', meta);
+          results.push({ workId: id, storyId: id, transition: `${story.status} -> in-review`, trigger: 'commit', type: 'story', commitHash: gitContext.commitHash || null });
         }
       }
     }
