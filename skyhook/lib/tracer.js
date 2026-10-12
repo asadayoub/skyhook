@@ -26,6 +26,9 @@ export async function traceRequirement(projectDir, requirementId, options = {}) 
     requirement: null,
     stories: [],
     decisions: [],
+    sourceSymbols: [],
+    testSymbols: [],
+    contractSymbols: [],
     codeReferences: [],
     files: [],
     lineage: []
@@ -129,6 +132,12 @@ export async function traceRequirement(projectDir, requirementId, options = {}) 
   // 4. Search codebase for annotations using the AST Parser
   results.codeReferences = await searchCodeForRequirement(projectDir, requirementId);
 
+  // 4b. Segment code references into semantic buckets (source, test, spec contracts)
+  const partitioned = partitionSymbols(results.codeReferences);
+  results.sourceSymbols = partitioned.sourceSymbols;
+  results.testSymbols = partitioned.testSymbols;
+  results.contractSymbols = partitioned.contractSymbols;
+
   // 5. Collect unique files
   results.files = [...new Set(results.codeReferences.map(r => r.file))];
 
@@ -152,6 +161,62 @@ export async function traceRequirement(projectDir, requirementId, options = {}) 
 export async function searchCodeForRequirement(projectDir, requirementId) {
   const allSymbols = await indexCodebase(projectDir);
   return allSymbols.filter(s => s.traced && s.requirementId === requirementId);
+}
+
+/**
+ * Classify whether a symbol represents an API specification or contract
+ */
+export function isContractSymbol(symbol) {
+  if (!symbol) return false;
+  if (symbol.metadata?.artifactKind === 'derived-contract') return true;
+  if (typeof symbol.symbolType === 'string' && symbol.symbolType.startsWith('contract-')) return true;
+  if (symbol.metadata?.language === 'spec' || Boolean(symbol.metadata?.specType)) return true;
+  const file = symbol.file || '';
+  const ext = path.extname(file).toLowerCase();
+  if (['.proto', '.graphql', '.gql'].includes(ext)) return true;
+  return false;
+}
+
+/**
+ * Classify whether a symbol represents a test verification
+ */
+export function isTestSymbol(symbol) {
+  if (!symbol) return false;
+  if (isContractSymbol(symbol)) return false;
+  if (symbol.metadata?.artifactKind === 'test' || symbol.symbolType === 'test' || symbol.metadata?.isTest === true) {
+    return true;
+  }
+  const file = symbol.file || '';
+  const normalized = file.replace(/\\/g, '/').toLowerCase();
+  if (/(?:^|\/)(?:tests?|__tests__|spec)\//i.test(normalized)) {
+    return true;
+  }
+  const filename = normalized.split('/').pop() || '';
+  if (/(?:[._-](?:test|spec)\.[a-z0-9]+$)|(?:^test_[a-z0-9_]+\.py$)/i.test(filename)) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Partition code references into source, test, and contract buckets
+ */
+export function partitionSymbols(symbols = []) {
+  const sourceSymbols = [];
+  const testSymbols = [];
+  const contractSymbols = [];
+
+  for (const sym of symbols) {
+    if (isContractSymbol(sym)) {
+      contractSymbols.push(sym);
+    } else if (isTestSymbol(sym)) {
+      testSymbols.push(sym);
+    } else {
+      sourceSymbols.push(sym);
+    }
+  }
+
+  return { sourceSymbols, testSymbols, contractSymbols };
 }
 
 /**

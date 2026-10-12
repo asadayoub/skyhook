@@ -4,6 +4,7 @@
  * Skyhook CLI - Universal Project Intelligence for AI Agents
  */
 
+import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { createSkyhookContext } from '../lib/context.js';
@@ -31,7 +32,7 @@ function log(level, message) {
 }
 
 // Format output elegantly
-function formatResult(result, args = {}) {
+export function formatResult(result, args = {}) {
   if (result.error) {
     log('error', result.error);
     return;
@@ -119,17 +120,44 @@ function formatResult(result, args = {}) {
       console.log(`\x1b[90m📋 Linked Stories: None recorded.\x1b[0m`);
     }
 
-    // 3. Implementing Code References
-    console.log(`\n\x1b[1m\x1b[32m💻 AST Implementing Code Symbols (${result.codeReferences.length}):\x1b[0m`);
-    if (result.codeReferences.length > 0) {
-      console.table(result.codeReferences.map(c => ({
+    // 3. Segmented Trace Symbols
+    const source = result.sourceSymbols || result.codeReferences || [];
+    const contracts = result.contractSymbols || [];
+    const tests = result.testSymbols || [];
+    const totalRefs = result.codeReferences ? result.codeReferences.length : (source.length + contracts.length + tests.length);
+
+    console.log(`\n\x1b[1m\x1b[32m💻 Source Implementations (${source.length}):\x1b[0m`);
+    if (source.length > 0) {
+      console.table(source.map(c => ({
         file: c.file,
         symbol: c.symbolName,
         type: c.symbolType,
         line: c.line
       })));
-    } else {
+    } else if (totalRefs === 0) {
       console.log(`  \x1b[33m⚠ No implementing code symbols found for ${result.requirementId}\x1b[0m`);
+    } else {
+      console.log(`  \x1b[90mNone recorded.\x1b[0m`);
+    }
+
+    if (contracts.length > 0) {
+      console.log(`\n\x1b[1m\x1b[36m📑 Derived API Contracts & Specs (${contracts.length}):\x1b[0m`);
+      console.table(contracts.map(c => ({
+        file: c.file,
+        symbol: c.symbolName,
+        type: c.symbolType,
+        line: c.line
+      })));
+    }
+
+    if (tests.length > 0) {
+      console.log(`\n\x1b[1m\x1b[35m🧪 Test Verifications (${tests.length}):\x1b[0m`);
+      console.table(tests.map(c => ({
+        file: c.file,
+        symbol: c.symbolName,
+        type: c.symbolType,
+        line: c.line
+      })));
     }
 
     if (result.lineage && result.lineage.length > 0) {
@@ -643,7 +671,14 @@ async function main() {
   }
 }
 
-main().catch(err => {
-  console.error(err);
-  process.exit(1);
-});
+const isMain = process.argv[1] && (
+  fileURLToPath(import.meta.url) === path.resolve(process.argv[1]) ||
+  (fs.existsSync(process.argv[1]) && fs.realpathSync(process.argv[1]) === fs.realpathSync(fileURLToPath(import.meta.url)))
+);
+
+if (isMain) {
+  main().catch(err => {
+    console.error(err);
+    process.exit(1);
+  });
+}

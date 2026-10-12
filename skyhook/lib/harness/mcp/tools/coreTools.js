@@ -285,7 +285,7 @@ export function registerCoreTools(registry) {
     constructor() {
       super(
         'skyhook_trace_requirement',
-        'Trace a functional requirement ID (e.g. REQ-001) to implementing code symbols, user stories, and ADRs.',
+        'Trace a functional requirement ID (e.g. REQ-001) to implementing code symbols, user stories, and ADRs. Returns segmented sourceSymbols, testSymbols, and contractSymbols.',
         {
           type: 'object',
           properties: {
