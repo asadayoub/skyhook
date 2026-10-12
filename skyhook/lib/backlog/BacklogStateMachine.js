@@ -5,7 +5,9 @@
  * and hierarchical bottom-up/top-down status rollups.
  */
 
-import { getTimestamp } from '../utils.js';
+import fs from 'fs';
+import path from 'path';
+import { getTimestamp, readYaml } from '../utils.js';
 import { DependencyResolver } from './DependencyResolver.js';
 import { TaskLeaseManager } from './TaskLeaseManager.js';
 
@@ -99,6 +101,89 @@ export class BacklogStateMachine {
       }
     }
 
+    // Guard 2B: Consequential Work Guard
+    const isConsequential = Boolean(
+      item.consequential === true ||
+      item.type === 'spike' ||
+      (Array.isArray(item.tags) && item.tags.some(t => typeof t === 'string' && t.toLowerCase() === 'consequential'))
+    );
+
+    if (targetStatus === 'in-progress' && isConsequential && !options.force) {
+      let availableDecisions = [];
+      if (Array.isArray(options.decisions)) {
+        availableDecisions = options.decisions;
+      } else {
+        const candidateDir = options.skyhookDir || (options.projectDir ? path.join(options.projectDir, '.skyhook') : null);
+        if (candidateDir && fs.existsSync(path.join(candidateDir, 'decisions', 'index.yaml'))) {
+          try {
+            const decData = readYaml(path.join(candidateDir, 'decisions', 'index.yaml'));
+            if (Array.isArray(decData?.decisions)) {
+              availableDecisions = decData.decisions;
+            }
+          } catch {
+            // ignore disk read errors
+          }
+        }
+      }
+
+      const linkedDecisions = [];
+      if (item.decisionId) linkedDecisions.push(item.decisionId);
+      if (item.decision?.id) linkedDecisions.push(item.decision.id);
+      if (Array.isArray(item.relatedDecisions)) {
+        for (const d of item.relatedDecisions) {
+          if (typeof d === 'string') linkedDecisions.push(d);
+          else if (d?.id) linkedDecisions.push(d.id);
+        }
+      }
+      if (Array.isArray(item.decisions)) {
+        for (const d of item.decisions) {
+          if (typeof d === 'string') linkedDecisions.push(d);
+          else if (d?.id) linkedDecisions.push(d.id);
+        }
+      }
+      if (options.decisionId) linkedDecisions.push(options.decisionId);
+      if (options.metadata?.decisionId) linkedDecisions.push(options.metadata.decisionId);
+
+      if (linkedDecisions.length === 0) {
+        return {
+          valid: false,
+          error: `Cannot start consequential ${noun} '${item.id}' without an accepted ADR. Link an accepted ADR or use --force.`
+        };
+      }
+
+      let hasAcceptedADR = false;
+
+      // 1. Check embedded item decision
+      if (item.decision && item.decision.status === 'accepted') {
+        hasAcceptedADR = true;
+      }
+
+      // 2. Check embedded relatedDecisions objects
+      if (!hasAcceptedADR && Array.isArray(item.relatedDecisions)) {
+        if (item.relatedDecisions.some(d => typeof d === 'object' && d?.status === 'accepted')) {
+          hasAcceptedADR = true;
+        }
+      }
+
+      // 3. Check in available decisions registry
+      if (!hasAcceptedADR && availableDecisions.length > 0) {
+        for (const decId of linkedDecisions) {
+          const match = availableDecisions.find(d => d.id === decId);
+          if (match && match.status === 'accepted') {
+            hasAcceptedADR = true;
+            break;
+          }
+        }
+      }
+
+      if (!hasAcceptedADR) {
+        return {
+          valid: false,
+          error: `Cannot start consequential ${noun} '${item.id}' without an accepted ADR. Link an accepted ADR or use --force.`
+        };
+      }
+    }
+
     // Guard 3: Transitioning to 'blocked' requires a reason
     if (targetStatus === 'blocked') {
       const reason = (options.metadata && options.metadata.reason) || item.blockerReason;
@@ -187,7 +272,8 @@ export class BacklogStateMachine {
     const validation = this.validateTransition(item, targetStatus, allItems, {
       ...options,
       metadata,
-      allTasks: backlog.tasks
+      allTasks: backlog.tasks,
+      decisions: options.decisions || backlog.decisions
     });
     if (!validation.valid) {
       throw new Error(validation.error);

@@ -183,7 +183,15 @@ class SkyhookContext {
       const item = story || task;
       const isTask = !!task;
       const oldStatus = item.status;
-      const result = BacklogStateMachine.transition(backlog, workId, status, metadata, options);
+      const decisionsData = (typeof this.readDecisions === 'function' ? this.readDecisions() : {}) || { decisions: [] };
+      const decisions = decisionsData.decisions || [];
+
+      const result = BacklogStateMachine.transition(backlog, workId, status, metadata, {
+        ...options,
+        decisions: options.decisions || decisions,
+        skyhookDir: this.skyhookDir,
+        projectDir: this.projectDir
+      });
 
       this.writeBacklog(backlog);
 

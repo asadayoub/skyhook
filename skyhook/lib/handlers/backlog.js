@@ -201,8 +201,9 @@ export async function cmdClaimTask(ctx, args = {}) {
   const skyhookDir = ctx.skyhookDir || (ctx.projectDir ? path.join(ctx.projectDir, '.skyhook') : null);
 
   const executeClaim = () => {
-    const backlog = ctx.readBacklog();
-    const allStories = backlog.stories || [];
+    try {
+      const backlog = ctx.readBacklog();
+      const allStories = backlog.stories || [];
     const allTasks = backlog.tasks || [];
     const allEpics = backlog.epics || [];
 
@@ -268,6 +269,15 @@ export async function cmdClaimTask(ctx, args = {}) {
           const parentStory = allStories.find(s => s.id === t.parentId);
           if (parentStory && TaskLeaseManager.isLeased(parentStory) && parentStory.lease.agentId !== agentId) return false;
 
+          if (!args.force) {
+            const decData = typeof ctx.readDecisions === 'function' ? ctx.readDecisions() : { decisions: [] };
+            const v = BacklogStateMachine.validateTransition(t, 'in-progress', allTasks, {
+              agentId,
+              decisions: decData?.decisions || []
+            });
+            if (!v.valid) return false;
+          }
+
           return true;
         });
         candidateTasks = sortByPriority(candidateTasks);
@@ -290,6 +300,15 @@ export async function cmdClaimTask(ctx, args = {}) {
             t.parentId === s.id && TaskLeaseManager.isLeased(t) && t.lease.agentId !== agentId
           );
           if (hasOtherChildLease) return false;
+
+          if (!args.force) {
+            const decData = typeof ctx.readDecisions === 'function' ? ctx.readDecisions() : { decisions: [] };
+            const v = BacklogStateMachine.validateTransition(s, 'in-progress', allStories, {
+              agentId,
+              decisions: decData?.decisions || []
+            });
+            if (!v.valid) return false;
+          }
 
           return true;
         });
@@ -318,11 +337,13 @@ export async function cmdClaimTask(ctx, args = {}) {
 
     // 2. Transition State: ready -> in-progress
     if (chosen.status !== 'in-progress') {
+      const decData = typeof ctx.readDecisions === 'function' ? ctx.readDecisions() : { decisions: [] };
       BacklogStateMachine.transition(
         backlog,
         chosen.id,
         'in-progress',
-        { agentId, reason: 'Claimed by agent via cmdClaimTask' }
+        { agentId, reason: 'Claimed by agent via cmdClaimTask' },
+        { force: !!args.force, decisions: decData?.decisions || [] }
       );
     }
 
@@ -465,6 +486,9 @@ export async function cmdClaimTask(ctx, args = {}) {
         unmetDependencies: []
       }
     };
+    } catch (err) {
+      return { success: false, claimed: false, error: err.message };
+    }
   };
 
   if (skyhookDir) {
