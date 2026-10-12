@@ -301,7 +301,8 @@ export async function cmdTrace(ctx, args = {}) {
 
   const reqId = args.id || args._?.[0];
   if (!reqId) return { error: 'Missing required: id (requirement ID)' };
-  return traceRequirement(projectDir, reqId, { lineage: Boolean(args.lineage) });
+  const noCache = Boolean(args['no-cache'] || args.noCache || args.reindex);
+  return traceRequirement(projectDir, reqId, { lineage: Boolean(args.lineage), noCache });
 }
 
 export async function cmdImpact(ctx, args) {
@@ -315,9 +316,10 @@ export async function cmdUntraced(ctx, args) {
   return findUntracedRequirements(projectDir);
 }
 
-export async function cmdCoverage(ctx, args) {
+export async function cmdCoverage(ctx, args = {}) {
   const projectDir = ctx?.projectDir || (ctx?.skyhookDir ? path.dirname(ctx.skyhookDir) : process.cwd());
-  return generateCoverageHeatmap(projectDir);
+  const noCache = Boolean(args && (args['no-cache'] || args.noCache || args.reindex));
+  return generateCoverageHeatmap(projectDir, { noCache });
 }
 
 export async function cmdMapLegacy(ctx, args = {}) {
@@ -331,6 +333,8 @@ export async function cmdMapLegacy(ctx, args = {}) {
         parsedArgs.synthesize = true;
       } else if (a === '--write' || a === '-w') {
         parsedArgs.write = true;
+      } else if (a === '--no-cache' || a === '--reindex') {
+        parsedArgs.noCache = true;
       } else if (a.startsWith('--')) {
         const key = a.slice(2);
         const next = args[i + 1];
@@ -350,7 +354,8 @@ export async function cmdMapLegacy(ctx, args = {}) {
 
   const skyhookDir = ctx && ctx.skyhookDir;
   const projectDir = (ctx && ctx.projectDir) || (skyhookDir ? path.dirname(skyhookDir) : process.cwd());
-  const allSymbols = await indexCodebase(projectDir);
+  const noCache = Boolean(parsedArgs['no-cache'] || parsedArgs.noCache || parsedArgs.reindex);
+  const allSymbols = await indexCodebase(projectDir, { noCache });
   const legacySymbols = allSymbols.filter(s => !s.traced);
 
   if (!parsedArgs.synthesize) {

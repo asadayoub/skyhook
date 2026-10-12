@@ -8,9 +8,10 @@ import { readYaml, writeYaml, loadProjectIgnoreRules } from './utils.js';
 import { parseFile, getParserStatus } from './parsers/index.js';
 import { SymbolLineageTracker } from './tracer/SymbolLineageTracker.js';
 import { DarkMatterAnalyzer } from './tracer/DarkMatterAnalyzer.js';
+import { SymbolCache } from './tracer/SymbolCache.js';
 import { parseADRMarkdown } from './adr/ADRMarkdownParser.js';
 
-export { SymbolLineageTracker, DarkMatterAnalyzer };
+export { SymbolLineageTracker, DarkMatterAnalyzer, SymbolCache };
 
 // ==================== TRACE COMMAND ====================
 
@@ -158,8 +159,8 @@ export async function traceRequirement(projectDir, requirementId, options = {}) 
 /**
  * Search codebase for a specific requirement ID using AST
  */
-export async function searchCodeForRequirement(projectDir, requirementId) {
-  const allSymbols = await indexCodebase(projectDir);
+export async function searchCodeForRequirement(projectDir, requirementId, options = {}) {
+  const allSymbols = await indexCodebase(projectDir, options);
   return allSymbols.filter(s => s.traced && s.requirementId === requirementId);
 }
 
@@ -223,9 +224,16 @@ export function partitionSymbols(symbols = []) {
  * Index the entire codebase to find all significant symbols (Classes, Functions)
  * This powers both Traceability and Brownfield Legacy Mapping
  */
-export async function indexCodebase(projectDir) {
+export async function indexCodebase(projectDir, options = {}) {
   const allSymbols = [];
   const ignoreFilter = loadProjectIgnoreRules(projectDir);
+  const noCache = Boolean(options.noCache || options.reindex);
+  const cache = new SymbolCache(projectDir, options.cachePath || options.cacheFile);
+  if (!noCache) {
+    cache.load();
+  }
+
+  const activeFilesSet = new Set();
   
   async function searchDir(dir) {
     try {
@@ -241,8 +249,25 @@ export async function indexCodebase(projectDir) {
         if (entry.isDirectory()) {
           await searchDir(fullPath);
         } else if (isCodeFile(entry.name)) {
+          activeFilesSet.add(relPath);
           try {
-            const symbols = await parseFile(fullPath, projectDir);
+            const stats = fs.statSync(fullPath);
+            let symbols = null;
+            if (!noCache) {
+              symbols = cache.get(relPath, stats.mtimeMs, stats.size);
+            }
+
+            if (!symbols) {
+              symbols = await parseFile(fullPath, projectDir);
+              if (!noCache) {
+                let fileHash = '';
+                try {
+                  fileHash = fs.readFileSync(fullPath, 'utf-8').slice(0, 100);
+                } catch {}
+                cache.set(relPath, stats.mtimeMs, stats.size, fileHash, symbols);
+              }
+            }
+
             allSymbols.push(...symbols);
           } catch (e) {
             // Ignore individual file parse errors
@@ -255,6 +280,12 @@ export async function indexCodebase(projectDir) {
   }
 
   await searchDir(projectDir);
+
+  if (!noCache) {
+    cache.prune(activeFilesSet);
+    cache.save();
+  }
+
   resolveTraceabilityTiers(allSymbols, projectDir);
   return allSymbols;
 }
@@ -480,8 +511,8 @@ export function mapRequirementToFile(projectDir, requirementId, filePathOrGlob, 
 /**
  * Generate a coverage heatmap of traced vs untraced code
  */
-export async function generateCoverageHeatmap(projectDir) {
-  const allSymbols = await indexCodebase(projectDir);
+export async function generateCoverageHeatmap(projectDir, options = {}) {
+  const allSymbols = await indexCodebase(projectDir, options);
   const analysis = DarkMatterAnalyzer.analyze(allSymbols);
   
   const darkMatter = analysis.files
