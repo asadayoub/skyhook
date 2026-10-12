@@ -124,6 +124,31 @@ class ParserRegistryImpl {
     return this.entries.map(e => e.parser);
   }
 
+  getAllSupportedExtensions() {
+    const exts = new Set();
+    for (const { parser } of this.entries) {
+      if (typeof parser.getSupportedExtensions === 'function') {
+        const pExts = parser.getSupportedExtensions();
+        if (Array.isArray(pExts)) {
+          for (const ext of pExts) exts.add(ext.toLowerCase());
+        }
+      }
+    }
+    const defaults = [
+      '.js', '.jsx', '.ts', '.tsx', '.mjs', '.cjs',
+      '.py', '.pyw', '.pyi',
+      '.go',
+      '.rs',
+      '.java',
+      '.cs',
+      '.kt',
+      '.proto',
+      '.graphql', '.gql'
+    ];
+    for (const d of defaults) exts.add(d);
+    return Array.from(exts);
+  }
+
   /**
    * Reset registry to empty (primarily for testing)
    */

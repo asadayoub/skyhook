@@ -8,6 +8,7 @@ import fs from 'fs';
 import path from 'path';
 import { ASTImportGraph } from '../drift/ASTImportGraph.js';
 import { loadProjectIgnoreRules } from '../utils.js';
+import { ParserRegistry } from '../parsers/index.js';
 
 export class ADRPolicyGuard {
   constructor(skyhookDir, projectDir = process.cwd()) {
@@ -18,9 +19,10 @@ export class ADRPolicyGuard {
   /**
    * Run policy verification against all accepted ADRs
    * @param {Array} decisions - List of decisions from index.yaml or context
+   * @param {Object} [options] - Verification options { files?: string[] }
    * @returns {Object} Verification results with passed status and violations
    */
-  async verifyPolicies(decisions = []) {
+  async verifyPolicies(decisions = [], options = {}) {
     const activePolicies = [];
 
     // Extract enforcement rules from decisions
@@ -49,7 +51,7 @@ export class ADRPolicyGuard {
     }
 
     const graph = new ASTImportGraph(this.projectDir);
-    await graph.build();
+    await graph.build(options.files || options.fileList || null);
     const sourceFiles = Array.from(graph.nodes.keys());
     const violations = [];
 
@@ -120,6 +122,11 @@ export class ADRPolicyGuard {
   findSourceFiles(dir) {
     const results = [];
     const filter = loadProjectIgnoreRules(this.projectDir);
+    const supportedExts = new Set(
+      typeof ParserRegistry.getAllSupportedExtensions === 'function'
+        ? ParserRegistry.getAllSupportedExtensions()
+        : ['.js', '.jsx', '.ts', '.tsx', '.mjs', '.cjs', '.py', '.go', '.rs', '.java', '.cs', '.kt']
+    );
 
     function scan(current, projectDir) {
       if (!fs.existsSync(current)) return;
@@ -135,7 +142,8 @@ export class ADRPolicyGuard {
         if (entry.isDirectory()) {
           scan(fullPath, projectDir);
         } else if (entry.isFile()) {
-          if (/\.(js|jsx|ts|tsx|mjs|cjs)$/.test(entry.name) && !entry.name.endsWith('.d.ts')) {
+          const ext = path.extname(entry.name).toLowerCase();
+          if (supportedExts.has(ext) && !entry.name.endsWith('.d.ts')) {
             results.push(fullPath);
           }
         }
