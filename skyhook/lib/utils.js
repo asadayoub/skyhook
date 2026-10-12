@@ -188,3 +188,32 @@ export function loadProjectIgnoreRules(projectDir = process.cwd(), extraIgnores 
     }
   };
 }
+
+export function extractDomainFromFile(filePath) {
+  if (!filePath) return 'core';
+  const normalized = filePath.replace(/\\/g, '/').replace(/^\/+/, '');
+  const parts = normalized.split('/').filter(Boolean);
+
+  const containerFolders = new Set(['src', 'lib', 'pkg', 'app', 'api', 'routes', 'controllers', 'services', 'models', 'internal']);
+  for (let i = 0; i < parts.length - 1; i++) {
+    const part = parts[i].toLowerCase();
+    if (containerFolders.has(part) && parts[i + 1]) {
+      const nextPart = parts[i + 1];
+      if (i + 2 < parts.length) {
+        return nextPart.toLowerCase().replace(/[^a-z0-9_-]/g, '') || 'core';
+      } else {
+        const base = path.basename(nextPart, path.extname(nextPart));
+        const stripped = base.replace(/(service|controller|handler|route|routes|model|repository|client)$/i, '').toLowerCase();
+        return stripped || base.toLowerCase() || 'core';
+      }
+    }
+  }
+
+  if (parts.length > 1) {
+    return parts[0].toLowerCase().replace(/[^a-z0-9_-]/g, '') || 'core';
+  }
+
+  const base = path.basename(filePath, path.extname(filePath));
+  const stripped = base.replace(/(service|controller|handler|route|routes|model|repository|client)$/i, '').toLowerCase();
+  return stripped || base.toLowerCase() || 'core';
+}

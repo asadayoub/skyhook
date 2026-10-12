@@ -2,8 +2,9 @@ import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
 import http from 'http';
-import { readYaml, writeYaml, getTimestamp, generateULID, loadProfile, CLI_ROOT, SKYHOOK_ROOT, SKYHOOK_VERSION } from '../utils.js';
+import { readYaml, writeYaml, getTimestamp, generateULID, loadProfile, extractDomainFromFile, CLI_ROOT, SKYHOOK_ROOT, SKYHOOK_VERSION } from '../utils.js';
 import { inferFromRepo } from '../inference/InferenceEngine.js';
+import { indexCodebase } from '../tracer.js';
 import { PlanCompiler } from '../plan/PlanCompiler.js';
 import { GanttGenerator } from '../plan/GanttGenerator.js';
 import { SkyhookServer } from '../server/SkyhookServer.js';
@@ -338,8 +339,108 @@ export async function cmdInit(ctx, args) {
   };
 }
 
-export async function cmdDiscover(ctx, args) {
+export async function cmdDiscover(ctx, args = {}) {
+  // Normalize args if array or object
+  let parsedArgs = args;
+  if (Array.isArray(args)) {
+    parsedArgs = { _: [] };
+    for (let i = 0; i < args.length; i++) {
+      const a = args[i];
+      if (a === '--auto' || a === '-a') {
+        parsedArgs.auto = true;
+      } else if (a === '--write' || a === '-w') {
+        parsedArgs.write = true;
+      } else if (a.startsWith('--')) {
+        const key = a.slice(2);
+        const next = args[i + 1];
+        if (next && !next.startsWith('-')) {
+          parsedArgs[key] = next;
+          i++;
+        } else {
+          parsedArgs[key] = true;
+        }
+      } else if (a.startsWith('-')) {
+        parsedArgs[a.slice(1)] = true;
+      } else {
+        parsedArgs._.push(a);
+      }
+    }
+  } else if (!parsedArgs || typeof parsedArgs !== 'object') {
+    parsedArgs = {};
+  }
+
   const skyhookDir = ctx.skyhookDir;
+  const projectDir = ctx.projectDir || (skyhookDir ? path.dirname(skyhookDir) : process.cwd());
+
+  // Automated brownfield discovery mode
+  if (parsedArgs.auto || parsedArgs.autoScan) {
+    const inferredFacts = await inferFromRepo(projectDir);
+    const allSymbols = await indexCodebase(projectDir);
+
+    const domainMap = new Map();
+    for (const sym of allSymbols) {
+      const domain = extractDomainFromFile(sym.file);
+      if (!domainMap.has(domain)) {
+        domainMap.set(domain, { domain, files: new Set(), symbols: [] });
+      }
+      const entry = domainMap.get(domain);
+      entry.files.add(sym.file);
+      entry.symbols.push(sym);
+    }
+
+    const candidateRequirements = [];
+    for (const [domain, info] of domainMap.entries()) {
+      const domainUpper = domain.toUpperCase().replace(/[^A-Z0-9]/g, '') || 'CORE';
+      const reqId = `REQ-${domainUpper}-001`;
+      const capitalized = domain.charAt(0).toUpperCase() + domain.slice(1);
+      const req = {
+        id: reqId,
+        title: `${capitalized} Domain Operations`,
+        description: `Automated functional requirement derived from ${domain} module (${info.symbols.length} symbols across ${info.files.size} source files).`,
+        category: 'functional',
+        source: 'auto-discovery',
+        status: 'draft',
+        priority: 'medium',
+        targetFiles: Array.from(info.files)
+      };
+      candidateRequirements.push(req);
+    }
+
+    let written = false;
+    if (parsedArgs.write) {
+      const reqDir = path.join(skyhookDir, 'requirements');
+      if (!fs.existsSync(reqDir)) {
+        fs.mkdirSync(reqDir, { recursive: true });
+      }
+      const reqPath = path.join(reqDir, 'functional.yaml');
+      const reqDoc = readYaml(reqPath) || { schemaVersion: '1.0.0', requirements: [] };
+      if (!reqDoc.requirements) reqDoc.requirements = [];
+
+      for (const cReq of candidateRequirements) {
+        if (!reqDoc.requirements.some(r => r.id === cReq.id)) {
+          reqDoc.requirements.push(cReq);
+        }
+      }
+
+      writeYaml(reqPath, reqDoc);
+      written = true;
+    }
+
+    return {
+      message: `Automated brownfield discovery completed. Discovered ${domainMap.size} functional domains.`,
+      inferredStack: inferredFacts,
+      discoveredDomains: Array.from(domainMap.values()).map(d => ({
+        domain: d.domain,
+        filesCount: d.files.size,
+        symbolsCount: d.symbols.length,
+        files: Array.from(d.files)
+      })),
+      candidateRequirements,
+      written
+    };
+  }
+
+  // Interactive / Phased Questionnaire Mode
   const projectYaml = readYaml(path.join(skyhookDir, 'project.yaml'));
   const profile = loadProfile(projectYaml?.profile || 'web-app');
   
@@ -347,8 +448,8 @@ export async function cmdDiscover(ctx, args) {
     return { error: 'Profile not found' };
   }
   
-  const phase = args.phase || 'all';
-  const answers = args.answers || {};
+  const phase = parsedArgs.phase || 'all';
+  const answers = parsedArgs.answers || {};
   
   const results = {
     project: projectYaml,

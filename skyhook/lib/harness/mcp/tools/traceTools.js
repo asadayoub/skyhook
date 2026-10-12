@@ -70,18 +70,20 @@ export function registerTraceTools(registry) {
     constructor() {
       super(
         'skyhook_map_legacy_symbol',
-        'Inspect unmapped legacy code symbols (functions, classes, methods) across the codebase that have no traced requirement link.',
+        'Inspect unmapped legacy code symbols (functions, classes, methods) across the codebase, or synthesize candidate epics, stories, and tasks into the project backlog.',
         {
           type: 'object',
           properties: {
-            limit: { type: 'number', description: 'Maximum symbols to return', default: 20 }
+            limit: { type: 'number', description: 'Maximum symbols to return when not synthesizing', default: 20 },
+            synthesize: { type: 'boolean', description: 'Synthesize candidate epics, stories, and tasks from untraced symbols' },
+            write: { type: 'boolean', description: 'Persist synthesized backlog items into .skyhook/backlog/epics.yaml' }
           }
         }
       );
     }
     async execute(args, ctx) {
       const res = await cmdMapLegacy(ctx, args);
-      if (res && res.legacySymbols && args.limit) {
+      if (res && res.legacySymbols && args.limit && !args.synthesize) {
         res.legacySymbols = res.legacySymbols.slice(0, args.limit);
       }
       return this.formatSuccess(res);

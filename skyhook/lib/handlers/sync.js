@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { loadProfile } from '../utils.js';
+import { loadProfile, readYaml, writeYaml, extractDomainFromFile } from '../utils.js';
 import { inferFromRepo } from '../inference/InferenceEngine.js';
 import { detectDrift } from '../drift-analyzer.js';
 import { traceRequirement, analyzeImpact, findUntracedRequirements, generateCoverageHeatmap, indexCodebase, mapRequirementToFile } from '../tracer.js';
@@ -320,19 +320,144 @@ export async function cmdCoverage(ctx, args) {
   return generateCoverageHeatmap(projectDir);
 }
 
-export async function cmdMapLegacy(ctx, args) {
-  const projectDir = (ctx && ctx.projectDir) || process.cwd();
+export async function cmdMapLegacy(ctx, args = {}) {
+  // Normalize args if array or object
+  let parsedArgs = args;
+  if (Array.isArray(args)) {
+    parsedArgs = { _: [] };
+    for (let i = 0; i < args.length; i++) {
+      const a = args[i];
+      if (a === '--synthesize' || a === '-s') {
+        parsedArgs.synthesize = true;
+      } else if (a === '--write' || a === '-w') {
+        parsedArgs.write = true;
+      } else if (a.startsWith('--')) {
+        const key = a.slice(2);
+        const next = args[i + 1];
+        if (next && !next.startsWith('-')) {
+          parsedArgs[key] = next;
+          i++;
+        } else {
+          parsedArgs[key] = true;
+        }
+      } else {
+        parsedArgs._.push(a);
+      }
+    }
+  } else if (!parsedArgs || typeof parsedArgs !== 'object') {
+    parsedArgs = {};
+  }
+
+  const skyhookDir = ctx && ctx.skyhookDir;
+  const projectDir = (ctx && ctx.projectDir) || (skyhookDir ? path.dirname(skyhookDir) : process.cwd());
   const allSymbols = await indexCodebase(projectDir);
   const legacySymbols = allSymbols.filter(s => !s.traced);
 
+  if (!parsedArgs.synthesize) {
+    return {
+      message: `Found ${legacySymbols.length} un-mapped legacy symbols across the codebase.`,
+      legacySymbols: legacySymbols.map(s => ({
+        file: s.file,
+        symbolName: s.symbolName,
+        symbolType: s.symbolType,
+        line: s.line
+      }))
+    };
+  }
+
+  // Synthesize candidate epics, stories, and tasks from untraced legacy symbols
+  const domainMap = new Map();
+  for (const sym of legacySymbols) {
+    const domain = extractDomainFromFile(sym.file);
+    if (!domainMap.has(domain)) {
+      domainMap.set(domain, { domain, files: new Set(), symbols: [] });
+    }
+    const entry = domainMap.get(domain);
+    entry.files.add(sym.file);
+    entry.symbols.push(sym);
+  }
+
+  const synthesizedEpics = [];
+  const synthesizedStories = [];
+  const synthesizedTasks = [];
+
+  for (const [domain, info] of domainMap.entries()) {
+    const domainUpper = domain.toUpperCase().replace(/[^A-Z0-9]/g, '') || 'CORE';
+    const epicId = `EPIC-${domainUpper}`;
+    const storyId = `STORY-${domainUpper}-01`;
+    const taskId = `TASK-${domainUpper}-01`;
+    const capitalized = domain.charAt(0).toUpperCase() + domain.slice(1);
+
+    const epic = {
+      id: epicId,
+      title: `${capitalized} Architecture & Core Services`,
+      description: `Synthesized epic covering untraced legacy symbols in ${domain}`,
+      status: 'ready'
+    };
+    synthesizedEpics.push(epic);
+
+    const story = {
+      id: storyId,
+      epicId: epicId,
+      title: `${capitalized} Implementation & Quality Gates`,
+      description: `Synthesized user story covering ${info.symbols.length} legacy symbols for ${domain}`,
+      status: 'ready',
+      priority: 'medium',
+      relatedRequirements: [`REQ-${domainUpper}-001`]
+    };
+    synthesizedStories.push(story);
+
+    const task = {
+      id: taskId,
+      storyId: storyId,
+      title: `Maintain and verify ${domain} interfaces`,
+      description: `Maintain and verify ${info.symbols.length} legacy symbols across ${info.files.size} source files.`,
+      status: 'ready',
+      targetFiles: Array.from(info.files),
+      subtasks: info.symbols.slice(0, 15).map((sym, idx) => ({
+        id: `SUB-${idx + 1}`,
+        title: `Verify ${sym.symbolName} (${sym.symbolType || 'symbol'}) in ${sym.file}`,
+        completed: false
+      }))
+    };
+    synthesizedTasks.push(task);
+  }
+
+  let written = false;
+  if (parsedArgs.write && skyhookDir) {
+    const epicsPath = path.join(skyhookDir, 'backlog', 'epics.yaml');
+    let backlog = (ctx.readBacklog ? ctx.readBacklog() : readYaml(epicsPath)) || { epics: [], stories: [], tasks: [] };
+    if (!backlog.epics) backlog.epics = [];
+    if (!backlog.stories) backlog.stories = [];
+    if (!backlog.tasks) backlog.tasks = [];
+
+    for (const ep of synthesizedEpics) {
+      if (!backlog.epics.some(e => e.id === ep.id)) backlog.epics.push(ep);
+    }
+    for (const st of synthesizedStories) {
+      if (!backlog.stories.some(s => s.id === st.id)) backlog.stories.push(st);
+    }
+    for (const tk of synthesizedTasks) {
+      if (!backlog.tasks.some(t => t.id === tk.id)) backlog.tasks.push(tk);
+    }
+
+    if (ctx.writeBacklog) {
+      ctx.writeBacklog(backlog);
+    } else {
+      const backlogDir = path.join(skyhookDir, 'backlog');
+      if (!fs.existsSync(backlogDir)) fs.mkdirSync(backlogDir, { recursive: true });
+      writeYaml(epicsPath, backlog);
+    }
+    written = true;
+  }
+
   return {
-    message: `Found ${legacySymbols.length} un-mapped legacy symbols across the codebase.`,
-    legacySymbols: legacySymbols.map(s => ({
-      file: s.file,
-      symbolName: s.symbolName,
-      symbolType: s.symbolType,
-      line: s.line
-    }))
+    message: `Synthesized ${synthesizedEpics.length} epics, ${synthesizedStories.length} stories, and ${synthesizedTasks.length} tasks from ${legacySymbols.length} legacy symbols.`,
+    legacySymbolsCount: legacySymbols.length,
+    synthesizedEpics,
+    synthesizedStories,
+    synthesizedTasks,
+    written
   };
 }
 

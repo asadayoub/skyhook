@@ -144,7 +144,7 @@ export function registerPlanningTools(registry) {
     constructor() {
       super(
         'skyhook_run_discovery',
-        'Execute phased discovery workflow (init, vision, requirements, architecture, ux, tech, plan) and submit answers to record architectural requirements.',
+        'Execute phased discovery workflow (init, vision, requirements, architecture, ux, tech, plan) or run automated brownfield filesystem discovery to synthesize candidate requirements.',
         {
           type: 'object',
           properties: {
@@ -157,13 +157,27 @@ export function registerPlanningTools(registry) {
             answers: {
               type: 'object',
               description: 'Key-value map of question IDs to answers'
+            },
+            autoScan: {
+              type: 'boolean',
+              description: 'Run automated filesystem and inference scan to cluster domains and synthesize requirements'
+            },
+            write: {
+              type: 'boolean',
+              description: 'Persist synthesized candidate requirements into .skyhook/requirements/functional.yaml'
             }
           }
         }
       );
     }
     async execute(args, ctx) {
-      const res = await cmdDiscover(ctx, { phase: args.phase || 'all', answers: args.answers || {} });
+      const res = await cmdDiscover(ctx, {
+        phase: args.phase || 'all',
+        answers: args.answers || {},
+        autoScan: args.autoScan,
+        auto: args.autoScan,
+        write: args.write
+      });
       return this.formatSuccess(res);
     }
   }());

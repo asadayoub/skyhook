@@ -73,6 +73,7 @@ const commandMap = {
   untraced: 'cmdUntraced',
   coverage: 'cmdCoverage',
   mapLegacy: 'cmdMapLegacy',
+  'map-legacy': 'cmdMapLegacy',
   graph: 'cmdGraph',
   dashboard: 'cmdDashboard',
   syncAdr: 'cmdSyncADR',
