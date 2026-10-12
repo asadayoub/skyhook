@@ -438,11 +438,12 @@ export async function cmdPlan(ctx, args = {}) {
   }
 
   const projectDir = path.dirname(ctx.skyhookDir);
+  const scope = parsedArgs.scope || 'active';
 
   // Raw Mermaid format requested
   if (parsedArgs.format === 'mermaid') {
     const backlog = ctx.readBacklog();
-    const chart = GanttGenerator.generateGantt(backlog);
+    const chart = GanttGenerator.generateGantt(backlog, { scope });
     return { format: 'mermaid', chart };
   }
 
@@ -480,7 +481,7 @@ export async function cmdPlan(ctx, args = {}) {
 
   // All plans (master plan + all scoped plans)
   if (parsedArgs.all) {
-    const masterRes = await PlanCompiler.compileMasterPlan(ctx, { projectDir });
+    const masterRes = await PlanCompiler.compileMasterPlan(ctx, { projectDir, scope });
     const scopedRes = PlanCompiler.compileScopedPlan(ctx, 'all', null, { projectDir });
     return {
       message: 'Master project plan and all scoped requirement/epic plans compiled successfully',
@@ -493,7 +494,7 @@ export async function cmdPlan(ctx, args = {}) {
   }
 
   // Default: compile master plan
-  return await PlanCompiler.compileMasterPlan(ctx, { projectDir });
+  return await PlanCompiler.compileMasterPlan(ctx, { projectDir, scope });
 }
 
 export async function cmdStandards(ctx, args = {}) {

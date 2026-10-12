@@ -15,21 +15,88 @@ import { TraceabilityMatrix } from './TraceabilityMatrix.js';
 import { ScopedPlanGenerator } from './ScopedPlanGenerator.js';
 import { indexCodebase } from '../tracer.js';
 
+import { isItemWithinActiveWindow } from './scopeWindow.js';
+
+export { isItemWithinActiveWindow };
+
 export class PlanCompiler {
+  /**
+   * Check if a backlog item is within the active scope window
+   */
+  static isItemWithinActiveWindow(item, windowDays = 14) {
+    return isItemWithinActiveWindow(item, windowDays);
+  }
+
+  /**
+   * Filter backlog items according to scope windowing rules
+   */
+  static filterBacklogByScope(backlog = {}, scope = 'active', windowDays = 14) {
+    if (scope !== 'active') {
+      return backlog;
+    }
+
+    const rawEpics = backlog.epics || [];
+    const rawStories = backlog.stories || [];
+    const rawTasks = backlog.tasks || [];
+
+    const stories = rawStories.filter(s => isItemWithinActiveWindow(s, windowDays));
+    const tasks = rawTasks.filter(t => isItemWithinActiveWindow(t, windowDays));
+    const activeStoryIds = new Set(stories.map(s => s.id));
+    const activeTaskIds = new Set(tasks.map(t => t.id));
+
+    const epics = rawEpics.filter(epic => {
+      if (epic.status === 'cancelled') return false;
+
+      // Check if epic has any child stories or tasks in active set
+      const hasActiveChildren = rawStories.some(s =>
+        (s.epicId === epic.id || (Array.isArray(epic.childStories) && epic.childStories.includes(s.id))) &&
+        activeStoryIds.has(s.id)
+      ) || rawTasks.some(t =>
+        (t.parentId === epic.id || t.epicId === epic.id) &&
+        activeTaskIds.has(t.id)
+      );
+
+      if (hasActiveChildren) return true;
+
+      // If it had children, but none are active, and epic itself is done, exclude it
+      const totalChildren = rawStories.filter(s =>
+        s.epicId === epic.id || (Array.isArray(epic.childStories) && epic.childStories.includes(s.id))
+      ).length + rawTasks.filter(t =>
+        t.parentId === epic.id || t.epicId === epic.id
+      ).length;
+
+      if (totalChildren > 0 && (epic.status === 'done' || epic.status === 'verified')) {
+        return false;
+      }
+
+      return isItemWithinActiveWindow(epic, windowDays);
+    });
+
+    return {
+      ...backlog,
+      epics,
+      stories,
+      tasks
+    };
+  }
+
   /**
    * Compile the master project plan
    * @param {Object} ctx - SkyhookContext
-   * @param {Object} options - { symbols: Array, projectDir: string }
+   * @param {Object} options - { symbols: Array, projectDir: string, scope: string, windowDays: number }
    * @returns {Promise<Object>} Compilation results
    */
   static async compileMasterPlan(ctx, options = {}) {
     const skyhookDir = ctx.skyhookDir;
     const projectDir = options.projectDir || process.cwd();
+    const scope = options.scope || 'active';
+    const windowDays = options.windowDays || 14;
 
     // 1. Gather all domains
     const projectYaml = (ctx.readProjectYaml ? ctx.readProjectYaml() : readYaml(path.join(skyhookDir, 'project.yaml'))) || {};
     const profile = ctx.readProfile ? ctx.readProfile(projectYaml.profile || 'web-app') : null;
-    const backlog = (ctx.readBacklog ? ctx.readBacklog() : readYaml(path.join(skyhookDir, 'backlog', 'epics.yaml'))) || { epics: [], stories: [] };
+    const rawBacklog = (ctx.readBacklog ? ctx.readBacklog() : readYaml(path.join(skyhookDir, 'backlog', 'epics.yaml'))) || { epics: [], stories: [] };
+    const backlog = PlanCompiler.filterBacklogByScope(rawBacklog, scope, windowDays);
     const funcReqs = (ctx.readFunctionalReqs ? ctx.readFunctionalReqs() : readYaml(path.join(skyhookDir, 'requirements', 'functional.yaml'))) || { requirements: [] };
     const nfReqs = (ctx.readNonFunctionalReqs ? ctx.readNonFunctionalReqs() : readYaml(path.join(skyhookDir, 'requirements', 'non-functional.yaml'))) || { requirements: [] };
     const decisions = (ctx.readDecisions ? ctx.readDecisions() : readYaml(path.join(skyhookDir, 'decisions', 'index.yaml'))) || { decisions: [] };
@@ -48,9 +115,11 @@ export class PlanCompiler {
 
     // 3. Run Analysis Pipelines
     const criticalPathResult = CriticalPathAnalyzer.analyze(backlog.stories || []);
-    const capacityResult = CapacityPlanner.plan(skyhookDir, backlog, { windowDays: 14 });
+    const capacityResult = CapacityPlanner.plan(skyhookDir, backlog, { windowDays });
     const ganttChart = GanttGenerator.generateGantt(backlog, {
-      criticalPathIds: criticalPathResult.criticalPathSet
+      criticalPathIds: criticalPathResult.criticalPathSet,
+      scope,
+      windowDays
     });
     const traceabilityTable = TraceabilityMatrix.generate({
       functionalReqs: funcReqs,
@@ -68,7 +137,7 @@ export class PlanCompiler {
     const planPath = path.join(planDir, 'PROJECT_PLAN.md');
 
     let plan = `# Project Plan: ${projectYaml.name || 'Untitled Project'}\n\n`;
-    plan += `> **Project ID**: \`${projectYaml.id || 'unknown'}\` | **Profile**: \`${projectYaml.profile || 'web-app'}\`\n`;
+    plan += `> **Project ID**: \`${projectYaml.id || 'unknown'}\` | **Profile**: \`${projectYaml.profile || 'web-app'}\` | **Scope**: \`${scope}\`\n`;
     plan += `> **Compiled**: ${getTimestamp()} by Skyhook Dynamic Plan Compiler\n\n`;
 
     plan += `## Executive Summary\n\n`;
@@ -150,8 +219,10 @@ export class PlanCompiler {
       forecast: capacityResult.forecast,
       criticalPath: criticalPathResult.criticalPath,
       stats: {
+        scope,
         epicsCount: backlog.epics?.length || 0,
         storiesCount: backlog.stories?.length || 0,
+        tasksCount: backlog.tasks?.length || 0,
         functionalReqsCount: funcReqs.requirements?.length || 0,
         nonFunctionalReqsCount: nfReqs.requirements?.length || 0,
         decisionsCount: decisions.decisions?.length || 0,

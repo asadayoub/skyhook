@@ -19,13 +19,17 @@ export function registerPlanTools(registry) {
         {
           type: 'object',
           properties: {
-            all: { type: 'boolean', description: 'Recompile master plan and all scoped requirement/epic plans', default: true }
+            all: { type: 'boolean', description: 'Recompile master plan and all scoped requirement/epic plans', default: true },
+            scope: { type: 'string', enum: ['active', 'all'], description: 'Scope window: active (prune cancelled and old completed work) or all (complete archive)', default: 'active' }
           }
         }
       );
     }
     async execute(args, ctx) {
-      const res = await cmdPlan(ctx, { all: args.all !== false });
+      const res = await cmdPlan(ctx, {
+        all: args.all !== false,
+        scope: args.scope || 'active'
+      });
       return this.formatSuccess(res);
     }
   }());
@@ -41,6 +45,7 @@ export function registerPlanTools(registry) {
           properties: {
             req: { type: 'string', description: 'Requirement ID (e.g. REQ-001)' },
             epic: { type: 'string', description: 'Epic ID (e.g. EPIC-001)' },
+            scope: { type: 'string', enum: ['active', 'all'], description: 'Scope window: active or all', default: 'active' },
             format: { type: 'string', enum: ['markdown', 'mermaid'], default: 'markdown' }
           }
         }
@@ -48,7 +53,7 @@ export function registerPlanTools(registry) {
     }
     async execute(args, ctx) {
       if (args.format === 'mermaid') {
-        const res = await cmdPlan(ctx, { format: 'mermaid' });
+        const res = await cmdPlan(ctx, { format: 'mermaid', scope: args.scope || 'active' });
         return this.formatSuccess(res);
       }
 
@@ -65,7 +70,7 @@ export function registerPlanTools(registry) {
       // Default: master plan
       const skyhookDir = ctx?.skyhookDir || path.join(process.cwd(), '.skyhook');
       const planFile = path.join(skyhookDir, 'plan', 'PROJECT_PLAN.md');
-      if (fs.existsSync(planFile)) {
+      if (fs.existsSync(planFile) && (!args.scope || args.scope === 'active')) {
         const content = fs.readFileSync(planFile, 'utf-8');
         return this.formatSuccess({
           path: planFile,
@@ -73,7 +78,7 @@ export function registerPlanTools(registry) {
         });
       }
 
-      const res = await cmdPlan(ctx, {});
+      const res = await cmdPlan(ctx, { scope: args.scope || 'active' });
       return this.formatSuccess(res);
     }
   }());

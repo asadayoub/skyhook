@@ -1,7 +1,4 @@
-/**
- * Gantt Generator
- * Compiles epics, stories, and dependencies into native Mermaid.js Gantt chart syntax.
- */
+import { isItemWithinActiveWindow } from './scopeWindow.js';
 
 export class GanttGenerator {
   /**
@@ -28,15 +25,56 @@ export class GanttGenerator {
 
   /**
    * Generate Mermaid Gantt syntax from backlog
-   * @param {Object} backlog - { epics: [], stories: [] }
-   * @param {Object} options - { criticalPathIds: Set, defaultDurationDays: number }
+   * @param {Object} backlog - { epics: [], stories: [], tasks: [] }
+   * @param {Object} options - { criticalPathIds: Set, defaultDurationDays: number, includeCancelled: boolean, scope: string, windowDays: number }
    * @returns {string} Mermaid code block
    */
   static generateGantt(backlog = {}, options = {}) {
-    const epics = backlog.epics || [];
-    const stories = backlog.stories || [];
+    const rawEpics = backlog.epics || [];
+    const rawStories = backlog.stories || [];
+    const rawTasks = backlog.tasks || [];
     const criticalPathIds = options.criticalPathIds || new Set();
     const defaultDuration = options.defaultDurationDays || 5;
+    const includeCancelled = options.includeCancelled === true;
+    const scope = options.scope;
+    const windowDays = options.windowDays || 14;
+
+    let epics = includeCancelled ? rawEpics : rawEpics.filter(e => e.status !== 'cancelled');
+    let stories = includeCancelled ? rawStories : rawStories.filter(s => s.status !== 'cancelled');
+    let tasks = includeCancelled ? rawTasks : rawTasks.filter(t => t.status !== 'cancelled');
+
+    if (scope === 'active') {
+      stories = stories.filter(s => isItemWithinActiveWindow(s, windowDays));
+      tasks = tasks.filter(t => isItemWithinActiveWindow(t, windowDays));
+      const activeStoryIds = new Set(stories.map(s => s.id));
+      const activeTaskIds = new Set(tasks.map(t => t.id));
+
+      epics = epics.filter(epic => {
+        if (epic.status === 'cancelled') return false;
+
+        const hasActiveChildren = rawStories.some(s =>
+          (s.epicId === epic.id || (Array.isArray(epic.childStories) && epic.childStories.includes(s.id))) &&
+          activeStoryIds.has(s.id)
+        ) || rawTasks.some(t =>
+          (t.parentId === epic.id || t.epicId === epic.id) &&
+          activeTaskIds.has(t.id)
+        );
+
+        if (hasActiveChildren) return true;
+
+        const totalChildren = rawStories.filter(s =>
+          s.epicId === epic.id || (Array.isArray(epic.childStories) && epic.childStories.includes(s.id))
+        ).length + rawTasks.filter(t =>
+          t.parentId === epic.id || t.epicId === epic.id
+        ).length;
+
+        if (totalChildren > 0 && (epic.status === 'done' || epic.status === 'verified')) {
+          return false;
+        }
+
+        return isItemWithinActiveWindow(epic, windowDays);
+      });
+    }
 
     let mermaid = '```mermaid\ngantt\n';
     mermaid += '    title Project Delivery Roadmap\n';
@@ -98,7 +136,7 @@ export class GanttGenerator {
       }
 
       // Direct epic tasks (e.g. spikes, chores, architectural investigations)
-      const directEpicTasks = (backlog.tasks || []).filter(t => (t.parentId === epic.id || t.epicId === epic.id) && t.parentType === 'epic');
+      const directEpicTasks = tasks.filter(t => (t.parentId === epic.id || t.epicId === epic.id) && t.parentType === 'epic');
       for (const task of directEpicTasks) {
         const title = this.sanitize(task.title) || task.id;
         const taskId = `t_${task.id.replace(/[^a-zA-Z0-9_]/g, '_')}`;
