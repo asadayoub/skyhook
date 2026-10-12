@@ -395,14 +395,14 @@ export class DashboardRPCHandler {
   /**
    * Adopt architectural drift into tech-stack.yaml
    */
-  static adoptDrift(skyhookDir, technologies = []) {
+  static async adoptDrift(skyhookDir, technologies = [], options = {}) {
     const techStackPath = path.join(skyhookDir, 'tech-stack.yaml');
     const techStack = readYaml(techStackPath) || { schemaVersion: '1.0.0', technologies: [] };
     if (!techStack.technologies) techStack.technologies = [];
 
     const existingNames = new Set(techStack.technologies.map(t => t.name.toLowerCase()));
 
-    for (const tech of technologies) {
+    for (const tech of (technologies || [])) {
       if (!existingNames.has(tech.name.toLowerCase())) {
         techStack.technologies.push(tech);
         existingNames.add(tech.name.toLowerCase());
@@ -410,7 +410,23 @@ export class DashboardRPCHandler {
     }
 
     writeYaml(techStackPath, techStack);
-    return { success: true, technologiesCount: techStack.technologies.length };
+
+    let enqueueResult = null;
+    if (options && options.enqueueTasks) {
+      const ctx = createSkyhookContext(path.dirname(skyhookDir));
+      if (ctx) {
+        const aggregator = new DriftAggregator(ctx, options);
+        const scorecard = await aggregator.analyze();
+        const allViolations = [...(scorecard.criticalViolations || []), ...(scorecard.warnings || [])];
+        enqueueResult = DriftAutoFixer.enqueueRemediationTasks(ctx, allViolations);
+      }
+    }
+
+    return {
+      success: true,
+      technologiesCount: techStack.technologies.length,
+      enqueueResult
+    };
   }
 
   /**

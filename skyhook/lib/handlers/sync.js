@@ -155,7 +155,23 @@ export async function cmdDrift(ctx, args = {}) {
     return scorecard;
   }
 
-  // 1. Handle auto-fix / adoption
+  // 1. Handle auto-fix / adoption / task enqueueing
+  let enqueuedResult = null;
+  if (args.enqueue || (args.fix && args.enqueue)) {
+    console.log('\n📋 Enqueueing Architectural Remediation Tasks...');
+    const allViolations = [...(scorecard.criticalViolations || []), ...(scorecard.warnings || [])];
+    enqueuedResult = DriftAutoFixer.enqueueRemediationTasks(ctx, allViolations);
+    scorecard.enqueued = enqueuedResult;
+    if (enqueuedResult.enqueuedCount > 0) {
+      console.log(`✅ Enqueued ${enqueuedResult.enqueuedCount} refactoring task(s) into backlog epic "${enqueuedResult.epicId}".`);
+      for (const t of enqueuedResult.tasks) {
+        console.log(`  • [${t.id}] ${t.title}`);
+      }
+    } else {
+      console.log(`ℹ️ All ${enqueuedResult.skippedCount} remediation task(s) already exist in backlog.`);
+    }
+  }
+
   if (args.fix || args.adopt) {
     console.log('\n🛠️ Running Architectural Auto-Remediation...');
     const packageDrifts = scorecard.warnings.filter(w => w.type === 'PACKAGE_DRIFT');

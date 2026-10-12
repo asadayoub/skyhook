@@ -685,6 +685,42 @@ class SkyhookContext {
     });
   }
 
+  addEpic(epicData = {}) {
+    return BacklogLock.withLockSync(this.skyhookDir, () => {
+      const backlog = this.readBacklog();
+      backlog.epics = backlog.epics || [];
+      const epicId = epicData.id || generateULID();
+      const now = getTimestamp();
+      const epic = {
+        id: epicId,
+        title: epicData.title || 'Untitled Epic',
+        description: epicData.description || '',
+        goal: epicData.goal || epicData.title || '',
+        status: epicData.status || 'ready',
+        childStories: Array.isArray(epicData.childStories) ? epicData.childStories : [],
+        childTasks: Array.isArray(epicData.childTasks) ? epicData.childTasks : [],
+        createdAt: now,
+        updatedAt: now
+      };
+
+      backlog.epics.push(epic);
+      backlog.metadata = backlog.metadata || {};
+      backlog.metadata.updatedAt = now;
+      this.writeBacklog(backlog);
+
+      if (this.skyhookDir) {
+        EventLedger.appendEvent(this.skyhookDir, {
+          type: EVENT_TYPES.EPIC_CREATED,
+          actor: epicData.actor || 'system',
+          payload: { id: epicId, title: epic.title, childStories: epic.childStories }
+        });
+      }
+
+      appendChangelog(this.skyhookDir, '- Added epic: ' + epic.title + ' (' + epicId + ')');
+      return epic;
+    });
+  }
+
   readTechStack() {
     return readYaml(path.join(this.skyhookDir, 'tech-stack.yaml')) || { technologies: [], patterns: [], constraints: [] };
   }
