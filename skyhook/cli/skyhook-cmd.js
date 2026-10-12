@@ -62,6 +62,8 @@ const commandMap = {
   listCurrentFeatures: 'cmdListCurrentFeatures',
   getFeature: 'cmdGetFeature',
   getNextTask: 'cmdGetNextTask',
+  claimTask: 'cmdClaimTask',
+  'claim-task': 'cmdClaimTask',
   getBlockers: 'cmdGetBlockers',
   updateStatus: 'cmdUpdateStatus',
   getContext: 'cmdGetContext',

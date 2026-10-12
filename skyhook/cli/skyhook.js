@@ -205,7 +205,7 @@ function formatResult(result, args = {}) {
 
   if (result.task) {
     const t = result.task;
-    log('success', `Task [${t.id}] - ${t.title}`);
+    log('success', `${result.claimed ? 'Claimed Task' : 'Task'} [${t.id}] - ${t.title}`);
     console.log(`Status: ${t.status} | Priority: ${t.priority || 'medium'} | Parent: ${t.parentType || 'story'}:${t.parentId}`);
     if (t.lease) {
       console.log(`Leased by: ${t.lease.agentId} (expires: ${t.lease.expiresAt})`);
@@ -219,6 +219,23 @@ function formatResult(result, args = {}) {
       t.subtasks.forEach(s => {
         console.log(`  ${s.completed ? '☑' : '☐'} [${s.id}] ${s.title}`);
       });
+    }
+    if (result.claimed && result.context) {
+      if (result.context.parentStory && result.context.parentStory.acceptanceCriteria?.length > 0) {
+        console.log(`\n\x1b[1m\x1b[35m📋 Acceptance Criteria (${result.context.parentStory.id}):\x1b[0m`);
+        result.context.parentStory.acceptanceCriteria.forEach(ac => console.log(`  ☑ ${ac}`));
+      }
+      if (result.context.requirements && result.context.requirements.length > 0) {
+        console.log(`\n\x1b[1m\x1b[36m🎯 Linked Requirements:\x1b[0m`);
+        result.context.requirements.forEach(r => console.log(`  • ${r.id}: ${r.title}`));
+      }
+      if (result.context.applicableADRs && result.context.applicableADRs.length > 0) {
+        console.log(`\n\x1b[1m\x1b[33m🏛️  Applicable ADR Rules:\x1b[0m`);
+        result.context.applicableADRs.forEach(a => console.log(`  • ${a.id}: Prohibited imports [${(a.prohibitedImports || []).join(', ')}]`));
+      }
+      if (result.context.verificationPlan) {
+        console.log(`\n\x1b[1m\x1b[32m🧪 Verification Plan:\x1b[0m ${result.context.verificationPlan.testCommand}`);
+      }
     }
     return;
   }
@@ -332,6 +349,7 @@ async function main() {
     'backlog-release': 'cmdReleaseLease',
     'backlog-replay': 'cmdBacklogReplay',
     'get-next-task': 'cmdGetNextTask',
+    'claim-task': 'cmdClaimTask',
     'update-status': 'cmdUpdateStatus',
     'get-blockers': 'cmdGetBlockers',
     'list-features': 'cmdListCurrentFeatures',
@@ -384,9 +402,15 @@ async function main() {
     else if (sub === 'release') effectiveCommand = 'backlog-release';
     else if (sub === 'replay') effectiveCommand = 'backlog-replay';
     else if (sub === 'next') effectiveCommand = 'get-next-task';
+    else if (sub === 'claim') effectiveCommand = 'claim-task';
     else if (sub === 'blockers') effectiveCommand = 'get-blockers';
     else if (sub === 'update') effectiveCommand = 'update-status';
     else effectiveCommand = 'list-features';
+  } else if (command === 'claim' || command === 'claim-task') {
+    effectiveCommand = 'claim-task';
+    if (parsedArgs._[0] && !parsedArgs.taskId) {
+      parsedArgs.taskId = parsedArgs._.shift();
+    }
   } else if (command === 'task') {
     const sub = parsedArgs._.shift() || 'list';
     if (sub === 'add' || sub === 'create') {
@@ -415,6 +439,12 @@ async function main() {
     } else if (sub === 'lease') {
       effectiveCommand = 'get-next-task';
       parsedArgs.level = 'task';
+    } else if (sub === 'claim') {
+      effectiveCommand = 'claim-task';
+      parsedArgs.level = 'task';
+      if (parsedArgs._[0] && !parsedArgs.taskId) {
+        parsedArgs.taskId = parsedArgs._.shift();
+      }
     } else if (sub === 'release') {
       effectiveCommand = 'backlog-release';
       if (parsedArgs._[0] && !parsedArgs.taskId) {

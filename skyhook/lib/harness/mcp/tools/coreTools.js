@@ -4,7 +4,7 @@
  */
 
 import { BaseMCPTool } from '../BaseMCPTool.js';
-import { cmdGetNextTask, cmdUpdateStatus, cmdReleaseLease } from '../../../handlers/backlog.js';
+import { cmdGetNextTask, cmdClaimTask, cmdUpdateStatus, cmdReleaseLease } from '../../../handlers/backlog.js';
 import { cmdRecordDecision, cmdVerifyADR } from '../../../handlers/adr.js';
 import { cmdTrace, cmdDrift } from '../../../handlers/sync.js';
 import { cmdGetContext } from '../../../handlers/general.js';
@@ -24,12 +24,30 @@ export function registerCoreTools(registry) {
             story: { type: 'string', description: 'Filter tasks belonging to a specific story ID' },
             epic: { type: 'string', description: 'Filter task by epic ID' },
             type: { type: 'string', enum: ['feature', 'bug', 'chore', 'spike', 'test', 'refactor'], description: 'Filter task by work item type' },
-            lease: { type: 'number', description: 'Lease duration in minutes (default 30)' }
+            lease: { type: 'number', description: 'Lease duration in minutes (default 30)' },
+            claim: { type: 'boolean', description: 'Atomically transition claimed task to in-progress and return full execution context packet' }
           }
         }
       );
     }
     async execute(args, ctx) {
+      if (args.claim) {
+        const res = await cmdClaimTask(ctx, {
+          agent: args.assignee,
+          agentId: args.assignee,
+          assignee: args.assignee,
+          level: args.level || 'any',
+          story: args.story,
+          epic: args.epic,
+          type: args.type,
+          lease: args.lease
+        });
+        if (res.error) {
+          return this.formatError(res.error);
+        }
+        return this.formatSuccess(res);
+      }
+
       const res = await cmdGetNextTask(ctx, {
         agent: args.assignee,
         assignee: args.assignee,
@@ -39,6 +57,49 @@ export function registerCoreTools(registry) {
         type: args.type,
         lease: args.lease
       });
+      return this.formatSuccess(res);
+    }
+  }());
+
+  // 1b. skyhook_claim_task
+  registry.register(new class extends BaseMCPTool {
+    constructor() {
+      super(
+        'skyhook_claim_task',
+        'Atomically claim and lease the next ready task or a specific task, transition it to in-progress, and return a comprehensive execution context packet (requirements, ADRs, acceptance criteria, standards, target files, and test plan).',
+        {
+          type: 'object',
+          properties: {
+            assignee: { type: 'string', description: 'Agent identifier or human name claiming the task (required)' },
+            taskId: { type: 'string', description: 'Optional specific task ID or story ID to claim (e.g. TASK-001). If omitted, automatically claims the highest priority ready task.' },
+            level: { type: 'string', enum: ['task', 'story', 'any'], default: 'any', description: 'Hierarchy level: task (fine-grained), story (coarse-grained), or any (task first, fallback story)' },
+            story: { type: 'string', description: 'Filter tasks belonging to a specific story ID' },
+            epic: { type: 'string', description: 'Filter task by epic ID' },
+            type: { type: 'string', enum: ['feature', 'bug', 'chore', 'spike', 'test', 'refactor'], description: 'Filter task by work item type' },
+            role: { type: 'string', description: 'Filter task by specialized agent role' },
+            lease: { type: 'number', default: 30, description: 'Lease duration in minutes (default 30)' }
+          },
+          required: ['assignee']
+        }
+      );
+    }
+    async execute(args, ctx) {
+      const res = await cmdClaimTask(ctx, {
+        agent: args.assignee,
+        agentId: args.assignee,
+        assignee: args.assignee,
+        taskId: args.taskId,
+        storyId: args.taskId,
+        level: args.level || 'any',
+        story: args.story,
+        epic: args.epic,
+        type: args.type,
+        role: args.role,
+        lease: args.lease
+      });
+      if (res.error) {
+        return this.formatError(res.error);
+      }
       return this.formatSuccess(res);
     }
   }());

@@ -3,6 +3,8 @@ import path from 'path';
 import { generateULID, getTimestamp, writeYaml } from '../utils.js';
 import { DependencyResolver } from '../backlog/DependencyResolver.js';
 import { TaskLeaseManager } from '../backlog/TaskLeaseManager.js';
+import { BacklogLock } from '../backlog/BacklogLock.js';
+import { BacklogStateMachine } from '../backlog/BacklogStateMachine.js';
 import { EventLedger, EVENT_TYPES } from '../backlog/EventLedger.js';
 
 export async function cmdListCurrentFeatures(ctx, args) {
@@ -180,6 +182,295 @@ export async function cmdGetNextTask(ctx, args = {}) {
     governingStandards,
     fileConflictWarnings
   };
+}
+
+/**
+ * Atomically claim and lease the next ready task or specified task,
+ * transitioning it to in-progress and assembling an execution context packet.
+ */
+export async function cmdClaimTask(ctx, args = {}) {
+  const agentId = args.agent || args.agentId || args.assignee || 'anonymous-agent';
+  const leaseMinutes = args.lease ? Number(args.lease) : 30;
+  const level = args.level || 'any';
+  const specificId = args.taskId || args.storyId || args.id || null;
+  const filterStory = args.story || args.storyId || null;
+  const filterType = args.type || null;
+  const filterEpic = args.epic || null;
+  const role = args.role || null;
+
+  const skyhookDir = ctx.skyhookDir || (ctx.projectDir ? path.join(ctx.projectDir, '.skyhook') : null);
+
+  const executeClaim = () => {
+    const backlog = ctx.readBacklog();
+    const allStories = backlog.stories || [];
+    const allTasks = backlog.tasks || [];
+    const allEpics = backlog.epics || [];
+
+    TaskLeaseManager.sweepExpiredLeases(backlog);
+
+    let chosen = null;
+
+    if (specificId) {
+      const foundTask = allTasks.find(t => t.id === specificId);
+      const foundStory = allStories.find(s => s.id === specificId);
+      chosen = foundTask || foundStory;
+
+      if (!chosen) {
+        return { success: false, claimed: false, error: `Work item '${specificId}' not found in backlog` };
+      }
+
+      // Check if already in-progress by this agent (idempotent resume)
+      const isAlreadyClaimedByAgent = chosen.status === 'in-progress' &&
+        chosen.lease && chosen.lease.agentId === agentId;
+
+      if (!isAlreadyClaimedByAgent) {
+        // Validate dependencies
+        const unmet = DependencyResolver.getUnmetDependencies(chosen, allStories, allTasks);
+        if (unmet.length > 0) {
+          const unmetDesc = unmet.map(d => `${d.id} (${d.status})`).join(', ');
+          return {
+            success: false,
+            claimed: false,
+            error: `Cannot claim '${chosen.id}': unresolved dependencies: ${unmetDesc}`
+          };
+        }
+
+        // Validate lease collision
+        if (TaskLeaseManager.isLeased(chosen) && chosen.lease.agentId !== agentId) {
+          return {
+            success: false,
+            claimed: false,
+            error: `Work item '${chosen.id}' is already leased by agent '${chosen.lease.agentId}' until ${chosen.lease.expiresAt}`
+          };
+        }
+      }
+    } else {
+      const priorityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
+      const sortByPriority = (items) => [...items].sort((a, b) => {
+        const pa = typeof a.priority === 'string' ? (priorityOrder[a.priority] ?? 2) : (100 - (a.priority || 50));
+        const pb = typeof b.priority === 'string' ? (priorityOrder[b.priority] ?? 2) : (100 - (b.priority || 50));
+        return pa - pb;
+      });
+
+      let candidateTasks = [];
+      if (level !== 'story') {
+        candidateTasks = allTasks.filter(t => {
+          if (t.status !== 'ready') return false;
+          if (filterStory && t.parentId !== filterStory && t.storyId !== filterStory) return false;
+          if (filterType && t.type !== filterType) return false;
+          if (role && t.agentRole && t.agentRole !== role) return false;
+
+          const unmet = DependencyResolver.getUnmetDependencies(t, allStories, allTasks);
+          if (unmet.length > 0) return false;
+
+          if (TaskLeaseManager.isLeased(t) && t.lease.agentId !== agentId) return false;
+
+          const parentStory = allStories.find(s => s.id === t.parentId);
+          if (parentStory && TaskLeaseManager.isLeased(parentStory) && parentStory.lease.agentId !== agentId) return false;
+
+          return true;
+        });
+        candidateTasks = sortByPriority(candidateTasks);
+      }
+
+      let candidateStories = [];
+      if (level !== 'task') {
+        candidateStories = allStories.filter(s => {
+          if (s.status !== 'ready') return false;
+          if (filterStory && s.id !== filterStory) return false;
+          if (filterEpic && s.epicId !== filterEpic) return false;
+          if (role && s.agentRole && s.agentRole !== role) return false;
+
+          const unmet = DependencyResolver.getUnmetDependencies(s, allStories, allTasks);
+          if (unmet.length > 0) return false;
+
+          if (TaskLeaseManager.isLeased(s) && s.lease.agentId !== agentId) return false;
+
+          const hasOtherChildLease = allTasks.some(t =>
+            t.parentId === s.id && TaskLeaseManager.isLeased(t) && t.lease.agentId !== agentId
+          );
+          if (hasOtherChildLease) return false;
+
+          return true;
+        });
+        candidateStories = sortByPriority(candidateStories);
+      }
+
+      chosen = level === 'task'
+        ? (candidateTasks[0] || null)
+        : level === 'story'
+          ? (candidateStories[0] || null)
+          : (candidateTasks[0] || candidateStories[0] || null);
+
+      if (!chosen) {
+        return { success: true, claimed: false, message: 'No ready tasks found in backlog', task: null };
+      }
+    }
+
+    const isTask = !!chosen.parentId || (chosen.id && chosen.id.startsWith('TASK-'));
+
+    // 1. Acquire Lease
+    if (isTask) {
+      TaskLeaseManager.acquireTaskLease(chosen, agentId, leaseMinutes, backlog);
+    } else {
+      TaskLeaseManager.acquireLease(chosen, agentId, leaseMinutes);
+    }
+
+    // 2. Transition State: ready -> in-progress
+    if (chosen.status !== 'in-progress') {
+      BacklogStateMachine.transition(
+        backlog,
+        chosen.id,
+        'in-progress',
+        { agentId, reason: 'Claimed by agent via cmdClaimTask' }
+      );
+    }
+
+    // Persist backlog mutations
+    ctx.writeBacklog(backlog);
+
+    // 3. Record in Event Ledger
+    if (skyhookDir) {
+      EventLedger.appendEvent(skyhookDir, {
+        type: EVENT_TYPES.TASK_LEASED,
+        actor: agentId,
+        payload: {
+          storyId: isTask ? chosen.parentId : chosen.id,
+          taskId: isTask ? chosen.id : undefined,
+          agentId,
+          expiresAt: chosen.lease?.expiresAt,
+          durationMinutes: leaseMinutes
+        }
+      });
+
+      EventLedger.appendEvent(skyhookDir, {
+        type: isTask ? EVENT_TYPES.TASK_STATE_TRANSITIONED : EVENT_TYPES.STATE_TRANSITIONED,
+        actor: agentId,
+        payload: {
+          workId: chosen.id,
+          storyId: isTask ? chosen.parentId : chosen.id,
+          taskId: isTask ? chosen.id : null,
+          from: 'ready',
+          to: 'in-progress',
+          reason: 'Claimed by agent via cmdClaimTask'
+        }
+      });
+    }
+
+    // 4. Multi-Domain Context Packaging
+    let parentStory = null;
+    let parentEpic = null;
+
+    if (isTask) {
+      parentStory = allStories.find(s => s.id === chosen.parentId) || null;
+      if (parentStory) {
+        parentEpic = allEpics.find(e => e.id === parentStory.epicId) || null;
+      }
+    } else {
+      parentEpic = allEpics.find(e => e.id === chosen.epicId) || null;
+    }
+
+    // Linked Requirements
+    const reqIds = [
+      ...(chosen.relatedRequirements || []),
+      ...(parentStory?.relatedRequirements || [])
+    ];
+    let matchedRequirements = [];
+    if (typeof ctx.readFunctionalReqs === 'function') {
+      const funcReqs = ctx.readFunctionalReqs() || { requirements: [] };
+      matchedRequirements = (funcReqs.requirements || []).filter(r => reqIds.includes(r.id)).map(r => ({
+        id: r.id,
+        title: r.title,
+        description: r.description,
+        acceptanceCriteria: r.acceptanceCriteria || [],
+        priority: r.priority
+      }));
+    }
+
+    // Governing Standards
+    let governingStandards = [];
+    if (typeof ctx.resolveStandardsForStory === 'function') {
+      const stdRes = ctx.resolveStandardsForStory(chosen);
+      governingStandards = stdRes.governingStandards || [];
+    }
+
+    // Applicable ADR Invariants
+    const applicableADRs = [];
+    if (typeof ctx.readDecisions === 'function') {
+      const decData = ctx.readDecisions() || { decisions: [] };
+      for (const d of (decData.decisions || [])) {
+        if (d.status === 'accepted' && d.enforcement?.rules) {
+          for (const rule of d.enforcement.rules) {
+            applicableADRs.push({
+              id: d.id,
+              title: d.title,
+              prohibitedImports: rule.prohibitedImports || [],
+              forbiddenInDir: rule.forbiddenInDir || null
+            });
+          }
+        }
+      }
+    }
+
+    // Target Files & Concurrency Warnings
+    const fileConflictWarnings = TaskLeaseManager.checkFileConflicts(chosen, backlog);
+    const targetFiles = Array.isArray(chosen.targetFiles) ? chosen.targetFiles : [];
+
+    // Verification Plan
+    const suggestedUnitTests = targetFiles.map(tf => {
+      const base = path.basename(tf).replace(/\.[^.]+$/, '');
+      return `test/${base}.test.js`;
+    });
+
+    return {
+      success: true,
+      claimed: true,
+      task: {
+        id: chosen.id,
+        parentId: chosen.parentId || null,
+        title: chosen.title,
+        description: chosen.description || '',
+        type: chosen.type || 'feature',
+        priority: chosen.priority || 'medium',
+        status: chosen.status,
+        startedAt: chosen.startedAt,
+        lease: chosen.lease,
+        targetFiles,
+        subtasks: chosen.subtasks || []
+      },
+      context: {
+        parentStory: parentStory ? {
+          id: parentStory.id,
+          title: parentStory.title,
+          userStory: parentStory.userStory || parentStory.description || '',
+          acceptanceCriteria: parentStory.acceptanceCriteria || [],
+          storyPoints: parentStory.storyPoints
+        } : null,
+        parentEpic: parentEpic ? {
+          id: parentEpic.id,
+          title: parentEpic.title,
+          goal: parentEpic.goal || parentEpic.description || ''
+        } : null,
+        requirements: matchedRequirements,
+        governingStandards,
+        applicableADRs,
+        verificationPlan: {
+          suggestedUnitTests,
+          testCommand: suggestedUnitTests.length > 0 ? `npm test ${suggestedUnitTests[0]}` : 'npm test',
+          policyCheckRequired: applicableADRs.length > 0
+        }
+      },
+      warnings: {
+        fileConflictWarnings,
+        unmetDependencies: []
+      }
+    };
+  };
+
+  if (skyhookDir) {
+    return BacklogLock.withLockSync(skyhookDir, executeClaim);
+  }
+  return executeClaim();
 }
 
 export async function cmdGetBlockers(ctx, args) {
