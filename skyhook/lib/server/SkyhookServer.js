@@ -489,6 +489,20 @@ export class SkyhookServer {
           return;
         }
 
+        // POST /api/action/claim-task
+        if (pathname === '/api/action/claim-task' && req.method === 'POST') {
+          const body = await SkyhookServer.parseJsonBody(req);
+          const { skyhookDir, taskId, agentId, leaseMinutes } = body;
+          const result = await DashboardRPCHandler.claimTask(skyhookDir, { taskId, agentId, leaseMinutes });
+          if (this.gateway) {
+            this.gateway.broadcast('TASK_CLAIMED', result);
+            this.gateway.broadcast('BACKLOG_UPDATED', result);
+          }
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(result));
+          return;
+        }
+
         // POST /api/action/adopt-drift
         if (pathname === '/api/action/adopt-drift' && req.method === 'POST') {
           const body = await SkyhookServer.parseJsonBody(req);

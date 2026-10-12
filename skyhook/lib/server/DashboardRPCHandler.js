@@ -360,6 +360,25 @@ export class DashboardRPCHandler {
   }
 
   /**
+   * Atomically claim a task/story from dashboard
+   */
+  static async claimTask(skyhookDir, options = {}) {
+    const ctx = createSkyhookContext(path.dirname(skyhookDir));
+    if (!ctx) throw new Error('Failed to create context');
+
+    const { cmdClaimTask } = await import('../handlers/backlog.js');
+    const result = await cmdClaimTask(ctx, {
+      id: options.taskId || options.id,
+      agent: options.agentId || options.agent || 'dashboard-user',
+      minutes: options.leaseMinutes || options.minutes || 30
+    });
+    return {
+      ...result,
+      lease: result?.task?.lease || null
+    };
+  }
+
+  /**
    * Adopt architectural drift into tech-stack.yaml
    */
   static adoptDrift(skyhookDir, technologies = []) {

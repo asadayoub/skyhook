@@ -13,6 +13,7 @@ import { TelemetryGrid } from './components/TelemetryGrid.js';
 import { CodeModal } from './components/CodeModal.js';
 import { Toast } from './components/Toast.js';
 
+import { MissionControlView } from './views/MissionControlView.js';
 import { KanbanView } from './views/KanbanView.js';
 import { TopologyView } from './views/TopologyView.js';
 import { DriftView } from './views/DriftView.js';
@@ -50,14 +51,15 @@ async function bootstrap() {
   const telemetryGrid = new TelemetryGrid({ container: telemetryContainer, store });
   telemetryGrid.mount();
 
-  // 3. Initialize Router & Register all 8 Views
+  // 3. Initialize Router & Register all Feature Views
   const router = new Router({
     container: mainContentEl,
     bridge,
     store,
-    defaultRoute: '/kanban'
+    defaultRoute: '/mission-control'
   });
 
+  router.register('/mission-control', MissionControlView);
   router.register('/kanban', KanbanView);
   router.register('/topology', TopologyView);
   router.register('/drift', DriftView);

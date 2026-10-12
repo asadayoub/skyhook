@@ -13,6 +13,7 @@ export class Navigation {
     this.container = options.container;
     this.router = options.router;
     this.tabs = [
+      { route: '/mission-control', icon: '🚀', label: 'MISSION CONTROL' },
       { route: '/kanban', icon: '⚡', label: 'KANBAN' },
       { route: '/topology', icon: '🌐', label: 'TOPOLOGY' },
       { route: '/drift', icon: '🛡️', label: 'DRIFT CENTER' },
@@ -62,7 +63,7 @@ export class Navigation {
     const buttons = this.container.querySelectorAll('.tab-btn');
     buttons.forEach(btn => {
       const route = btn.dataset.route;
-      const isActive = route === cleanPath || (cleanPath === '/' && route === '/kanban');
+      const isActive = route === cleanPath || (cleanPath === '/' && route === '/mission-control');
       btn.classList.toggle('active', isActive);
     });
   }
