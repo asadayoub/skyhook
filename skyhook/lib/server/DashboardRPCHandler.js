@@ -337,6 +337,10 @@ export class DashboardRPCHandler {
     const success = ctx.updateStoryStatus(storyId, status, metadata);
     if (!success) throw new Error(`Story ${storyId} not found`);
 
+    if (metadata.skipPlanRecompile !== true && metadata['no-plan-sync'] !== true) {
+      PlanCompiler.compileMasterPlan(ctx, { projectDir: path.dirname(skyhookDir), scope: 'active' }).catch(() => {});
+    }
+
     return { success: true, storyId, status };
   }
 

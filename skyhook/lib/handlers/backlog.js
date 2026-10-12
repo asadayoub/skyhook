@@ -6,6 +6,17 @@ import { TaskLeaseManager } from '../backlog/TaskLeaseManager.js';
 import { BacklogLock } from '../backlog/BacklogLock.js';
 import { BacklogStateMachine, VALID_STATUSES } from '../backlog/BacklogStateMachine.js';
 import { EventLedger, EVENT_TYPES } from '../backlog/EventLedger.js';
+import { PlanCompiler } from '../plan/PlanCompiler.js';
+
+function triggerPlanRecompilation(ctx, args = {}) {
+  if (args.skipPlanRecompile === true || args['no-plan-sync'] === true || args['skip-plan-recompile'] === true) {
+    return null;
+  }
+  if (!ctx || !ctx.skyhookDir) return null;
+  const projectDir = ctx.projectDir || (ctx.skyhookDir ? path.dirname(ctx.skyhookDir) : process.cwd());
+  const promise = PlanCompiler.compileMasterPlan(ctx, { projectDir, scope: 'active' }).catch(() => {});
+  return promise;
+}
 
 export async function cmdListCurrentFeatures(ctx, args) {
   const backlog = ctx.readBacklog();
@@ -555,10 +566,15 @@ export async function cmdClaimTask(ctx, args = {}) {
     }
   };
 
-  if (skyhookDir) {
-    return BacklogLock.withLockSync(skyhookDir, executeClaim);
+  const claimRes = skyhookDir ? BacklogLock.withLockSync(skyhookDir, executeClaim) : executeClaim();
+  if (claimRes && claimRes.claimed) {
+    const recompilePromise = triggerPlanRecompilation(ctx, args);
+    if (args.awaitPlanRecompile && recompilePromise) {
+      await recompilePromise;
+    }
+    claimRes._recompilePromise = recompilePromise;
   }
-  return executeClaim();
+  return claimRes;
 }
 
 export async function cmdGetBlockers(ctx, args) {
@@ -662,7 +678,12 @@ export async function cmdUpdateStatus(ctx, args) {
       return { error: `${noun} not found: ${itemId}` };
     }
     
-    return { success: true, storyId: itemId, taskId: itemId, status: args.status, evidence };
+    const recompilePromise = triggerPlanRecompilation(ctx, args);
+    if (args.awaitPlanRecompile && recompilePromise) {
+      await recompilePromise;
+    }
+
+    return { success: true, storyId: itemId, taskId: itemId, status: args.status, evidence, _recompilePromise: recompilePromise };
   } catch (err) {
     return { error: err.message };
   }
@@ -711,6 +732,13 @@ export async function cmdReleaseLease(ctx, args) {
       status: item.status,
       message: 'Lease released successfully'
     };
+
+    const recompilePromise = triggerPlanRecompilation(ctx, args);
+    if (args.awaitPlanRecompile && recompilePromise) {
+      await recompilePromise;
+    }
+    result._recompilePromise = recompilePromise;
+    return result;
   } catch (err) {
     return { error: err.message };
   }
@@ -810,7 +838,13 @@ export async function cmdToggleSubtask(ctx, args) {
   try {
     const completed = args.completed !== undefined ? (args.completed === true || args.completed === 'true') : undefined;
     const subtask = ctx.toggleSubtask(taskId, subtaskId, completed);
-    return { success: true, subtask };
+
+    const recompilePromise = triggerPlanRecompilation(ctx, args);
+    if (args.awaitPlanRecompile && recompilePromise) {
+      await recompilePromise;
+    }
+
+    return { success: true, subtask, _recompilePromise: recompilePromise };
   } catch (err) {
     return { error: err.message };
   }
