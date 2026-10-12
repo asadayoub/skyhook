@@ -425,7 +425,27 @@ class SkyhookContext {
       sub.completed = completed !== undefined ? !!completed : !sub.completed;
       if (sub.completed) sub.completedAt = now;
       else delete sub.completedAt;
-      task.updatedAt = now;
+      const allSubtasksDone = task.subtasks.length > 0 && task.subtasks.every(s => s.completed);
+      const anySubtaskInProgress = task.subtasks.some(s => s.completed);
+
+      let rolledUpStatus = null;
+      const oldTaskStatus = task.status;
+
+      if (allSubtasksDone) {
+        if (task.status === 'ready' || task.status === 'in-progress') {
+          task.status = 'implemented';
+          task.implementedAt = now;
+          rolledUpStatus = 'implemented';
+        }
+      } else if (!allSubtasksDone && task.status === 'implemented') {
+        task.status = 'in-progress';
+        delete task.implementedAt;
+        rolledUpStatus = 'in-progress';
+      } else if (anySubtaskInProgress && task.status === 'ready') {
+        task.status = 'in-progress';
+        task.startedAt = task.startedAt || now;
+        rolledUpStatus = 'in-progress';
+      }
 
       this.writeBacklog(backlog);
 
@@ -435,6 +455,19 @@ class SkyhookContext {
           actor: 'system',
           payload: { taskId, subtaskId, completed: sub.completed }
         });
+
+        if (rolledUpStatus) {
+          EventLedger.appendEvent(this.skyhookDir, {
+            type: EVENT_TYPES.TASK_STATE_TRANSITIONED,
+            actor: 'system',
+            payload: {
+              taskId,
+              from: oldTaskStatus,
+              to: rolledUpStatus,
+              reason: 'Subtask completion rollup'
+            }
+          });
+        }
       }
 
       return sub;

@@ -197,9 +197,10 @@ export class BacklogStateMachine {
       if (Array.isArray(item.subtasks) && item.subtasks.length > 0) {
         const uncompleted = item.subtasks.filter(s => !s.completed);
         if (uncompleted.length > 0) {
+          const uncompletedDesc = uncompleted.map(s => s.id || s.title).join(', ');
           return {
             valid: false,
-            error: `Cannot mark '${item.id}' as ${targetStatus}: ${uncompleted.length} uncompleted subtask(s) remain. Complete all subtasks or use --force to override.`
+            error: `Cannot mark '${item.id}' as ${targetStatus}: ${uncompleted.length} uncompleted subtask(s) remain (${uncompletedDesc}). Complete all subtasks or use --force to override.`
           };
         }
       }
