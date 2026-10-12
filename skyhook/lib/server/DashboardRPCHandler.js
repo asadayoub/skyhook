@@ -11,7 +11,7 @@ import { readYaml, writeYaml, generateULID, getTimestamp } from '../utils.js';
 import { createSkyhookContext } from '../context.js';
 import { TaskLeaseManager } from '../backlog/TaskLeaseManager.js';
 import { BacklogLock } from '../backlog/BacklogLock.js';
-import { EventLedger } from '../backlog/EventLedger.js';
+import { EventLedger, EVENT_TYPES } from '../backlog/EventLedger.js';
 import { CapacityPlanner } from '../plan/CapacityPlanner.js';
 import { PlanCompiler } from '../plan/PlanCompiler.js';
 import { indexCodebase } from '../tracer.js';
@@ -977,6 +977,26 @@ export class DashboardRPCHandler {
       if (updates.priority !== undefined) story.priority = updates.priority;
       if (updates.standards !== undefined) story.standards = Array.isArray(updates.standards) ? updates.standards : [];
       if (updates.relatedRequirements !== undefined) story.relatedRequirements = updates.relatedRequirements;
+      if (updates.evidence !== undefined) {
+        story.evidence = updates.evidence;
+        EventLedger.appendEvent(skyhookDir, {
+          type: EVENT_TYPES.EVIDENCE_ATTACHED,
+          actor: 'user-dashboard',
+          payload: {
+            storyId,
+            commitHash: updates.evidence?.commitHash,
+            testCommand: updates.evidence?.automatedChecks?.command,
+            testExitCode: updates.evidence?.automatedChecks?.exitCode,
+            passedCount: updates.evidence?.automatedChecks?.passedCount,
+            manualNotes: updates.evidence?.manualReview?.notes
+          }
+        });
+      }
+      if (updates.verificationStatus !== undefined) {
+        story.verificationStatus = updates.verificationStatus;
+      } else if (updates.evidence !== undefined) {
+        story.verificationStatus = (story.evidence && (story.evidence.automatedChecks?.exitCode === 0 || story.evidence.commitHash)) ? 'verified' : 'unverified';
+      }
       story.updatedAt = getTimestamp();
 
       writeYaml(epicsPath, backlog);
@@ -1155,6 +1175,27 @@ export class DashboardRPCHandler {
       if (updates.standards !== undefined) task.standards = Array.isArray(updates.standards) ? updates.standards : [];
       if (updates.dependsOn !== undefined) task.dependsOn = Array.isArray(updates.dependsOn) ? updates.dependsOn : [];
       if (updates.subtasks !== undefined) task.subtasks = updates.subtasks;
+      if (updates.evidence !== undefined) {
+        task.evidence = updates.evidence;
+        EventLedger.appendEvent(skyhookDir, {
+          type: EVENT_TYPES.EVIDENCE_ATTACHED,
+          actor: 'user-dashboard',
+          payload: {
+            storyId: task.parentId,
+            taskId,
+            commitHash: updates.evidence?.commitHash,
+            testCommand: updates.evidence?.automatedChecks?.command,
+            testExitCode: updates.evidence?.automatedChecks?.exitCode,
+            passedCount: updates.evidence?.automatedChecks?.passedCount,
+            manualNotes: updates.evidence?.manualReview?.notes
+          }
+        });
+      }
+      if (updates.verificationStatus !== undefined) {
+        task.verificationStatus = updates.verificationStatus;
+      } else if (updates.evidence !== undefined) {
+        task.verificationStatus = (task.evidence && (task.evidence.automatedChecks?.exitCode === 0 || task.evidence.commitHash)) ? 'verified' : 'unverified';
+      }
       task.updatedAt = getTimestamp();
 
       writeYaml(epicsPath, backlog);

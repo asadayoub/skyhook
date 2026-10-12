@@ -133,6 +133,24 @@ export class BrowserBridge {
   }
 
   /**
+   * Universal fetch helper for CRUD REST endpoints
+   * @param {string} endpoint
+   * @param {Object} [options]
+   * @returns {Promise<any>}
+   */
+  async fetchApi(endpoint, options = {}) {
+    const url = endpoint.startsWith('http') ? endpoint : `${this.baseUrl}${endpoint}`;
+    const res = await fetch(url, {
+      headers: { 'Content-Type': 'application/json' },
+      ...options
+    });
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+    }
+    return res.json();
+  }
+
+  /**
    * Subscribe to server push events
    * @param {string} eventType
    * @param {Function} handler

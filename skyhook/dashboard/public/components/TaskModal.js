@@ -58,6 +58,10 @@ export class TaskModal {
       subtasks: []
     };
 
+    const isCompleted = ['done', 'implemented', 'verified'].includes(task.status);
+    const isVerified = task.verificationStatus === 'verified' || 
+      (task.evidence && (task.evidence.automatedChecks?.exitCode === 0 || task.evidence.commitHash));
+
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay active';
     overlay.style.zIndex = '999';
@@ -68,9 +72,25 @@ export class TaskModal {
           <h3 style="font-family: var(--font-hud); font-size: 1.25rem; letter-spacing: 1px; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
             <span>${isEdit ? '⚡ EDIT TASK' : '➕ CREATE TASK'}</span>
             ${isEdit ? `<span style="font-family: var(--font-mono); font-size: 0.8rem; color: var(--neon-cyan);">${task.id}</span>` : ''}
+            ${isEdit && isCompleted ? (isVerified ? `
+              <span class="badge" style="background: rgba(16, 185, 129, 0.15); color: var(--neon-emerald); border: 1px solid rgba(16, 185, 129, 0.3); font-size: 0.72rem; padding: 2px 6px; border-radius: 4px; font-family: var(--font-mono);">
+                🛡️ VERIFIED
+              </span>
+            ` : `
+              <span class="badge" style="background: rgba(244, 63, 94, 0.15); color: var(--neon-rose); border: 1px solid rgba(244, 63, 94, 0.3); font-size: 0.72rem; padding: 2px 6px; border-radius: 4px; font-family: var(--font-mono);">
+                ⚠️ UNVERIFIED
+              </span>
+            `) : ''}
           </h3>
           <button class="modal-close" style="background: transparent; border: none; color: var(--text-dim); font-size: 1.5rem; cursor: pointer;">&times;</button>
         </div>
+
+        ${isEdit && isCompleted && !isVerified ? `
+          <div style="margin-bottom: 14px; padding: 10px 14px; background: rgba(244, 63, 94, 0.1); border: 1px solid var(--neon-rose); border-radius: 6px; color: var(--neon-rose); font-size: 0.8rem; display: flex; align-items: center; gap: 8px;">
+            <span>⚠️</span>
+            <div><strong>Definition of Done:</strong> Completed work requires automated test proof or git commit hash attached.</div>
+          </div>
+        ` : ''}
 
         <form class="modal-form" id="taskForm">
           <div class="form-group">
@@ -158,7 +178,7 @@ export class TaskModal {
           </div>
 
           <!-- Subtasks Checklist Section -->
-          <div class="form-group" style="border: 1px solid var(--border-neon); border-radius: 6px; padding: 12px; background: rgba(0, 240, 255, 0.02);">
+          <div class="form-group" style="border: 1px solid var(--border-neon); border-radius: 6px; padding: 12px; background: rgba(0, 240, 255, 0.02); margin-bottom: 14px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
               <label class="form-label" style="margin: 0; color: var(--neon-cyan);">Definition of Done Checklist (Subtasks)</label>
               <span id="subtaskProgressBadge" style="font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-secondary);">
@@ -173,6 +193,86 @@ export class TaskModal {
             <div style="display: flex; gap: 6px;">
               <input type="text" class="form-input" id="newSubtaskTitle" placeholder="Add a checklist item (e.g. Write unit test)..." style="font-size: 0.8rem; padding: 4px 8px;" />
               <button type="button" id="addSubtaskBtn" class="btn-cyber" style="padding: 4px 12px; font-size: 0.75rem; white-space: nowrap;">+ ADD</button>
+            </div>
+          </div>
+
+          <!-- Evidence & Verification Proof Drawer -->
+          <div class="form-group" style="border: 1px solid rgba(168, 85, 247, 0.3); border-radius: 6px; padding: 14px; background: rgba(168, 85, 247, 0.03);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+              <label class="form-label" style="margin: 0; color: var(--neon-violet); display: flex; align-items: center; gap: 6px;">
+                <span>🛡️</span> EVIDENCE &amp; VERIFICATION PROOF
+              </label>
+              ${task.evidence ? `
+                <span style="font-family: var(--font-mono); font-size: 0.72rem; color: var(--neon-emerald);">
+                  PROOF ATTACHED
+                </span>
+              ` : `
+                <span style="font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-dim);">
+                  NO PROOF ATTACHED
+                </span>
+              `}
+            </div>
+
+            ${task.evidence ? `
+              <!-- Active Evidence Display -->
+              <div id="activeEvidenceDisplay" style="background: rgba(0, 0, 0, 0.25); border: 1px solid var(--border-dim); border-radius: 6px; padding: 10px; margin-bottom: 12px; font-size: 0.8rem;">
+                ${task.evidence.commitHash ? `
+                  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                    <span style="color: var(--text-dim);">Git Commit:</span>
+                    <span style="font-family: var(--font-mono); color: var(--neon-cyan); background: rgba(0, 240, 255, 0.1); padding: 1px 6px; border-radius: 3px;">
+                      ${this.escapeHtml(task.evidence.commitHash)}
+                    </span>
+                  </div>
+                ` : ''}
+                ${task.evidence.automatedChecks ? `
+                  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                    <span style="color: var(--text-dim);">Test Command:</span>
+                    <span style="font-family: var(--font-mono); color: var(--text-primary);">
+                      ${this.escapeHtml(task.evidence.automatedChecks.command || 'npm test')}
+                    </span>
+                  </div>
+                  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                    <span style="color: var(--text-dim);">Test Result:</span>
+                    <span style="font-family: var(--font-mono); color: ${task.evidence.automatedChecks.exitCode === 0 ? 'var(--neon-emerald)' : 'var(--neon-rose)'}; font-weight: 600;">
+                      ${task.evidence.automatedChecks.exitCode === 0 ? '✓ PASS (Exit 0)' : `✗ FAIL (Exit ${task.evidence.automatedChecks.exitCode})`}
+                      ${task.evidence.automatedChecks.passedCount !== undefined ? ` • ${task.evidence.automatedChecks.passedCount} tests` : ''}
+                    </span>
+                  </div>
+                ` : ''}
+                ${task.evidence.manualReview?.notes ? `
+                  <div style="margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--border-dim); color: var(--text-secondary);">
+                    <span style="color: var(--text-dim);">Review Notes:</span> ${this.escapeHtml(task.evidence.manualReview.notes)}
+                  </div>
+                ` : ''}
+              </div>
+            ` : ''}
+
+            <!-- Evidence Input Fields -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 8px;">
+              <div>
+                <label style="font-size: 0.72rem; color: var(--text-dim); display: block; margin-bottom: 2px;">Git Commit Hash</label>
+                <input type="text" class="form-input" id="evidenceCommitHash" style="font-size: 0.78rem; font-family: var(--font-mono); padding: 4px 8px;" placeholder="e.g. 7c1b554" value="${this.escapeHtml(task.evidence?.commitHash || '')}" />
+              </div>
+              <div>
+                <label style="font-size: 0.72rem; color: var(--text-dim); display: block; margin-bottom: 2px;">Test Command</label>
+                <input type="text" class="form-input" id="evidenceTestCommand" style="font-size: 0.78rem; font-family: var(--font-mono); padding: 4px 8px;" placeholder="e.g. npm test" value="${this.escapeHtml(task.evidence?.automatedChecks?.command || '')}" />
+              </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 8px;">
+              <div>
+                <label style="font-size: 0.72rem; color: var(--text-dim); display: block; margin-bottom: 2px;">Test Exit Code</label>
+                <input type="number" class="form-input" id="evidenceExitCode" style="font-size: 0.78rem; padding: 4px 8px;" placeholder="0" value="${task.evidence?.automatedChecks?.exitCode !== undefined ? task.evidence.automatedChecks.exitCode : ''}" />
+              </div>
+              <div>
+                <label style="font-size: 0.72rem; color: var(--text-dim); display: block; margin-bottom: 2px;">Tests Passed Count</label>
+                <input type="number" class="form-input" id="evidencePassedCount" style="font-size: 0.78rem; padding: 4px 8px;" placeholder="e.g. 15" value="${task.evidence?.automatedChecks?.passedCount !== undefined ? task.evidence.automatedChecks.passedCount : ''}" />
+              </div>
+            </div>
+
+            <div>
+              <label style="font-size: 0.72rem; color: var(--text-dim); display: block; margin-bottom: 2px;">Verification Notes / Reviewer Sign-off</label>
+              <input type="text" class="form-input" id="evidenceNotes" style="font-size: 0.78rem; padding: 4px 8px;" placeholder="e.g. Verified unit test pass and manual sanity check" value="${this.escapeHtml(task.evidence?.manualReview?.notes || '')}" />
             </div>
           </div>
 
@@ -295,6 +395,33 @@ export class TaskModal {
 
       const skyhookDir = this.store.getState().projectData?.skyhookDir;
 
+      const commitHash = this.modalEl.querySelector('#evidenceCommitHash')?.value.trim();
+      const testCommand = this.modalEl.querySelector('#evidenceTestCommand')?.value.trim();
+      const exitCodeVal = this.modalEl.querySelector('#evidenceExitCode')?.value.trim();
+      const passedCountVal = this.modalEl.querySelector('#evidencePassedCount')?.value.trim();
+      const notes = this.modalEl.querySelector('#evidenceNotes')?.value.trim();
+
+      const exitCode = exitCodeVal !== '' ? parseInt(exitCodeVal, 10) : NaN;
+      const passedCount = passedCountVal !== '' ? parseInt(passedCountVal, 10) : NaN;
+
+      let evidence = existingTask?.evidence || null;
+      if (commitHash || testCommand || !isNaN(exitCode) || !isNaN(passedCount) || notes) {
+        evidence = {
+          commitHash: commitHash || undefined,
+          automatedChecks: testCommand ? {
+            command: testCommand,
+            exitCode: isNaN(exitCode) ? 0 : exitCode,
+            passedCount: isNaN(passedCount) ? undefined : passedCount
+          } : undefined,
+          manualReview: notes ? { notes, reviewer: 'dashboard-user' } : undefined,
+          timestamp: new Date().toISOString()
+        };
+      }
+
+      const verificationStatus = (evidence && (evidence.automatedChecks?.exitCode === 0 || evidence.commitHash))
+        ? 'verified'
+        : (['done', 'implemented', 'verified'].includes(status) ? 'unverified' : undefined);
+
       try {
         if (isEdit) {
           await this.bridge.fetchApi('/api/crud/task', {
@@ -313,7 +440,9 @@ export class TaskModal {
                 estimatedMinutes,
                 description,
                 targetFiles,
-                subtasks: this.subtasksList
+                subtasks: this.subtasksList,
+                evidence,
+                verificationStatus
               }
             })
           });
@@ -334,7 +463,9 @@ export class TaskModal {
                 estimatedMinutes,
                 description,
                 targetFiles,
-                subtasks: this.subtasksList
+                subtasks: this.subtasksList,
+                evidence,
+                verificationStatus
               }
             })
           });

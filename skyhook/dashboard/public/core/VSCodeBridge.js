@@ -89,6 +89,15 @@ export class VSCodeBridge {
   }
 
   /**
+   * Universal fetch helper for CRUD REST endpoints
+   */
+  async fetchApi(endpoint, options = {}) {
+    const method = (options.method || 'POST').toUpperCase();
+    const payload = options.body ? (typeof options.body === 'string' ? JSON.parse(options.body) : options.body) : {};
+    return this.call(`${method}:${endpoint}`, payload);
+  }
+
+  /**
    * Subscribe to extension events
    */
   on(eventType, handler) {
