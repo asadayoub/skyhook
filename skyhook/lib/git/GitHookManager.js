@@ -56,6 +56,8 @@ export class GitHookManager {
     this.preCommitPath = path.join(this.hooksDir, 'pre-commit');
     this.postCheckoutPath = path.join(this.hooksDir, 'post-checkout');
     this.postCommitPath = path.join(this.hooksDir, 'post-commit');
+    this.gitattributesPath = path.join(projectDir, '.gitattributes');
+    this.gitConfigPath = path.join(this.gitDir, 'config');
   }
 
   isGitRepo() {
@@ -73,6 +75,7 @@ export class GitHookManager {
       return {
         isGitRepo: false,
         hookInstalled: false,
+        mergeDriverInstalled: false,
         hooks: { preCommit: false, postCheckout: false, postCommit: false }
       };
     }
@@ -80,10 +83,13 @@ export class GitHookManager {
     const preCommit = this._isHookInstalled(this.preCommitPath, PRE_COMMIT_MARKER);
     const postCheckout = this._isHookInstalled(this.postCheckoutPath, POST_CHECKOUT_MARKER);
     const postCommit = this._isHookInstalled(this.postCommitPath, POST_COMMIT_MARKER);
+    const mergeDriver = fs.existsSync(this.gitattributesPath) &&
+      fs.readFileSync(this.gitattributesPath, 'utf-8').includes('merge=skyhook');
 
     return {
       isGitRepo: true,
       hookInstalled: preCommit && postCheckout && postCommit,
+      mergeDriverInstalled: mergeDriver,
       hooks: {
         preCommit,
         postCheckout,
@@ -116,6 +122,56 @@ export class GitHookManager {
     return { installed: true, alreadyInstalled: false };
   }
 
+  _installMergeDriver() {
+    const attrLine = '.skyhook/backlog/epics.yaml merge=skyhook';
+    let attrContent = '';
+    if (fs.existsSync(this.gitattributesPath)) {
+      attrContent = fs.readFileSync(this.gitattributesPath, 'utf-8');
+      if (!attrContent.includes(attrLine)) {
+        attrContent = attrContent.trim() + '\n' + attrLine + '\n';
+        fs.writeFileSync(this.gitattributesPath, attrContent, 'utf-8');
+      }
+    } else {
+      fs.writeFileSync(this.gitattributesPath, attrLine + '\n', 'utf-8');
+    }
+
+    if (fs.existsSync(this.gitConfigPath)) {
+      let configContent = fs.readFileSync(this.gitConfigPath, 'utf-8');
+      if (!configContent.includes('[merge "skyhook"]')) {
+        const driverSection = `\n[merge "skyhook"]\n\tname = Skyhook Backlog Merge Driver\n\tdriver = node skyhook/cli/skyhook-merge-driver.js %O %A %B\n`;
+        configContent += driverSection;
+        fs.writeFileSync(this.gitConfigPath, configContent, 'utf-8');
+      }
+    }
+  }
+
+  _uninstallMergeDriver() {
+    const attrLine = '.skyhook/backlog/epics.yaml merge=skyhook';
+    if (fs.existsSync(this.gitattributesPath)) {
+      const content = fs.readFileSync(this.gitattributesPath, 'utf-8');
+      if (content.includes(attrLine)) {
+        const remaining = content
+          .split('\n')
+          .filter(l => !l.includes(attrLine))
+          .join('\n')
+          .trim();
+        if (!remaining) {
+          try { fs.unlinkSync(this.gitattributesPath); } catch {}
+        } else {
+          fs.writeFileSync(this.gitattributesPath, remaining + '\n', 'utf-8');
+        }
+      }
+    }
+
+    if (fs.existsSync(this.gitConfigPath)) {
+      let configContent = fs.readFileSync(this.gitConfigPath, 'utf-8');
+      if (configContent.includes('[merge "skyhook"]')) {
+        configContent = configContent.replace(/\[merge "skyhook"\][\s\S]*?(?=\n\[|$)/, '').trim();
+        fs.writeFileSync(this.gitConfigPath, configContent + '\n', 'utf-8');
+      }
+    }
+  }
+
   install() {
     if (!this.isGitRepo()) {
       return { error: 'Not a git repository (missing .git directory)' };
@@ -128,6 +184,7 @@ export class GitHookManager {
     const preRes = this._installHook(this.preCommitPath, PRE_COMMIT_MARKER, HOOK_SCRIPT_BODY);
     const checkoutRes = this._installHook(this.postCheckoutPath, POST_CHECKOUT_MARKER, POST_CHECKOUT_SCRIPT_BODY);
     const commitRes = this._installHook(this.postCommitPath, POST_COMMIT_MARKER, POST_COMMIT_SCRIPT_BODY);
+    this._installMergeDriver();
 
     const allAlreadyInstalled = preRes.alreadyInstalled && checkoutRes.alreadyInstalled && commitRes.alreadyInstalled;
 
@@ -135,8 +192,8 @@ export class GitHookManager {
       success: true,
       message: allAlreadyInstalled
         ? 'Skyhook git hooks are already installed.'
-        : 'Git lifecycle hooks (pre-commit, post-checkout, post-commit) installed successfully.',
-      installed: ['pre-commit', 'post-checkout', 'post-commit'],
+        : 'Git lifecycle hooks (pre-commit, post-checkout, post-commit) and merge driver installed successfully.',
+      installed: ['pre-commit', 'post-checkout', 'post-commit', 'merge-driver'],
       hookPath: this.preCommitPath
     };
   }
@@ -188,14 +245,16 @@ export class GitHookManager {
     const preRemoved = this._uninstallHook(this.preCommitPath, PRE_COMMIT_MARKER);
     const checkoutRemoved = this._uninstallHook(this.postCheckoutPath, POST_CHECKOUT_MARKER);
     const commitRemoved = this._uninstallHook(this.postCommitPath, POST_COMMIT_MARKER);
+    this._uninstallMergeDriver();
 
     return {
       success: true,
-      message: 'Skyhook git hooks uninstalled successfully.',
+      message: 'Skyhook git hooks and merge driver uninstalled successfully.',
       uninstalled: {
         preCommit: preRemoved,
         postCheckout: checkoutRemoved,
-        postCommit: commitRemoved
+        postCommit: commitRemoved,
+        mergeDriver: true
       }
     };
   }

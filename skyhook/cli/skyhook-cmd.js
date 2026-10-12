@@ -98,6 +98,8 @@ const commandMap = {
   'intercept-adr': 'cmdInterceptADR',
   backlogEvents: 'cmdBacklogEvents',
   'backlog-events': 'cmdBacklogEvents',
+  backlogMigrate: 'cmdBacklogMigrate',
+  'backlog-migrate': 'cmdBacklogMigrate',
   releaseLease: 'cmdReleaseLease',
   'release-lease': 'cmdReleaseLease',
   backlogReplay: 'cmdBacklogReplay',

@@ -6,6 +6,7 @@ import { TaskLeaseManager } from '../backlog/TaskLeaseManager.js';
 import { BacklogLock } from '../backlog/BacklogLock.js';
 import { BacklogStateMachine, VALID_STATUSES } from '../backlog/BacklogStateMachine.js';
 import { EventLedger, EVENT_TYPES } from '../backlog/EventLedger.js';
+import { BacklogStorage } from '../backlog/BacklogStorage.js';
 import { PlanCompiler } from '../plan/PlanCompiler.js';
 
 function triggerPlanRecompilation(ctx, args = {}) {
@@ -999,4 +1000,35 @@ export async function cmdBatchCreate(ctx, args) {
   }
   
   return { results, success: results.filter(r => r.success).length, failed: results.filter(r => !r.success).length };
+}
+
+export async function cmdBacklogMigrate(ctx, args = {}) {
+  let parsedArgs = args;
+  if (Array.isArray(args)) {
+    parsedArgs = { _: [] };
+    for (let i = 0; i < args.length; i++) {
+      const a = args[i];
+      if (a === '--format' && args[i + 1]) {
+        parsedArgs.format = args[i + 1];
+        i++;
+      } else if (a.startsWith('--format=')) {
+        parsedArgs.format = a.slice('--format='.length);
+      } else if (a === 'modular' || a === 'monolithic') {
+        parsedArgs.format = a;
+      } else {
+        parsedArgs._.push(a);
+      }
+    }
+  } else if (!parsedArgs || typeof parsedArgs !== 'object') {
+    parsedArgs = {};
+  }
+
+  const format = parsedArgs.format || parsedArgs._?.[0] || 'modular';
+  if (!ctx || !ctx.skyhookDir) {
+    return { error: 'No .skyhook directory found in workspace' };
+  }
+
+  return BacklogLock.withLockSync(ctx.skyhookDir, () => {
+    return BacklogStorage.migrateBacklog(ctx.skyhookDir, format);
+  });
 }

@@ -8,6 +8,7 @@ import { BacklogLock } from './backlog/BacklogLock.js';
 import { BacklogStateMachine } from './backlog/BacklogStateMachine.js';
 import { EventLedger, EVENT_TYPES } from './backlog/EventLedger.js';
 import { DependencyResolver } from './backlog/DependencyResolver.js';
+import { BacklogStorage } from './backlog/BacklogStorage.js';
 import { StandardsRegistry } from './standards/StandardsRegistry.js';
 import { StandardsResolver } from './standards/StandardsResolver.js';
 
@@ -158,7 +159,14 @@ class SkyhookContext {
     return id;
   }
 
+  isModularBacklog() {
+    return BacklogStorage.isModular(this.skyhookDir);
+  }
+
   readBacklog() {
+    if (this.isModularBacklog()) {
+      return BacklogStorage.readModularBacklog(this.skyhookDir);
+    }
     const data = readYaml(path.join(this.skyhookDir, 'backlog', 'epics.yaml')) || { epics: [], stories: [], tasks: [] };
     if (!data.epics) data.epics = [];
     if (!data.stories) data.stories = [];
@@ -166,7 +174,11 @@ class SkyhookContext {
     return data;
   }
   
-  writeBacklog(data) {
+  writeBacklog(data, options = {}) {
+    if (this.isModularBacklog() || options.modular) {
+      BacklogStorage.writeModularBacklog(this.skyhookDir, data);
+      return;
+    }
     const backlogDir = path.join(this.skyhookDir, 'backlog');
     if (!fs.existsSync(backlogDir)) {
       fs.mkdirSync(backlogDir, { recursive: true });
