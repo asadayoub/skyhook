@@ -10,6 +10,7 @@ import { PythonParser } from './PythonParser.js';
 import { GoParser } from './GoParser.js';
 import { RustParser } from './RustParser.js';
 import { JavaParser } from './JavaParser.js';
+import { SpecContractParser } from './SpecContractParser.js';
 import { RegexFallbackParser } from './RegexFallbackParser.js';
 
 // Register built-in parsers
@@ -18,6 +19,7 @@ const pyParser = new PythonParser();
 const goParser = new GoParser();
 const rsParser = new RustParser();
 const javaParser = new JavaParser();
+const specParser = new SpecContractParser();
 const fallbackParser = new RegexFallbackParser();
 
 ParserRegistry.register(jsParser, 100);
@@ -25,6 +27,7 @@ ParserRegistry.register(pyParser, 100);
 ParserRegistry.register(goParser, 100);
 ParserRegistry.register(rsParser, 100);
 ParserRegistry.register(javaParser, 100);
+ParserRegistry.register(specParser, 80); // API Spec & Contract parser (OpenAPI, GraphQL, Protobuf)
 ParserRegistry.register(fallbackParser, 10); // Lowest priority fallback
 
 export {
@@ -35,6 +38,7 @@ export {
   GoParser,
   RustParser,
   JavaParser,
+  SpecContractParser,
   RegexFallbackParser
 };
 
@@ -53,6 +57,7 @@ export function getParserStatus() {
     go: { loaded: Boolean(regStatus.go?.loaded), error: null },
     rust: { loaded: Boolean(regStatus.rust?.loaded), error: null },
     java: { loaded: Boolean(regStatus.java?.loaded), error: null },
+    spec: { loaded: Boolean(regStatus.spec?.loaded), error: null },
     registry: regStatus
   };
 }

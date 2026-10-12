@@ -230,7 +230,8 @@ function isCodeFile(filename) {
     '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs',
     '.py', '.go', '.rs', '.java', '.kt', '.swift',
     '.cs', '.php', '.rb', '.vue', '.svelte',
-    '.json', '.yml', '.yaml', '.toml'
+    '.json', '.yml', '.yaml', '.toml',
+    '.proto', '.graphql', '.gql'
   ];
   return codeExtensions.some(ext => filename.endsWith(ext));
 }
