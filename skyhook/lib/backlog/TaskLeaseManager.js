@@ -148,13 +148,24 @@ export class TaskLeaseManager {
    * @param {Object} item
    * @param {string} [agentId=null]
    * @param {boolean} [force=false]
+   * @param {Object} [options={}] - { resetStatus: boolean }
    * @returns {boolean}
    */
-  static releaseLease(item, agentId = null, force = false) {
+  static releaseLease(item, agentId = null, force = false, options = {}) {
     if (!item || !item.lease) return false;
 
     if (!force && agentId && item.lease.agentId !== agentId) {
       throw new Error(`Cannot release lease: Work item '${item.id}' is leased to '${item.lease.agentId}', not '${agentId}'`);
+    }
+
+    const resetStatus = options.resetStatus !== false;
+    if (resetStatus && item.status === 'in-progress') {
+      item.status = 'ready';
+    }
+
+    if (item.assignee && (item.assignee.identifier === agentId || item.assignee.name === agentId || item.assignee.type === 'agent')) {
+      item.previousAssignee = item.assignee;
+      delete item.assignee;
     }
 
     delete item.lease;
@@ -167,38 +178,73 @@ export class TaskLeaseManager {
    * Clean up expired leases across stories and tasks in the backlog
    * @param {Object} backlog
    * @param {number} [now=Date.now()]
-   * @returns {number} Count of expired leases cleared
+   * @param {Object} [options={}] - { autoRevertStatus: boolean }
+   * @returns {Object} { sweptCount: number, count: number, sweptItems: Array<Object> }
    */
-  static sweepExpiredLeases(backlog, now = Date.now()) {
+  static sweepExpiredLeases(backlog, now = Date.now(), options = {}) {
+    const autoRevertStatus = options.autoRevertStatus !== false;
     let sweptCount = 0;
+    const sweptItems = [];
     const stories = backlog.stories || [];
     const tasks = backlog.tasks || [];
 
-    for (const story of stories) {
-      if (story.lease) {
-        const expires = new Date(story.lease.expiresAt).getTime();
-        if (now >= expires) {
-          delete story.lease;
-          delete story.fileConflictWarnings;
-          story.updatedAt = getTimestamp();
-          sweptCount++;
+    const sweepItem = (item, type) => {
+      if (!item || !item.lease) return;
+      const expires = new Date(item.lease.expiresAt).getTime();
+      if (now >= expires) {
+        const expiredAgentId = item.lease.agentId;
+        const oldStatus = item.status || 'ready';
+        let newStatus = oldStatus;
+
+        if (autoRevertStatus && oldStatus === 'in-progress') {
+          // If item has meaningful evidence (changed files, commit hash, or verification notes),
+          // move to in-review / needs-triage rather than reverting to ready
+          const hasEvidence = item.evidence && (
+            (Array.isArray(item.evidence.changedFiles) && item.evidence.changedFiles.length > 0) ||
+            item.evidence.commitHash ||
+            item.evidence.notes
+          );
+          newStatus = hasEvidence ? 'in-review' : 'ready';
+          item.status = newStatus;
         }
+
+        if (item.assignee && (item.assignee.identifier === expiredAgentId || item.assignee.name === expiredAgentId || item.assignee.type === 'agent')) {
+          item.previousAssignee = item.assignee;
+          delete item.assignee;
+        }
+
+        delete item.lease;
+        delete item.fileConflictWarnings;
+        item.updatedAt = getTimestamp();
+        sweptCount++;
+        sweptItems.push({
+          id: item.id,
+          type,
+          parentId: item.parentId || null,
+          oldStatus,
+          newStatus,
+          agentId: expiredAgentId
+        });
       }
+    };
+
+    for (const story of stories) {
+      sweepItem(story, 'story');
     }
 
     for (const task of tasks) {
-      if (task.lease) {
-        const expires = new Date(task.lease.expiresAt).getTime();
-        if (now >= expires) {
-          delete task.lease;
-          delete task.fileConflictWarnings;
-          task.updatedAt = getTimestamp();
-          sweptCount++;
-        }
-      }
+      sweepItem(task, 'task');
     }
 
-    return sweptCount;
+    const result = {
+      count: sweptCount,
+      sweptCount,
+      sweptItems,
+      valueOf: () => sweptCount,
+      [Symbol.toPrimitive]: (hint) => (hint === 'string' ? String(sweptCount) : sweptCount)
+    };
+
+    return result;
   }
 
   /**

@@ -59,7 +59,27 @@ export async function cmdGetNextTask(ctx, args = {}) {
   const role = args.role || null;
   
   // Sweep expired leases first
-  TaskLeaseManager.sweepExpiredLeases(backlog);
+  const sweepRes = TaskLeaseManager.sweepExpiredLeases(backlog);
+  if (sweepRes && sweepRes.sweptCount > 0) {
+    ctx.writeBacklog(backlog);
+    const skyhookDir = ctx.skyhookDir || (ctx.projectDir ? path.join(ctx.projectDir, '.skyhook') : null);
+    if (skyhookDir) {
+      for (const swept of sweepRes.sweptItems) {
+        EventLedger.appendEvent(skyhookDir, {
+          type: EVENT_TYPES.TASK_LEASE_EXPIRED,
+          actor: swept.agentId || 'system',
+          payload: {
+            itemId: swept.id,
+            storyId: swept.type === 'task' ? swept.parentId || swept.id : swept.id,
+            taskId: swept.type === 'task' ? swept.id : undefined,
+            oldStatus: swept.oldStatus,
+            newStatus: swept.newStatus,
+            agentId: swept.agentId
+          }
+        });
+      }
+    }
+  }
 
   const priorityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
   const sortByPriority = (items) => [...items].sort((a, b) => {
@@ -207,7 +227,26 @@ export async function cmdClaimTask(ctx, args = {}) {
     const allTasks = backlog.tasks || [];
     const allEpics = backlog.epics || [];
 
-    TaskLeaseManager.sweepExpiredLeases(backlog);
+    const sweepRes = TaskLeaseManager.sweepExpiredLeases(backlog);
+    if (sweepRes && sweepRes.sweptCount > 0) {
+      ctx.writeBacklog(backlog);
+      if (skyhookDir) {
+        for (const swept of sweepRes.sweptItems) {
+          EventLedger.appendEvent(skyhookDir, {
+            type: EVENT_TYPES.TASK_LEASE_EXPIRED,
+            actor: swept.agentId || 'system',
+            payload: {
+              itemId: swept.id,
+              storyId: swept.type === 'task' ? swept.parentId || swept.id : swept.id,
+              taskId: swept.type === 'task' ? swept.id : undefined,
+              oldStatus: swept.oldStatus,
+              newStatus: swept.newStatus,
+              agentId: swept.agentId
+            }
+          });
+        }
+      }
+    }
 
     let chosen = null;
 
@@ -621,18 +660,32 @@ export async function cmdReleaseLease(ctx, args) {
   }
 
   try {
-    TaskLeaseManager.releaseLease(item, args.agent || args.agentId, !!args.force);
+    const oldStatus = item.status;
+    const resetStatus = args.resetStatus !== false && args.reset !== false;
+    TaskLeaseManager.releaseLease(item, args.agent || args.agentId, !!args.force, { resetStatus });
     ctx.writeBacklog(backlog);
 
-    if (ctx.skyhookDir) {
-      EventLedger.appendEvent(ctx.skyhookDir, {
+    const skyhookDir = ctx.skyhookDir || (ctx.projectDir ? path.join(ctx.projectDir, '.skyhook') : null);
+    if (skyhookDir) {
+      EventLedger.appendEvent(skyhookDir, {
         type: EVENT_TYPES.TASK_RELEASED,
         actor: args.agent || 'system',
-        payload: { itemId: item.id, storyId: item.id }
+        payload: {
+          itemId: item.id,
+          storyId: item.parentId || item.id,
+          oldStatus,
+          newStatus: item.status
+        }
       });
     }
 
-    return { success: true, storyId: item.id, taskId: item.id, message: 'Lease released successfully' };
+    return {
+      success: true,
+      storyId: item.id,
+      taskId: item.id,
+      status: item.status,
+      message: 'Lease released successfully'
+    };
   } catch (err) {
     return { error: err.message };
   }

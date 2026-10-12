@@ -353,10 +353,19 @@ export class DashboardRPCHandler {
     if (!item) throw new Error(`Work item ${itemId} not found`);
 
     const agent = item.lease?.agentId || item.leasedTo || 'unknown';
-    TaskLeaseManager.releaseLease(item, agent, force);
+    const oldStatus = item.status;
+    TaskLeaseManager.releaseLease(item, agent, force, { resetStatus: true });
     ctx.writeBacklog(backlog);
 
-    return { success: true, storyId: item.id, taskId: item.id };
+    if (skyhookDir) {
+      EventLedger.appendEvent(skyhookDir, {
+        type: EVENT_TYPES.TASK_RELEASED,
+        actor: agent,
+        payload: { itemId: item.id, storyId: item.parentId || item.id, oldStatus, newStatus: item.status }
+      });
+    }
+
+    return { success: true, storyId: item.id, taskId: item.id, status: item.status };
   }
 
   /**
