@@ -502,6 +502,47 @@ export async function cmdGetBlockers(ctx, args) {
   return { blockers: detailedBlockers, count: detailedBlockers.length };
 }
 
+export function normalizeEvidence(args) {
+  let evidence = args.evidence;
+  if (typeof evidence === 'string') {
+    try {
+      evidence = JSON.parse(evidence);
+    } catch {
+      evidence = { notes: evidence };
+    }
+  }
+
+  const commitHash = args.commitHash || args.commit;
+  const testCommand = args.testCommand || args.test;
+  const exitCode = args.testExitCode !== undefined 
+    ? Number(args.testExitCode) 
+    : (args.exitCode !== undefined 
+      ? Number(args.exitCode) 
+      : (args['exit-code'] !== undefined ? Number(args['exit-code']) : undefined));
+
+  if (!evidence && (commitHash || testCommand || exitCode !== undefined || args.notes)) {
+    evidence = {};
+    if (commitHash) evidence.commitHash = commitHash;
+    if (args.changedFiles && Array.isArray(args.changedFiles)) evidence.changedFiles = args.changedFiles;
+    if (testCommand || exitCode !== undefined) {
+      evidence.automatedChecks = {
+        testCommand: testCommand || 'automated-test',
+        exitCode: exitCode !== undefined ? exitCode : 0,
+        passedCount: args.passedCount !== undefined ? Number(args.passedCount) : (args.passed !== undefined ? Number(args.passed) : undefined),
+        failedCount: args.failedCount !== undefined ? Number(args.failedCount) : (args.failed !== undefined ? Number(args.failed) : undefined)
+      };
+    }
+    if (args.notes) {
+      evidence.manualVerification = {
+        notes: args.notes,
+        verifiedBy: args.agent || args.agentId
+      };
+    }
+  }
+
+  return evidence;
+}
+
 export async function cmdUpdateStatus(ctx, args) {
   const itemId = args.storyId || args.taskId || args.id;
   if (!itemId || !args.status) {
@@ -513,16 +554,18 @@ export async function cmdUpdateStatus(ctx, args) {
   }
 
   try {
+    const evidence = normalizeEvidence(args);
+
     const metadata = {
       reason: args.reason,
       agentId: args.agent || args.agentId,
       leaseMinutes: args.lease ? Number(args.lease) : null,
-      evidence: args.evidence
+      evidence
     };
 
     const options = {
       force: !!args.force,
-      strictEvidence: !!args.strictEvidence
+      strictEvidence: !!(args.strictEvidence || args.strict)
     };
 
     const success = ctx.updateStoryStatus(itemId, args.status, metadata, options);
@@ -531,7 +574,7 @@ export async function cmdUpdateStatus(ctx, args) {
       return { error: `${noun} not found: ${itemId}` };
     }
     
-    return { success: true, storyId: itemId, taskId: itemId, status: args.status };
+    return { success: true, storyId: itemId, taskId: itemId, status: args.status, evidence };
   } catch (err) {
     return { error: err.message };
   }

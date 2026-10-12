@@ -123,7 +123,35 @@ export function registerCoreTools(registry) {
             reason: { type: 'string', description: 'Reason for transition or blocker description' },
             agentId: { type: 'string', description: 'Agent ID performing the transition' },
             force: { type: 'boolean', description: 'Force illegal state transition if authorized' },
-            evidence: { type: 'object', description: 'Verification evidence (e.g. commitHash, changedFiles, automatedChecks, manualVerification)' },
+            evidence: {
+              type: 'object',
+              description: 'Verification evidence proving Definition of Done',
+              properties: {
+                commitHash: { type: 'string', description: 'Git commit hash' },
+                changedFiles: { type: 'array', items: { type: 'string' }, description: 'List of modified file paths' },
+                automatedChecks: {
+                  type: 'object',
+                  description: 'Automated test suite execution result',
+                  properties: {
+                    testCommand: { type: 'string', description: 'Test command executed' },
+                    exitCode: { type: 'number', description: 'Process exit code (0 for success)' },
+                    passedCount: { type: 'number', description: 'Number of tests passed' },
+                    failedCount: { type: 'number', description: 'Number of tests failed' }
+                  }
+                },
+                manualVerification: {
+                  type: 'object',
+                  description: 'Human or manual inspection notes',
+                  properties: {
+                    verifiedBy: { type: 'string', description: 'Verifier name or agent id' },
+                    notes: { type: 'string', description: 'Notes on manual verification' }
+                  }
+                }
+              }
+            },
+            commitHash: { type: 'string', description: 'Top-level shorthand for git commit hash' },
+            testCommand: { type: 'string', description: 'Top-level shorthand for test command executed' },
+            testExitCode: { type: 'number', description: 'Top-level shorthand for test process exit code (0 for success)' },
             strictEvidence: { type: 'boolean', description: 'Require verification evidence before marking verified or done' }
           },
           required: ['status']
@@ -143,7 +171,10 @@ export function registerCoreTools(registry) {
         agent: args.agentId,
         force: !!args.force,
         evidence: args.evidence,
-        strictEvidence: !!args.strictEvidence
+        strictEvidence: !!args.strictEvidence,
+        commitHash: args.commitHash,
+        testCommand: args.testCommand,
+        testExitCode: args.testExitCode
       });
       return this.formatSuccess(res);
     }
