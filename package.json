@@ -12,7 +12,10 @@
     "skyhook/**/*"
   ],
   "scripts": {
-    "test": "node --test skyhook/test/*.test.js"
+    "test": "node skyhook/test/run-unit-tests.js",
+    "test:unit": "node skyhook/test/run-unit-tests.js",
+    "test:integration": "node --test --test-timeout=5000 skyhook/test/server-*.test.js skyhook/test/adr-server-api.test.js skyhook/test/adr-watcher.test.js skyhook/test/dashboard-api.test.js skyhook/test/dashboard-harness.test.js skyhook/test/dark-matter.test.js skyhook/test/mcp-server.test.js",
+    "test:all": "npm run test:unit && npm run test:integration"
   },
   "keywords": [
     "ai",

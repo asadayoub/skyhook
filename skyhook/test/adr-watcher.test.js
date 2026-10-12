@@ -48,14 +48,21 @@ test('ADRWatcher triggers onChange callback when markdown file is modified', asy
   const mdFile = path.join(recordsDir, 'ADR-001.md');
   fs.writeFileSync(mdFile, '# Decision: Test Decision\n\n**ID**: ADR-001\n**Status**: proposed\n', 'utf-8');
 
-  let eventFired = false;
-  let receivedFilename = null;
+  let changeResolver;
+  const changePromise = new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error('ADRWatcher did not fire change event within 2000ms'));
+    }, 2000);
+    changeResolver = (filename) => {
+      clearTimeout(timer);
+      resolve(filename);
+    };
+  });
 
   const watcher = new ADRWatcher(skyhookDir, {
     debounceMs: 50,
     onChange: ({ filename }) => {
-      eventFired = true;
-      receivedFilename = filename;
+      if (changeResolver) changeResolver(filename);
     }
   });
 
@@ -65,14 +72,7 @@ test('ADRWatcher triggers onChange callback when markdown file is modified', asy
     // Modify file
     fs.writeFileSync(mdFile, '# Decision: Test Decision\n\n**ID**: ADR-001\n**Status**: accepted\n', 'utf-8');
 
-    // Wait up to 1000ms for debounce and macOS fs.watch notification
-    let waited = 0;
-    while (!eventFired && waited < 20) {
-      await new Promise(resolve => setTimeout(resolve, 50));
-      waited++;
-    }
-
-    assert.strictEqual(eventFired, true);
+    const receivedFilename = await changePromise;
     assert.strictEqual(receivedFilename, 'ADR-001.md');
   } finally {
     watcher.stop();
