@@ -103,6 +103,10 @@ export async function cmdVerifyADR(ctx, args = {}) {
   const guard = new ADRPolicyGuard(ctx.skyhookDir, process.cwd());
   const result = await guard.verifyPolicies(enrichedDecisions);
 
+  if (result.status === 'no_policies' || result.evaluated === false) {
+    result.remediation = 'To configure architectural rules, define enforcement in .skyhook/decisions/records/*.md with "Enforcement: rules: ...".';
+  }
+
   return result;
 }
 

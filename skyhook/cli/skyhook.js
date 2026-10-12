@@ -48,7 +48,21 @@ function formatResult(result, args = {}) {
   }
 
   if (result.message) {
-    log('success', result.message);
+    if (result.status === 'no_policies' || result.status === 'unconfigured' || result.evaluated === false) {
+      log('warn', result.message);
+      if (result.remediation) {
+        log('info', `↳ ${result.remediation}`);
+      }
+    } else if (result.status === 'failed' || result.passed === false) {
+      log('error', result.message);
+      if (Array.isArray(result.violations) && result.violations.length > 0) {
+        for (const v of result.violations) {
+          log('error', `  - [${v.adrId}] ${v.file}:${v.line} -> ${v.message}`);
+        }
+      }
+    } else {
+      log('success', result.message);
+    }
   }
   
   if (result.path) {
