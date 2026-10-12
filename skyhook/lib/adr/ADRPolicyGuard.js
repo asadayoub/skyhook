@@ -38,10 +38,13 @@ export class ADRPolicyGuard {
 
     if (activePolicies.length === 0) {
       return {
+        status: 'no_policies',
         passed: true,
+        evaluated: false,
         policiesCount: 0,
+        filesScanned: 0,
         violations: [],
-        message: 'No active ADR enforcement policies found.'
+        message: 'No active ADR enforcement policies configured. Architectural policy coverage was not evaluated.'
       };
     }
 
@@ -99,10 +102,15 @@ export class ADRPolicyGuard {
     }
 
     return {
+      status: violations.length === 0 ? 'passed' : 'failed',
       passed: violations.length === 0,
+      evaluated: true,
       policiesCount: activePolicies.length,
       filesScanned: sourceFiles.length,
-      violations
+      violations,
+      message: violations.length === 0
+        ? `Architectural policies verified: ${activePolicies.length} active rule(s) checked with 0 violations across ${sourceFiles.length} file(s).`
+        : `Architectural policy verification failed: ${violations.length} violation(s) detected across ${activePolicies.length} rule(s).`
     };
   }
 
