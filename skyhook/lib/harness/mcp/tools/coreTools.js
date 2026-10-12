@@ -263,7 +263,7 @@ export function registerCoreTools(registry) {
     constructor() {
       super(
         'skyhook_check_drift',
-        'Scan the codebase for architectural drift, Domain-Driven Design (DDD) layer violations, and circular dependency loops.',
+        'Scan the codebase for architectural drift, Domain-Driven Design (DDD) layer violations, and circular dependency loops. Returns unified health score and concrete, machine-executable prescribedActions with MCP tool calls.',
         {
           type: 'object',
           properties: {

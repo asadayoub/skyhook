@@ -220,6 +220,14 @@ export async function cmdDrift(ctx, args = {}) {
         console.log(`  ${idx + 1}. [${w.type}] ${w.message}`);
       });
     }
+
+    if (scorecard.prescribedActions && scorecard.prescribedActions.length > 0) {
+      console.log(`\n💡 Prescribed Remediation Actions (${scorecard.prescribedActions.length}):`);
+      scorecard.prescribedActions.forEach((act, idx) => {
+        console.log(`  ${idx + 1}. [${act.mcpTool}] ${act.description}`);
+        console.log(`     ↳ Args: ${JSON.stringify(act.arguments)}`);
+      });
+    }
   }
 
   // CI Check Gate

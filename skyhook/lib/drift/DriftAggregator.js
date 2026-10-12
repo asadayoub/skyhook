@@ -153,6 +153,9 @@ export class DriftAggregator {
     const allViolations = [...criticalViolations, ...warnings];
     const remediation = DriftAutoFixer.generateRemediationGuide(allViolations);
 
+    // Generate Machine-Executable Prescribed Actions
+    const prescribedActions = this.generatePrescribedActions(allViolations, boundaryResult.circularCycles);
+
     return {
       healthScore,
       pass: criticalViolations.length === 0,
@@ -164,7 +167,8 @@ export class DriftAggregator {
         nodesCount: importGraph.nodes.size,
         edgesCount: importGraph.edges.length,
         externalPackagesCount: importGraph.externalPackages.size,
-        circularCyclesCount: boundaryResult.circularCycles.length
+        circularCyclesCount: boundaryResult.circularCycles.length,
+        prescribedActionsCount: prescribedActions.length
       },
       criticalViolations,
       warnings,
@@ -183,7 +187,189 @@ export class DriftAggregator {
           usedIn: Array.from(files)
         }))
       },
-      remediation
+      remediation,
+      prescribedActions
     };
+  }
+
+  /**
+   * Generate concrete, machine-executable MCP remediation actions for drift items
+   * @param {Array<Object>} violations
+   * @param {Array<Array<string>>} [circularCycles=[]]
+   * @returns {Array<Object>} List of prescribed actions with concrete tool calls
+   */
+  generatePrescribedActions(violations = [], circularCycles = []) {
+    const actions = [];
+    let actionIdCounter = 1;
+
+    // 1. Process Circular Dependency Cycles
+    for (const cycle of circularCycles) {
+      if (!Array.isArray(cycle) || cycle.length === 0) continue;
+      const cycleDisplay = cycle.map(f => path.basename(f)).join(' ➔ ');
+      actions.push({
+        id: `action-break-cycle-${actionIdCounter++}`,
+        type: 'circular_dependency',
+        priority: 'critical',
+        description: `Break circular dependency cycle: ${cycleDisplay}`,
+        mcpTool: 'skyhook_create_task',
+        arguments: {
+          title: `Break circular dependency cycle: ${cycleDisplay}`,
+          description: `Refactor mutual imports across circular dependency path: ${cycle.join(' -> ')}. Extract common types, interfaces, or utilities into a shared module.`,
+          type: 'refactor',
+          priority: 'critical'
+        },
+        cycle
+      });
+    }
+
+    // 2. Process Violations
+    for (const v of violations) {
+      // 2a. Package Drift
+      if (v.type === 'PACKAGE_DRIFT') {
+        const pkgName = v.orm || v.database || v.styling || v.name || (v.message && v.message.match(/'([^']+)'/)?.[1]) || 'Unknown';
+        const category = v.category || (v.type && v.type.toLowerCase().includes('database') ? 'Database' : 'Technology');
+
+        if (pkgName && pkgName !== 'Unknown') {
+          // Action A: Adopt drift into tech-stack.yaml
+          actions.push({
+            id: `action-adopt-package-${actionIdCounter++}`,
+            type: 'package_drift',
+            priority: 'medium',
+            description: `Adopt detected package '${pkgName}' into .skyhook/tech-stack.yaml`,
+            mcpTool: 'skyhook_adopt_drift',
+            arguments: {
+              technologies: [
+                { name: pkgName, category }
+              ]
+            },
+            package: pkgName
+          });
+
+          // Action B: Draft ADR for package adoption
+          actions.push({
+            id: `action-draft-adr-${actionIdCounter++}`,
+            type: 'package_drift',
+            priority: 'medium',
+            description: `Draft Architecture Decision Record (ADR) for adoption of '${pkgName}'`,
+            mcpTool: 'skyhook_draft_adr',
+            arguments: {
+              title: `Adopt ${pkgName} for ${category}`,
+              decision: `Formally adopt ${pkgName} into the system architecture to satisfy project requirements.`,
+              context: `Automated drift detection identified introduction of ${pkgName} in codebase.`,
+              category: category.toLowerCase()
+            },
+            package: pkgName
+          });
+        }
+      }
+
+      // 2b. Boundary Layer Violations / Encapsulation Breaches
+      else if (v.type === 'LAYER_VIOLATION' || v.type === 'ENCAPSULATION_BREACH') {
+        const targetFile = v.file || v.from || 'unknown';
+        const baseTarget = path.basename(targetFile);
+        const toDest = v.toLayer || v.module || path.basename(v.to || 'infrastructure');
+
+        // Action A: Refactor boundary breach
+        actions.push({
+          id: `action-decouple-layer-${actionIdCounter++}`,
+          type: 'boundary_violation',
+          priority: 'critical',
+          description: `Decouple ${baseTarget} from ${toDest} to restore layer encapsulation`,
+          mcpTool: 'skyhook_create_task',
+          arguments: {
+            title: `Decouple ${baseTarget} from ${toDest}`,
+            description: `Refactor ${targetFile}${v.line ? ':' + v.line : ''} to remove unauthorized import from ${toDest}. Inject dependencies via interface or repository pattern.`,
+            type: 'refactor',
+            priority: 'critical'
+          },
+          targetFile,
+          line: v.line
+        });
+
+        // Action B: Authorize Layer Exception ADR
+        actions.push({
+          id: `action-exception-adr-${actionIdCounter++}`,
+          type: 'boundary_violation',
+          priority: 'high',
+          description: `Record an accepted ADR granting an architectural exception for ${baseTarget} -> ${toDest}`,
+          mcpTool: 'skyhook_record_decision',
+          arguments: {
+            title: `Authorize Architecture Boundary Exception: ${baseTarget} to ${toDest}`,
+            decision: `Authorize direct import in ${targetFile}${v.line ? ':' + v.line : ''} with documented boundary constraints.`,
+            context: `Boundary analysis detected cross-layer access from ${v.fromLayer || 'caller'} to ${toDest}.`,
+            status: 'accepted',
+            category: 'architecture'
+          },
+          targetFile,
+          line: v.line
+        });
+      }
+
+      // 2c. Circular Dependency violation object
+      else if (v.type === 'CIRCULAR_DEPENDENCY' && Array.isArray(v.cycle)) {
+        const cycle = v.cycle;
+        const cycleDisplay = cycle.map(f => path.basename(f)).join(' ➔ ');
+        const alreadyAdded = actions.some(a => a.type === 'circular_dependency' && JSON.stringify(a.cycle) === JSON.stringify(cycle));
+        if (!alreadyAdded) {
+          actions.push({
+            id: `action-break-cycle-${actionIdCounter++}`,
+            type: 'circular_dependency',
+            priority: 'critical',
+            description: `Break circular dependency cycle: ${cycleDisplay}`,
+            mcpTool: 'skyhook_create_task',
+            arguments: {
+              title: `Break circular dependency cycle: ${cycleDisplay}`,
+              description: `Refactor mutual imports across circular dependency path: ${cycle.join(' -> ')}. Extract common types, interfaces, or utilities into a shared module.`,
+              type: 'refactor',
+              priority: 'critical'
+            },
+            cycle
+          });
+        }
+      }
+
+      // 2d. Semantic Rule Violations
+      else if (v.type && v.type.startsWith('SEMANTIC')) {
+        const targetFile = v.file || 'unknown';
+        const ruleName = v.ruleId || 'semantic-rule';
+        actions.push({
+          id: `action-semantic-fix-${actionIdCounter++}`,
+          type: 'semantic_violation',
+          priority: v.severity === 'error' ? 'high' : 'medium',
+          description: `Remediate ${ruleName} in ${path.basename(targetFile)}${v.line ? ':' + v.line : ''}`,
+          mcpTool: 'skyhook_create_task',
+          arguments: {
+            title: `Remediate ${ruleName} in ${path.basename(targetFile)}`,
+            description: v.suggestion || `Refactor ${targetFile}${v.line ? ':' + v.line : ''} to comply with semantic architectural rule '${ruleName}'.`,
+            type: 'refactor',
+            priority: v.severity === 'error' ? 'high' : 'medium'
+          },
+          targetFile,
+          line: v.line
+        });
+      }
+
+      // 2e. ADR Policy Violations
+      else if (v.type === 'ADR_POLICY_VIOLATION') {
+        const targetFile = v.file || 'unknown';
+        actions.push({
+          id: `action-adr-policy-fix-${actionIdCounter++}`,
+          type: 'adr_policy_violation',
+          priority: 'critical',
+          description: `Fix ADR policy violation [${v.adrId || 'ADR'}] in ${path.basename(targetFile)}`,
+          mcpTool: 'skyhook_create_task',
+          arguments: {
+            title: `Fix ADR policy violation [${v.adrId || 'ADR'}] in ${path.basename(targetFile)}`,
+            description: `Remediate ${targetFile}${v.line ? ':' + v.line : ''}: ${v.message || 'ADR policy violated'}.`,
+            type: 'refactor',
+            priority: 'critical'
+          },
+          targetFile,
+          line: v.line
+        });
+      }
+    }
+
+    return actions;
   }
 }
