@@ -117,12 +117,14 @@ export function registerCoreTools(registry) {
             taskId: { type: 'string', description: 'Optional explicit task ID alias' },
             status: {
               type: 'string',
-              enum: ['backlog', 'ready', 'in-progress', 'in-review', 'done', 'blocked', 'cancelled'],
+              enum: ['backlog', 'ready', 'in-progress', 'implemented', 'in-review', 'verified', 'done', 'blocked', 'cancelled'],
               description: 'Target work item status'
             },
             reason: { type: 'string', description: 'Reason for transition or blocker description' },
             agentId: { type: 'string', description: 'Agent ID performing the transition' },
-            force: { type: 'boolean', description: 'Force illegal state transition if authorized' }
+            force: { type: 'boolean', description: 'Force illegal state transition if authorized' },
+            evidence: { type: 'object', description: 'Verification evidence (e.g. commitHash, changedFiles, automatedChecks, manualVerification)' },
+            strictEvidence: { type: 'boolean', description: 'Require verification evidence before marking verified or done' }
           },
           required: ['status']
         }
@@ -139,7 +141,9 @@ export function registerCoreTools(registry) {
         status: args.status,
         reason: args.reason,
         agent: args.agentId,
-        force: !!args.force
+        force: !!args.force,
+        evidence: args.evidence,
+        strictEvidence: !!args.strictEvidence
       });
       return this.formatSuccess(res);
     }

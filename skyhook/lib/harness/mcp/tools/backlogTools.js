@@ -33,7 +33,7 @@ export function registerBacklogTools(registry) {
           properties: {
             status: {
               type: 'string',
-              enum: ['all', 'backlog', 'ready', 'in-progress', 'in-review', 'done', 'blocked'],
+              enum: ['all', 'backlog', 'ready', 'in-progress', 'implemented', 'in-review', 'verified', 'done', 'blocked'],
               default: 'all',
               description: 'Filter stories by status'
             }
@@ -205,7 +205,7 @@ export function registerBacklogTools(registry) {
           type: 'object',
           properties: {
             parentId: { type: 'string', description: 'Filter tasks under a specific story or epic' },
-            status: { type: 'string', enum: ['all', 'backlog', 'ready', 'in-progress', 'in-review', 'done', 'blocked'], default: 'all' },
+            status: { type: 'string', enum: ['all', 'backlog', 'ready', 'in-progress', 'implemented', 'in-review', 'verified', 'done', 'blocked'], default: 'all' },
             type: { type: 'string', enum: ['feature', 'bug', 'chore', 'spike', 'test', 'refactor'], description: 'Filter by task type' },
             priority: { type: 'string', enum: ['critical', 'high', 'medium', 'low'] }
           }
@@ -251,12 +251,14 @@ export function registerBacklogTools(registry) {
             taskId: { type: 'string', description: 'The task ID' },
             status: {
               type: 'string',
-              enum: ['backlog', 'ready', 'in-progress', 'in-review', 'done', 'blocked', 'cancelled'],
+              enum: ['backlog', 'ready', 'in-progress', 'implemented', 'in-review', 'verified', 'done', 'blocked', 'cancelled'],
               description: 'Target status'
             },
             reason: { type: 'string', description: 'Reason for status update or blocker description' },
             agentId: { type: 'string', description: 'Agent ID performing the update' },
-            force: { type: 'boolean', description: 'Force override state machine constraints' }
+            force: { type: 'boolean', description: 'Force override state machine constraints' },
+            evidence: { type: 'object', description: 'Verification evidence (e.g. commitHash, changedFiles, automatedChecks, manualVerification)' },
+            strictEvidence: { type: 'boolean', description: 'Require verification evidence before marking verified or done' }
           },
           required: ['taskId', 'status']
         }

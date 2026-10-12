@@ -4,7 +4,7 @@ import { generateULID, getTimestamp, writeYaml } from '../utils.js';
 import { DependencyResolver } from '../backlog/DependencyResolver.js';
 import { TaskLeaseManager } from '../backlog/TaskLeaseManager.js';
 import { BacklogLock } from '../backlog/BacklogLock.js';
-import { BacklogStateMachine } from '../backlog/BacklogStateMachine.js';
+import { BacklogStateMachine, VALID_STATUSES } from '../backlog/BacklogStateMachine.js';
 import { EventLedger, EVENT_TYPES } from '../backlog/EventLedger.js';
 
 export async function cmdListCurrentFeatures(ctx, args) {
@@ -508,20 +508,21 @@ export async function cmdUpdateStatus(ctx, args) {
     return { error: 'Missing required: storyId/taskId, status' };
   }
   
-  const validStatuses = ['backlog', 'ready', 'in-progress', 'in-review', 'done', 'blocked', 'cancelled'];
-  if (!validStatuses.includes(args.status)) {
-    return { error: 'Invalid status. Must be one of: ' + validStatuses.join(', ') };
+  if (!VALID_STATUSES.includes(args.status)) {
+    return { error: 'Invalid status. Must be one of: ' + VALID_STATUSES.join(', ') };
   }
 
   try {
     const metadata = {
       reason: args.reason,
       agentId: args.agent || args.agentId,
-      leaseMinutes: args.lease ? Number(args.lease) : null
+      leaseMinutes: args.lease ? Number(args.lease) : null,
+      evidence: args.evidence
     };
 
     const options = {
-      force: !!args.force
+      force: !!args.force,
+      strictEvidence: !!args.strictEvidence
     };
 
     const success = ctx.updateStoryStatus(itemId, args.status, metadata, options);

@@ -13,7 +13,9 @@ export const VALID_STATUSES = [
   'backlog',
   'ready',
   'in-progress',
+  'implemented',
   'in-review',
+  'verified',
   'done',
   'blocked',
   'cancelled'
@@ -22,8 +24,10 @@ export const VALID_STATUSES = [
 export const ALLOWED_TRANSITIONS = {
   backlog: ['ready', 'cancelled', 'in-progress'],
   ready: ['in-progress', 'blocked', 'backlog', 'cancelled'],
-  'in-progress': ['in-review', 'blocked', 'ready', 'cancelled', 'done'],
-  'in-review': ['done', 'in-progress', 'blocked', 'cancelled'],
+  'in-progress': ['implemented', 'in-review', 'blocked', 'ready', 'cancelled', 'done'],
+  implemented: ['verified', 'in-review', 'in-progress', 'blocked', 'cancelled', 'done'],
+  'in-review': ['verified', 'done', 'in-progress', 'blocked', 'cancelled'],
+  verified: ['done', 'in-review', 'in-progress', 'blocked', 'cancelled'],
   blocked: ['ready', 'in-progress', 'cancelled'],
   done: ['in-progress'], // Allow reopening when defects are found
   cancelled: ['backlog'] // Allow restoring cancelled work
@@ -103,22 +107,52 @@ export class BacklogStateMachine {
       }
     }
 
-    // Guard 4: Definition of Done (DoD) - Transitioning to 'done'
-    if (targetStatus === 'done' && !options.force) {
-      // Subtask completeness check
+    // Guard 4: Definition of Done (DoD) - Subtask completeness check
+    if (['implemented', 'verified', 'done'].includes(targetStatus) && !options.force) {
       if (Array.isArray(item.subtasks) && item.subtasks.length > 0) {
         const uncompleted = item.subtasks.filter(s => !s.completed);
         if (uncompleted.length > 0) {
           return {
             valid: false,
-            error: `Cannot mark '${item.id}' as done: ${uncompleted.length} uncompleted subtask(s) remain. Complete all subtasks or use --force to override.`
+            error: `Cannot mark '${item.id}' as ${targetStatus}: ${uncompleted.length} uncompleted subtask(s) remain. Complete all subtasks or use --force to override.`
           };
         }
       }
 
-      const ac = item.acceptanceCriteria || [];
-      if (ac.length === 0 && !item.subtasks) {
-        warnings.push('Story marked done with no acceptance criteria defined.');
+      if (targetStatus === 'done') {
+        const ac = item.acceptanceCriteria || [];
+        if (ac.length === 0 && !item.subtasks) {
+          warnings.push('Story marked done with no acceptance criteria defined.');
+        }
+      }
+    }
+
+    // Guard 5: Evidence Validation Guard (Transitioning to 'verified' or 'done')
+    if (['verified', 'done'].includes(targetStatus)) {
+      const evidence = (options.metadata && options.metadata.evidence) || options.evidence || item.evidence;
+
+      // 1. Automated checks integrity
+      if (evidence && evidence.automatedChecks && typeof evidence.automatedChecks.exitCode === 'number') {
+        if (evidence.automatedChecks.exitCode !== 0 && !options.force) {
+          return {
+            valid: false,
+            error: `Cannot transition '${item.id}' to '${targetStatus}': automated check failed with exit code ${evidence.automatedChecks.exitCode}. Fix failing tests before verifying.`
+          };
+        }
+      }
+
+      // 2. Strict evidence enforcement
+      const isStrict = options.strictEvidence || options.strict;
+      if (isStrict && !evidence && !options.force) {
+        return {
+          valid: false,
+          error: `Cannot mark '${item.id}' as ${targetStatus} without verification evidence (strictEvidence enabled). Provide test results or use --force.`
+        };
+      }
+
+      // 3. Advisory warning for unverified done
+      if (targetStatus === 'done' && !evidence) {
+        warnings.push('Item marked done without automated verification evidence.');
       }
     }
 
@@ -170,6 +204,12 @@ export class BacklogStateMachine {
     if (targetStatus === 'in-progress' && !item.startedAt) {
       item.startedAt = now;
     }
+    if (targetStatus === 'implemented' && !item.implementedAt) {
+      item.implementedAt = now;
+    }
+    if (targetStatus === 'verified' && !item.verifiedAt) {
+      item.verifiedAt = now;
+    }
     if (targetStatus === 'done') {
       item.completedAt = now;
       delete item.lease;
@@ -181,6 +221,17 @@ export class BacklogStateMachine {
     }
     if (targetStatus !== 'blocked' && oldStatus === 'blocked') {
       delete item.blockerReason;
+    }
+
+    // Evidence recording
+    const evidence = (metadata && metadata.evidence) || options.evidence;
+    if (evidence) {
+      item.evidence = evidence;
+      item.verificationStatus = 'verified';
+    } else if (targetStatus === 'verified') {
+      item.verificationStatus = 'verified';
+    } else if (targetStatus === 'done' && !item.verificationStatus) {
+      item.verificationStatus = 'unverified';
     }
 
     // Handle agent assignment or lease
@@ -208,10 +259,10 @@ export class BacklogStateMachine {
             if (!parentStory.startedAt) parentStory.startedAt = now;
             rolledUpStory = { id: parentStory.id, status: 'in-progress' };
           }
-          // If task finishes, check if all sibling tasks are done
-          if (targetStatus === 'done') {
+          // If task finishes, check if all sibling tasks are done or verified
+          if (targetStatus === 'done' || targetStatus === 'verified') {
             const siblingTasks = backlog.tasks.filter(t => t.parentId === parentStory.id);
-            const allTasksDone = siblingTasks.length > 0 && siblingTasks.every(t => t.status === 'done');
+            const allTasksDone = siblingTasks.length > 0 && siblingTasks.every(t => t.status === 'done' || t.status === 'verified');
             if (allTasksDone && parentStory.status !== 'done') {
               parentStory.status = 'in-review';
               parentStory.updatedAt = now;
