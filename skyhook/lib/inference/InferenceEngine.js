@@ -1,4 +1,7 @@
 import { PackageJsonProvider } from './providers/PackageJsonProvider.js';
+import { PythonProvider } from './providers/PythonProvider.js';
+import { GoModProvider } from './providers/GoModProvider.js';
+import { CargoTomlProvider } from './providers/CargoTomlProvider.js';
 import { PrismaProvider } from './providers/PrismaProvider.js';
 import { ConfigProvider } from './providers/ConfigProvider.js';
 import { DeploymentProvider } from './providers/DeploymentProvider.js';
@@ -9,6 +12,9 @@ export class InferenceEngine {
   constructor() {
     this.providers = [
       new PackageJsonProvider(),
+      new PythonProvider(),
+      new GoModProvider(),
+      new CargoTomlProvider(),
       new PrismaProvider(),
       new ConfigProvider(),
       new DeploymentProvider(),
