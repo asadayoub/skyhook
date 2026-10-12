@@ -25,7 +25,8 @@ export function registerCoreTools(registry) {
             epic: { type: 'string', description: 'Filter task by epic ID' },
             type: { type: 'string', enum: ['feature', 'bug', 'chore', 'spike', 'test', 'refactor'], description: 'Filter task by work item type' },
             lease: { type: 'number', description: 'Lease duration in minutes (default 30)' },
-            claim: { type: 'boolean', description: 'Atomically transition claimed task to in-progress and return full execution context packet' }
+            claim: { type: 'boolean', description: 'Atomically transition claimed task to in-progress and return full execution context packet' },
+            exclusiveFiles: { type: 'boolean', default: true, description: 'Prevent claiming tasks that share targetFiles with an active lease' }
           }
         }
       );
@@ -40,7 +41,8 @@ export function registerCoreTools(registry) {
           story: args.story,
           epic: args.epic,
           type: args.type,
-          lease: args.lease
+          lease: args.lease,
+          exclusiveFiles: args.exclusiveFiles
         });
         if (res.error) {
           return this.formatError(res.error);
@@ -55,7 +57,8 @@ export function registerCoreTools(registry) {
         story: args.story,
         epic: args.epic,
         type: args.type,
-        lease: args.lease
+        lease: args.lease,
+        exclusiveFiles: args.exclusiveFiles
       });
       return this.formatSuccess(res);
     }

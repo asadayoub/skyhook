@@ -112,6 +112,12 @@ export async function cmdGetNextTask(ctx, args = {}) {
         if (!agentId || parentStory.lease.agentId !== agentId) return false;
       }
 
+      // Exclusive file lock check
+      if (args.exclusiveFiles !== false && Array.isArray(t.targetFiles) && t.targetFiles.length > 0) {
+        const fileConflicts = TaskLeaseManager.checkFileConflicts(t, allTasks);
+        if (fileConflicts.some(c => !agentId || c.agentId !== agentId)) return false;
+      }
+
       return true;
     });
     candidateTasks = sortByPriority(candidateTasks);
@@ -283,6 +289,19 @@ export async function cmdClaimTask(ctx, args = {}) {
             error: `Work item '${chosen.id}' is already leased by agent '${chosen.lease.agentId}' until ${chosen.lease.expiresAt}`
           };
         }
+
+        // Validate file lock contention
+        if (args.exclusiveFiles !== false && Array.isArray(chosen.targetFiles) && chosen.targetFiles.length > 0) {
+          const fileConflicts = TaskLeaseManager.checkFileConflicts(chosen, allTasks);
+          const otherConflict = fileConflicts.find(c => !agentId || c.agentId !== agentId);
+          if (otherConflict) {
+            return {
+              success: false,
+              claimed: false,
+              error: `File lock contention: target files [${otherConflict.conflictingFiles.join(', ')}] actively locked by agent '${otherConflict.agentId}' on ${otherConflict.taskId}`
+            };
+          }
+        }
       }
     } else {
       const priorityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
@@ -307,6 +326,12 @@ export async function cmdClaimTask(ctx, args = {}) {
 
           const parentStory = allStories.find(s => s.id === t.parentId);
           if (parentStory && TaskLeaseManager.isLeased(parentStory) && parentStory.lease.agentId !== agentId) return false;
+
+          // Exclusive file lock check
+          if (args.exclusiveFiles !== false && Array.isArray(t.targetFiles) && t.targetFiles.length > 0) {
+            const conflicts = TaskLeaseManager.checkFileConflicts(t, allTasks);
+            if (conflicts.some(c => !agentId || c.agentId !== agentId)) return false;
+          }
 
           if (!args.force) {
             const decData = typeof ctx.readDecisions === 'function' ? ctx.readDecisions() : { decisions: [] };
@@ -697,6 +722,11 @@ export async function cmdAddTask(ctx, args) {
   if (!parentId) return { error: 'Missing required: parentId (or storyId / epicId)' };
 
   try {
+    let targetFiles = args.targetFiles;
+    if (typeof targetFiles === 'string') {
+      targetFiles = targetFiles.split(',').map(s => s.trim()).filter(Boolean);
+    }
+
     const task = ctx.addTask({
       title: args.title,
       description: args.description,
@@ -707,7 +737,7 @@ export async function cmdAddTask(ctx, args) {
       priority: args.priority || 'medium',
       storyPoints: args.storyPoints,
       estimatedMinutes: args.estimatedMinutes,
-      targetFiles: args.targetFiles,
+      targetFiles,
       standards: args.standards,
       dependsOn: args.dependsOn,
       subtasks: args.subtasks,
