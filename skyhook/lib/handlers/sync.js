@@ -3,7 +3,7 @@ import path from 'path';
 import { loadProfile } from '../utils.js';
 import { inferFromRepo } from '../inference/InferenceEngine.js';
 import { detectDrift } from '../drift-analyzer.js';
-import { traceRequirement, analyzeImpact, findUntracedRequirements, generateCoverageHeatmap, indexCodebase } from '../tracer.js';
+import { traceRequirement, analyzeImpact, findUntracedRequirements, generateCoverageHeatmap, indexCodebase, mapRequirementToFile } from '../tracer.js';
 import { ADRSyncEngine } from '../adr/ADRSyncEngine.js';
 import { PlanCompiler } from '../plan/PlanCompiler.js';
 import { DriftAggregator } from '../drift/DriftAggregator.js';
@@ -282,10 +282,26 @@ export async function cmdDrift(ctx, args = {}) {
   return scorecard;
 }
 
-export async function cmdTrace(ctx, args) {
-  if (!args.id) return { error: 'Missing required: id (requirement ID)' };
+export async function cmdTrace(ctx, args = {}) {
   const projectDir = ctx?.projectDir || (ctx?.skyhookDir ? path.dirname(ctx.skyhookDir) : process.cwd());
-  return traceRequirement(projectDir, args.id, { lineage: Boolean(args.lineage) });
+
+  if (args.map) {
+    const reqId = args.id || (typeof args.map === 'string' && args.map !== 'true' ? args.map : args._?.[0]);
+    const targetFile = args.file || args.to || args._?.[1] || args._?.[0];
+    if (!reqId || !targetFile) {
+      return { error: 'Missing required arguments for mapping: skyhook trace --map <requirementId> <file>' };
+    }
+    const mapResult = mapRequirementToFile(projectDir, reqId, targetFile, args.symbol || null);
+    if (!args.quiet) {
+      console.log(`\n🎯 External Traceability Mapping Created:`);
+      console.log(`✅ ${mapResult.message}`);
+    }
+    return mapResult;
+  }
+
+  const reqId = args.id || args._?.[0];
+  if (!reqId) return { error: 'Missing required: id (requirement ID)' };
+  return traceRequirement(projectDir, reqId, { lineage: Boolean(args.lineage) });
 }
 
 export async function cmdImpact(ctx, args) {

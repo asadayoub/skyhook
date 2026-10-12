@@ -255,7 +255,226 @@ export async function indexCodebase(projectDir) {
   }
 
   await searchDir(projectDir);
+  resolveTraceabilityTiers(allSymbols, projectDir);
   return allSymbols;
+}
+
+/**
+ * Load external traceability mappings from .skyhook/traceability.yaml
+ */
+export function loadTraceabilityManifest(skyhookDir) {
+  if (!skyhookDir) return { mappings: [] };
+  const candidates = [
+    path.join(skyhookDir, 'traceability.yaml'),
+    path.join(skyhookDir, 'traceability.yml')
+  ];
+  for (const c of candidates) {
+    if (fs.existsSync(c)) {
+      const parsed = readYaml(c);
+      if (parsed && Array.isArray(parsed.mappings)) {
+        return parsed;
+      }
+    }
+  }
+  return { mappings: [] };
+}
+
+/**
+ * Load backlog and commit evidence linking requirements to files
+ */
+export function loadBacklogEvidence(skyhookDir) {
+  const mapping = new Map(); // reqId -> Set of relative file paths
+  if (!skyhookDir) return mapping;
+
+  const epicsPath = path.join(skyhookDir, 'backlog', 'epics.yaml');
+  if (!fs.existsSync(epicsPath)) return mapping;
+
+  const backlog = readYaml(epicsPath);
+  if (!backlog) return mapping;
+
+  const stories = Array.isArray(backlog.stories) ? backlog.stories : [];
+  const tasks = Array.isArray(backlog.tasks) ? backlog.tasks : [];
+
+  const addFilesForReq = (reqId, files) => {
+    if (!reqId || !files) return;
+    if (!mapping.has(reqId)) mapping.set(reqId, new Set());
+    const fileSet = mapping.get(reqId);
+    const fileList = Array.isArray(files) ? files : [files];
+    for (const f of fileList) {
+      if (typeof f === 'string' && f.trim()) {
+        fileSet.add(f.trim().replace(/\\/g, '/'));
+      }
+    }
+  };
+
+  // 1. Stories
+  for (const story of stories) {
+    const reqIds = Array.isArray(story.relatedRequirements) ? story.relatedRequirements : [];
+    if (reqIds.length === 0) continue;
+
+    if (story.targetFiles) {
+      for (const r of reqIds) addFilesForReq(r, story.targetFiles);
+    }
+    if (story.evidence) {
+      if (story.evidence.changedFiles) {
+        for (const r of reqIds) addFilesForReq(r, story.evidence.changedFiles);
+      }
+      if (story.evidence.targetFiles) {
+        for (const r of reqIds) addFilesForReq(r, story.evidence.targetFiles);
+      }
+    }
+
+    const childTasks = tasks.filter(t => t.parentId === story.id);
+    for (const task of childTasks) {
+      if (task.targetFiles) {
+        for (const r of reqIds) addFilesForReq(r, task.targetFiles);
+      }
+      if (task.evidence?.changedFiles) {
+        for (const r of reqIds) addFilesForReq(r, task.evidence.changedFiles);
+      }
+    }
+  }
+
+  // 2. Direct tasks with relatedRequirements
+  for (const task of tasks) {
+    const reqIds = Array.isArray(task.relatedRequirements) ? task.relatedRequirements : [];
+    for (const r of reqIds) {
+      if (task.targetFiles) addFilesForReq(r, task.targetFiles);
+      if (task.evidence?.changedFiles) addFilesForReq(r, task.evidence.changedFiles);
+    }
+  }
+
+  return mapping;
+}
+
+/**
+ * Match a relative file path against wildcard/glob patterns
+ */
+export function matchFilePattern(filePath, patterns = []) {
+  const normalized = filePath.replace(/\\/g, '/');
+  for (const pat of patterns) {
+    const normPat = pat.replace(/\\/g, '/');
+    if (normPat === normalized) return true;
+    if (normPat.endsWith('/**')) {
+      const prefix = normPat.slice(0, -3);
+      if (normalized.startsWith(prefix) || normalized.includes(prefix)) return true;
+    } else if (normPat.includes('*')) {
+      const regexStr = '^' + normPat.replace(/\./g, '\\.').replace(/\*\*/g, '.*').replace(/\*/g, '[^/]*') + '$';
+      try {
+        if (new RegExp(regexStr).test(normalized)) return true;
+      } catch {}
+    }
+  }
+  return false;
+}
+
+/**
+ * Decorate symbols with three-tier traceability resolution
+ */
+export function resolveTraceabilityTiers(allSymbols = [], projectDir = process.cwd()) {
+  const skyhookDir = findSkyhookDir(projectDir);
+
+  // 1. Tier 1: Existing In-Code Annotations
+  for (const sym of allSymbols) {
+    if (sym.traced && sym.requirementId) {
+      sym.traceabilityTier = 1;
+      sym.traceabilityConfidence = 1.0;
+      sym.tierLabel = 'in-code-annotation';
+    }
+  }
+
+  if (!skyhookDir) return allSymbols;
+
+  // 2. Tier 2: External Manifest (.skyhook/traceability.yaml)
+  const manifest = loadTraceabilityManifest(skyhookDir);
+  for (const mapping of manifest.mappings || []) {
+    const reqId = mapping.requirementId;
+    if (!reqId) continue;
+
+    const files = Array.isArray(mapping.files) ? mapping.files.map(f => f.replace(/\\/g, '/')) : [];
+    const globs = Array.isArray(mapping.globs) ? mapping.globs.map(g => g.replace(/\\/g, '/')) : [];
+    const targetSymbols = Array.isArray(mapping.symbols) ? mapping.symbols : [];
+
+    for (const sym of allSymbols) {
+      if (sym.traced && sym.traceabilityTier === 1) continue; // Tier 1 has highest precedence
+
+      const symRelFile = (sym.file || '').replace(/\\/g, '/');
+      const matchesFile = files.includes(symRelFile) || files.some(f => symRelFile.endsWith(f) || f.endsWith(symRelFile));
+      const matchesGlob = matchFilePattern(symRelFile, globs);
+      const matchesSymbol = targetSymbols.includes(sym.symbolName) ||
+        targetSymbols.includes(`${symRelFile}:${sym.symbolName}`) ||
+        targetSymbols.includes(`${symRelFile}#${sym.symbolName}`);
+
+      if (matchesFile || matchesGlob || matchesSymbol) {
+        sym.traced = true;
+        sym.requirementId = reqId;
+        sym.traceabilityTier = 2;
+        sym.traceabilityConfidence = 0.9;
+        sym.tierLabel = 'external-manifest';
+      }
+    }
+  }
+
+  // 3. Tier 3: Backlog & Commit Evidence
+  const backlogEvidence = loadBacklogEvidence(skyhookDir);
+  for (const [reqId, fileSet] of backlogEvidence.entries()) {
+    for (const sym of allSymbols) {
+      if (sym.traced && (sym.traceabilityTier === 1 || sym.traceabilityTier === 2)) continue;
+
+      const symRelFile = (sym.file || '').replace(/\\/g, '/');
+      if (fileSet.has(symRelFile) || Array.from(fileSet).some(f => symRelFile.endsWith(f) || f.endsWith(symRelFile))) {
+        sym.traced = true;
+        sym.requirementId = reqId;
+        sym.traceabilityTier = 3;
+        sym.traceabilityConfidence = 0.75;
+        sym.tierLabel = 'backlog-evidence';
+      }
+    }
+  }
+
+  return allSymbols;
+}
+
+/**
+ * Append or update a requirement-to-file mapping in .skyhook/traceability.yaml
+ */
+export function mapRequirementToFile(projectDir, requirementId, filePathOrGlob, symbolName = null) {
+  const skyhookDir = findSkyhookDir(projectDir);
+  if (!skyhookDir) throw new Error('No .skyhook directory found');
+
+  const manifestPath = path.join(skyhookDir, 'traceability.yaml');
+  const manifest = fs.existsSync(manifestPath)
+    ? (readYaml(manifestPath) || { schemaVersion: '1.0.0', mappings: [] })
+    : { schemaVersion: '1.0.0', mappings: [] };
+
+  manifest.mappings = manifest.mappings || [];
+  let existing = manifest.mappings.find(m => m.requirementId === requirementId);
+  if (!existing) {
+    existing = { requirementId, files: [], globs: [], symbols: [] };
+    manifest.mappings.push(existing);
+  }
+
+  existing.files = existing.files || [];
+  existing.globs = existing.globs || [];
+  existing.symbols = existing.symbols || [];
+
+  const rel = filePathOrGlob.replace(/\\/g, '/');
+  if (rel.includes('*')) {
+    if (!existing.globs.includes(rel)) existing.globs.push(rel);
+  } else {
+    if (!existing.files.includes(rel)) existing.files.push(rel);
+  }
+
+  if (symbolName && !existing.symbols.includes(symbolName)) {
+    existing.symbols.push(symbolName);
+  }
+
+  writeYaml(manifestPath, manifest);
+  return {
+    success: true,
+    message: `Mapped requirement '${requirementId}' to '${filePathOrGlob}'${symbolName ? ` (symbol: ${symbolName})` : ''}`,
+    mapped: { requirementId, target: filePathOrGlob, symbolName }
+  };
 }
 
 /**
