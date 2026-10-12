@@ -31,6 +31,7 @@ import { parseADRMarkdown } from '../adr/ADRMarkdownParser.js';
 import { AgentDetector } from '../harness/AgentDetector.js';
 import { HarnessInjector } from '../harness/HarnessInjector.js';
 import { StandardsRegistry } from '../standards/StandardsRegistry.js';
+import { DependencyResolver } from '../backlog/DependencyResolver.js';
 
 export class DashboardRPCHandler {
   /**
@@ -986,6 +987,17 @@ export class DashboardRPCHandler {
       if (updates.priority !== undefined) story.priority = updates.priority;
       if (updates.standards !== undefined) story.standards = Array.isArray(updates.standards) ? updates.standards : [];
       if (updates.relatedRequirements !== undefined) story.relatedRequirements = updates.relatedRequirements;
+      if (updates.dependsOn !== undefined) {
+        const candidateDependsOn = Array.isArray(updates.dependsOn) ? updates.dependsOn : [];
+        const candidateStory = { ...story, dependsOn: candidateDependsOn };
+        const candidateStories = backlog.stories.map(s => s.id === storyId ? candidateStory : s);
+        const pool = [...candidateStories, ...(backlog.tasks || [])];
+        const cycles = DependencyResolver.detectCycles(pool);
+        if (cycles.length > 0) {
+          throw new Error(`Cannot update story '${storyId}': introduces circular dependency cycle: ${cycles[0].join(' -> ')}`);
+        }
+        story.dependsOn = candidateDependsOn;
+      }
       if (updates.evidence !== undefined) {
         story.evidence = updates.evidence;
         EventLedger.appendEvent(skyhookDir, {
@@ -1182,7 +1194,17 @@ export class DashboardRPCHandler {
       if (updates.estimatedMinutes !== undefined) task.estimatedMinutes = updates.estimatedMinutes ? Number(updates.estimatedMinutes) : null;
       if (updates.targetFiles !== undefined) task.targetFiles = Array.isArray(updates.targetFiles) ? updates.targetFiles : [];
       if (updates.standards !== undefined) task.standards = Array.isArray(updates.standards) ? updates.standards : [];
-      if (updates.dependsOn !== undefined) task.dependsOn = Array.isArray(updates.dependsOn) ? updates.dependsOn : [];
+      if (updates.dependsOn !== undefined) {
+        const candidateDependsOn = Array.isArray(updates.dependsOn) ? updates.dependsOn : [];
+        const candidateTask = { ...task, dependsOn: candidateDependsOn };
+        const candidateTasks = backlog.tasks.map(t => t.id === taskId ? candidateTask : t);
+        const pool = [...(backlog.stories || []), ...candidateTasks];
+        const cycles = DependencyResolver.detectCycles(pool);
+        if (cycles.length > 0) {
+          throw new Error(`Cannot update task '${taskId}': introduces circular dependency cycle: ${cycles[0].join(' -> ')}`);
+        }
+        task.dependsOn = candidateDependsOn;
+      }
       if (updates.subtasks !== undefined) task.subtasks = updates.subtasks;
       if (updates.evidence !== undefined) {
         task.evidence = updates.evidence;

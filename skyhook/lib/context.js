@@ -7,6 +7,7 @@ import { generateADR } from './adr-generator.js';
 import { BacklogLock } from './backlog/BacklogLock.js';
 import { BacklogStateMachine } from './backlog/BacklogStateMachine.js';
 import { EventLedger, EVENT_TYPES } from './backlog/EventLedger.js';
+import { DependencyResolver } from './backlog/DependencyResolver.js';
 import { StandardsRegistry } from './standards/StandardsRegistry.js';
 import { StandardsResolver } from './standards/StandardsResolver.js';
 
@@ -363,6 +364,14 @@ class SkyhookContext {
         }
       }
 
+      if (newTask.dependsOn && newTask.dependsOn.length > 0) {
+        const pool = [...(backlog.stories || []), ...(backlog.tasks || []), newTask];
+        const cycles = DependencyResolver.detectCycles(pool);
+        if (cycles.length > 0) {
+          throw new Error(`Cannot add task '${taskId}': introduces circular dependency cycle: ${cycles[0].join(' -> ')}`);
+        }
+      }
+
       backlog.tasks.push(newTask);
       this.writeBacklog(backlog);
 
@@ -521,6 +530,14 @@ class SkyhookContext {
         }
       }
 
+      if (newStory.dependsOn && newStory.dependsOn.length > 0) {
+        const pool = [...(backlog.stories || []), ...(backlog.tasks || []), newStory];
+        const cycles = DependencyResolver.detectCycles(pool);
+        if (cycles.length > 0) {
+          throw new Error(`Cannot add story '${storyId}': introduces circular dependency cycle: ${cycles[0].join(' -> ')}`);
+        }
+      }
+
       backlog.stories.push(newStory);
       backlog.metadata = backlog.metadata || {};
       backlog.metadata.updatedAt = now;
@@ -536,6 +553,67 @@ class SkyhookContext {
 
       appendChangelog(this.skyhookDir, '- Added story: ' + newStory.title + ' (' + storyId + ')' + (epicId ? ' under epic ' + epicId : ''));
       return newStory;
+    });
+  }
+
+  updateTask(taskId, updates = {}) {
+    return BacklogLock.withLockSync(this.skyhookDir, () => {
+      const backlog = this.readBacklog();
+      backlog.tasks = backlog.tasks || [];
+      const task = backlog.tasks.find(t => t.id === taskId);
+      if (!task) throw new Error(`Task '${taskId}' not found`);
+
+      if (updates.dependsOn !== undefined) {
+        const candidateDependsOn = Array.isArray(updates.dependsOn) ? updates.dependsOn : [];
+        const candidateTask = { ...task, dependsOn: candidateDependsOn };
+        const candidateTasks = backlog.tasks.map(t => t.id === taskId ? candidateTask : t);
+        const pool = [...(backlog.stories || []), ...candidateTasks];
+        const cycles = DependencyResolver.detectCycles(pool);
+        if (cycles.length > 0) {
+          throw new Error(`Cannot update task '${taskId}': introduces circular dependency cycle: ${cycles[0].join(' -> ')}`);
+        }
+        task.dependsOn = candidateDependsOn;
+      }
+
+      if (updates.title !== undefined) task.title = updates.title;
+      if (updates.description !== undefined) task.description = updates.description;
+      if (updates.status !== undefined) task.status = updates.status;
+      if (updates.priority !== undefined) task.priority = updates.priority;
+      if (updates.targetFiles !== undefined) task.targetFiles = Array.isArray(updates.targetFiles) ? updates.targetFiles : [];
+      task.updatedAt = getTimestamp();
+
+      this.writeBacklog(backlog);
+      return task;
+    });
+  }
+
+  updateStory(storyId, updates = {}) {
+    return BacklogLock.withLockSync(this.skyhookDir, () => {
+      const backlog = this.readBacklog();
+      backlog.stories = backlog.stories || [];
+      const story = backlog.stories.find(s => s.id === storyId);
+      if (!story) throw new Error(`Story '${storyId}' not found`);
+
+      if (updates.dependsOn !== undefined) {
+        const candidateDependsOn = Array.isArray(updates.dependsOn) ? updates.dependsOn : [];
+        const candidateStory = { ...story, dependsOn: candidateDependsOn };
+        const candidateStories = backlog.stories.map(s => s.id === storyId ? candidateStory : s);
+        const pool = [...candidateStories, ...(backlog.tasks || [])];
+        const cycles = DependencyResolver.detectCycles(pool);
+        if (cycles.length > 0) {
+          throw new Error(`Cannot update story '${storyId}': introduces circular dependency cycle: ${cycles[0].join(' -> ')}`);
+        }
+        story.dependsOn = candidateDependsOn;
+      }
+
+      if (updates.title !== undefined) story.title = updates.title;
+      if (updates.description !== undefined) story.description = updates.description;
+      if (updates.status !== undefined) story.status = updates.status;
+      if (updates.priority !== undefined) story.priority = updates.priority;
+      story.updatedAt = getTimestamp();
+
+      this.writeBacklog(backlog);
+      return story;
     });
   }
 
