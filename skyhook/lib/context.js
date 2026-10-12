@@ -201,6 +201,32 @@ class SkyhookContext {
           }
         });
 
+        if (metadata.evidence) {
+          EventLedger.appendEvent(this.skyhookDir, {
+            type: EVENT_TYPES.EVIDENCE_ATTACHED,
+            actor: metadata.agentId || metadata.actor || 'system',
+            payload: {
+              workId,
+              storyId: isTask ? item.parentId : workId,
+              taskId: isTask ? workId : null,
+              evidence: metadata.evidence
+            }
+          });
+        }
+
+        if (status === 'verified') {
+          EventLedger.appendEvent(this.skyhookDir, {
+            type: EVENT_TYPES.TASK_VERIFIED,
+            actor: metadata.agentId || metadata.actor || 'system',
+            payload: {
+              workId,
+              storyId: isTask ? item.parentId : workId,
+              taskId: isTask ? workId : null,
+              evidence: metadata.evidence || item.evidence
+            }
+          });
+        }
+
         if (result.rolledUpStory) {
           EventLedger.appendEvent(this.skyhookDir, {
             type: EVENT_TYPES.STATE_TRANSITIONED,
@@ -223,6 +249,41 @@ class SkyhookContext {
       }
 
       appendChangelog(this.skyhookDir, '- ' + (isTask ? 'Task ' : 'Story ') + workId + ': ' + oldStatus + ' to ' + status);
+      return true;
+    });
+  }
+
+  attachEvidence(workId, evidence, metadata = {}) {
+    return BacklogLock.withLockSync(this.skyhookDir, () => {
+      const backlog = this.readBacklog();
+      const story = (backlog.stories || []).find(s => s.id === workId);
+      const task = (backlog.tasks || []).find(t => t.id === workId);
+      if (!story && !task) return false;
+
+      const item = story || task;
+      const isTask = !!task;
+      const now = getTimestamp();
+
+      item.evidence = evidence;
+      item.verificationStatus = 'verified';
+      item.updatedAt = now;
+
+      this.writeBacklog(backlog);
+
+      if (this.skyhookDir) {
+        EventLedger.appendEvent(this.skyhookDir, {
+          type: EVENT_TYPES.EVIDENCE_ATTACHED,
+          actor: metadata.agentId || metadata.actor || 'system',
+          payload: {
+            workId,
+            storyId: isTask ? item.parentId : workId,
+            taskId: isTask ? workId : null,
+            evidence
+          }
+        });
+      }
+
+      appendChangelog(this.skyhookDir, '- ' + (isTask ? 'Task ' : 'Story ') + workId + ': evidence attached');
       return true;
     });
   }

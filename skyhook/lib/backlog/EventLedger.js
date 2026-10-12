@@ -22,7 +22,9 @@ export const EVENT_TYPES = {
   STATE_TRANSITIONED: 'STATE_TRANSITIONED',
   BLOCKER_FLAGGED: 'BLOCKER_FLAGGED',
   BLOCKER_RESOLVED: 'BLOCKER_RESOLVED',
-  EPIC_COMPLETED: 'EPIC_COMPLETED'
+  EPIC_COMPLETED: 'EPIC_COMPLETED',
+  EVIDENCE_ATTACHED: 'EVIDENCE_ATTACHED',
+  TASK_VERIFIED: 'TASK_VERIFIED'
 };
 
 export class EventLedger {
@@ -270,6 +272,40 @@ export class EventLedger {
         case EVENT_TYPES.EPIC_COMPLETED: {
           const epic = backlog.epics.find(e => e.id === p.epicId);
           if (epic) epic.status = 'done';
+          break;
+        }
+        case EVENT_TYPES.EVIDENCE_ATTACHED: {
+          const id = p.taskId || p.storyId || p.workId;
+          const task = backlog.tasks.find(t => t.id === id);
+          const story = backlog.stories.find(s => s.id === id);
+          const item = task || story;
+          if (item) {
+            item.evidence = p.evidence || {
+              commitHash: p.commitHash,
+              changedFiles: p.changedFiles,
+              automatedChecks: p.automatedChecks,
+              policyCheck: p.policyCheck,
+              manualVerification: p.manualVerification
+            };
+            item.verificationStatus = 'verified';
+            item.updatedAt = evt.timestamp;
+          }
+          break;
+        }
+        case EVENT_TYPES.TASK_VERIFIED: {
+          const id = p.taskId || p.storyId || p.workId;
+          const task = backlog.tasks.find(t => t.id === id);
+          const story = backlog.stories.find(s => s.id === id);
+          const item = task || story;
+          if (item) {
+            item.status = 'verified';
+            item.verifiedAt = evt.timestamp;
+            item.verificationStatus = 'verified';
+            if (p.evidence) {
+              item.evidence = p.evidence;
+            }
+            item.updatedAt = evt.timestamp;
+          }
           break;
         }
       }
