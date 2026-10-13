@@ -166,3 +166,4 @@ test('TASK-F08: DashboardRPCHandler.adoptDrift supports enqueueTasks option', as
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
 });
+

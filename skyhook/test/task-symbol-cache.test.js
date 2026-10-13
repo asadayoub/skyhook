@@ -140,3 +140,4 @@ test('TASK-F12: noCache and reindex options bypass and refresh disk cache', asyn
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
 });
+

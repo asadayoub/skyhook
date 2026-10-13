@@ -187,3 +187,4 @@ export class GoModProvider extends Provider {
     }
   }
 }
+

@@ -24,3 +24,4 @@ try {
   console.error(`Skyhook Merge Driver Error: ${err.message}`);
   process.exit(1);
 }
+

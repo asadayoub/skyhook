@@ -214,3 +214,4 @@ test('TASK-F05: cmdHookInstall, cmdHookStatus, and cmdHookUninstall handlers wor
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
 });
+

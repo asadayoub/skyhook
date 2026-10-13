@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "skyhook": {
+      "command": "node",
+      "args": [
+        "/Users/asad/Documents/Codex/2026-08-29/wh/skyhook-repo/skyhook/cli/skyhook-mcp.js",
+        "--dir",
+        "/Users/asad/Documents/Codex/2026-08-29/wh/skyhook-repo"
+      ]
+    }
+  }
+}
