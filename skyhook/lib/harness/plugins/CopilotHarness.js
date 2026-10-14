@@ -8,6 +8,7 @@ import path from 'path';
 import { BaseAgentHarness } from '../BaseAgentHarness.js';
 import {
   resolveSkyhookMcpBin,
+  buildMcpServerConfig,
   generateGovernanceRules,
   mergeJsonFile,
   readJsonSafe,
@@ -74,7 +75,7 @@ export class CopilotHarness extends BaseAgentHarness {
   }
 
   async generateConfig(workspaceDir, options = {}) {
-    const mcpBin = resolveSkyhookMcpBin(workspaceDir);
+    const mcpConfig = buildMcpServerConfig(workspaceDir, options);
     return {
       files: [
         {
@@ -87,10 +88,7 @@ export class CopilotHarness extends BaseAgentHarness {
           type: 'merge-json',
           content: JSON.stringify({
             mcpServers: {
-              skyhook: {
-                command: 'node',
-                args: [mcpBin, '--dir', workspaceDir]
-              }
+              skyhook: mcpConfig
             }
           }, null, 2)
         },
@@ -99,10 +97,7 @@ export class CopilotHarness extends BaseAgentHarness {
           type: 'merge-json',
           content: JSON.stringify({
             'github.copilot.chat.mcpServers': {
-              skyhook: {
-                command: 'node',
-                args: [mcpBin, '--dir', workspaceDir]
-              }
+              skyhook: mcpConfig
             }
           }, null, 2)
         }
@@ -114,7 +109,7 @@ export class CopilotHarness extends BaseAgentHarness {
     const copilotMd = path.join(workspaceDir, '.github/copilot-instructions.md');
     const vscodeMcp = path.join(workspaceDir, '.vscode/mcp.json');
     const vscodeSettings = path.join(workspaceDir, '.vscode/settings.json');
-    const mcpBin = resolveSkyhookMcpBin(workspaceDir);
+    const mcpConfig = buildMcpServerConfig(workspaceDir, options);
     const modifiedFiles = [];
     const actions = [];
 
@@ -126,10 +121,7 @@ export class CopilotHarness extends BaseAgentHarness {
     // 2. Merge into .vscode/mcp.json (VS Code native MCP standard)
     mergeJsonFile(vscodeMcp, (existing) => {
       const servers = existing.mcpServers || {};
-      servers.skyhook = {
-        command: 'node',
-        args: [mcpBin, '--dir', workspaceDir]
-      };
+      servers.skyhook = mcpConfig;
       return { ...existing, mcpServers: servers };
     });
     modifiedFiles.push(vscodeMcp);
@@ -138,10 +130,7 @@ export class CopilotHarness extends BaseAgentHarness {
     // 3. Merge into .vscode/settings.json (Legacy Copilot setting support)
     mergeJsonFile(vscodeSettings, (existing) => {
       const servers = existing['github.copilot.chat.mcpServers'] || {};
-      servers.skyhook = {
-        command: 'node',
-        args: [mcpBin, '--dir', workspaceDir]
-      };
+      servers.skyhook = mcpConfig;
       return { ...existing, 'github.copilot.chat.mcpServers': servers };
     });
     modifiedFiles.push(vscodeSettings);

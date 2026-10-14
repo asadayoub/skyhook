@@ -12,7 +12,7 @@ import { SSETransport } from '../lib/harness/mcp/SSETransport.js';
 const args = process.argv.slice(2);
 
 function printHelp() {
-  process.stderr.write(`Skyhook MCP Server - 100% Offline MCP Provider for AI Agents
+  process.stdout.write(`Skyhook MCP Server - 100% Offline MCP Provider for AI Agents
 
 Usage:
   skyhook-mcp [options]

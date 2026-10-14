@@ -49,8 +49,7 @@ test('HarnessInjector - Atomic Injection, Safe JSON Merging, and Clean Rollback'
     // Verify non-destructive JSON merge
     const mcpAfter = JSON.parse(fs.readFileSync(mcpJsonPath, 'utf-8'));
     assert.ok(mcpAfter.mcpServers['user-database-mcp'], 'Preserves pre-existing user MCP server');
-    assert.ok(mcpAfter.mcpServers.skyhook, 'Adds skyhook MCP server');
-    assert.strictEqual(mcpAfter.mcpServers.skyhook.command, 'node');
+    assert.ok(mcpAfter.mcpServers.skyhook.command === 'node' || mcpAfter.mcpServers.skyhook.command === 'skyhook-mcp', 'Adds valid skyhook MCP command');
 
     // Verify marker block in .cursorrules preserves custom content
     const rulesAfter = fs.readFileSync(cursorRulesPath, 'utf-8');

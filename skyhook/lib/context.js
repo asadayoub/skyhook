@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { parseYaml, stringifyYaml } from './yaml.js';
 import { validateBacklog } from './schema.js';
-import { generateULID, getTimestamp, appendChangelog, readYaml, writeYaml, loadProfile } from './utils.js';
+import { generateULID, getTimestamp, appendChangelog, readYaml, readYamlSafe, DataCorruptionError, writeYaml, loadProfile } from './utils.js';
 import { generateADR } from './adr-generator.js';
 import { BacklogLock } from './backlog/BacklogLock.js';
 import { BacklogStateMachine } from './backlog/BacklogStateMachine.js';
@@ -167,11 +167,20 @@ class SkyhookContext {
     if (this.isModularBacklog()) {
       return BacklogStorage.readModularBacklog(this.skyhookDir);
     }
-    const data = readYaml(path.join(this.skyhookDir, 'backlog', 'epics.yaml')) || { epics: [], stories: [], tasks: [] };
-    if (!data.epics) data.epics = [];
-    if (!data.stories) data.stories = [];
-    if (!data.tasks) data.tasks = [];
-    return data;
+    const epicsPath = path.join(this.skyhookDir, 'backlog', 'epics.yaml');
+    const data = readYamlSafe(epicsPath, { defaultIfMissing: { epics: [], stories: [], tasks: [] }, throwOnError: true });
+    try {
+      return validateBacklog(data);
+    } catch (err) {
+      if (fs.existsSync(epicsPath)) {
+        const backupPath = `${epicsPath}.corrupt.${Date.now()}.bak`;
+        try {
+          fs.copyFileSync(epicsPath, backupPath);
+        } catch (_) {}
+        throw new DataCorruptionError(err.message, epicsPath, backupPath);
+      }
+      throw err;
+    }
   }
   
   writeBacklog(data, options = {}) {

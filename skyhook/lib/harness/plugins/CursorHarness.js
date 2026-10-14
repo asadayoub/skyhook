@@ -8,6 +8,7 @@ import path from 'path';
 import { BaseAgentHarness } from '../BaseAgentHarness.js';
 import {
   resolveSkyhookMcpBin,
+  buildMcpServerConfig,
   generateGovernanceRules,
   mergeJsonFile,
   readJsonSafe,
@@ -65,7 +66,7 @@ export class CursorHarness extends BaseAgentHarness {
   }
 
   async generateConfig(workspaceDir, options = {}) {
-    const mcpBin = resolveSkyhookMcpBin(workspaceDir);
+    const mcpConfig = buildMcpServerConfig(workspaceDir, options);
     return {
       files: [
         {
@@ -73,10 +74,7 @@ export class CursorHarness extends BaseAgentHarness {
           type: 'merge-json',
           content: JSON.stringify({
             mcpServers: {
-              skyhook: {
-                command: 'node',
-                args: [mcpBin, '--dir', workspaceDir]
-              }
+              skyhook: mcpConfig
             }
           }, null, 2)
         },
@@ -90,7 +88,7 @@ export class CursorHarness extends BaseAgentHarness {
   }
 
   async inject(workspaceDir, options = {}) {
-    const mcpBin = resolveSkyhookMcpBin(workspaceDir);
+    const mcpConfig = buildMcpServerConfig(workspaceDir, options);
     const mcpJsonPath = path.join(workspaceDir, '.cursor/mcp.json');
     const cursorRulesPath = path.join(workspaceDir, '.cursorrules');
     const modifiedFiles = [];
@@ -99,10 +97,7 @@ export class CursorHarness extends BaseAgentHarness {
     // 1. Merge into .cursor/mcp.json
     mergeJsonFile(mcpJsonPath, (existing) => {
       const servers = existing.mcpServers || {};
-      servers.skyhook = {
-        command: 'node',
-        args: [mcpBin, '--dir', workspaceDir]
-      };
+      servers.skyhook = mcpConfig;
       return { ...existing, mcpServers: servers };
     });
     modifiedFiles.push(mcpJsonPath);

@@ -12,7 +12,6 @@
     "defaultSrc": ["'none'"],
     "scriptSrc": [
       "'self'",
-      "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js",
       "'unsafe-eval'",
       "'unsafe-inline'"
     ],

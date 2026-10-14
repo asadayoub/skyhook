@@ -183,7 +183,10 @@ export class MermaidView extends BaseView {
         await window.mermaid.run({ nodes: [pre] });
       } catch (err) {
         console.warn('[MermaidView] Render warning:', err);
+        pre.innerHTML = `<div class="offline-diagram-fallback" style="padding: 24px; color: var(--accent-amber); font-family: var(--font-mono); text-align: center;">⚠️ Diagram rendering notice: ${this.escapeHtml(err.message || 'Syntax error')}<br><pre style="text-align: left; margin-top: 16px; opacity: 0.8; max-height: 250px; overflow: auto; padding: 12px; background: rgba(0,0,0,0.5); border-radius: 6px;">${this.escapeHtml(code)}</pre></div>`;
       }
+    } else {
+      pre.innerHTML = `<div class="offline-diagram-fallback" style="padding: 24px; color: var(--accent-amber); font-family: var(--font-mono); text-align: center;">ℹ️ Diagram visualizer offline or unavailable. Showing raw diagram markup:<br><pre style="text-align: left; margin-top: 16px; opacity: 0.8; max-height: 250px; overflow: auto; padding: 12px; background: rgba(0,0,0,0.5); border-radius: 6px;">${this.escapeHtml(code)}</pre></div>`;
     }
 
     // Mount PanZoomController

@@ -9,13 +9,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Create skill archive
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm ci || npm install
+      - name: Run verification test suite
+        run: npm test
+      - name: Create release distribution archive
         run: |
-          cd skyhook/skill
-          tar -czf ../../skyhook-skill.tar.gz .
+          tar -czf skyhook-${{ github.ref_name }}.tar.gz package.json README.md LICENSE TESTING.md skyhook/
       - uses: softprops/action-gh-release@v1
         with:
-          files: skyhook-skill.tar.gz
+          files: skyhook-${{ github.ref_name }}.tar.gz
           generate_release_notes: true
           draft: false
           prerelease: false

@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { readYaml, writeYaml, getTimestamp } from '../utils.js';
+import { readYaml, readYamlSafe, writeYaml, getTimestamp } from '../utils.js';
 
 export class BacklogStorage {
   /**
@@ -54,7 +54,7 @@ export class BacklogStorage {
         const files = fs.readdirSync(dirPath);
         for (const f of files) {
           if (f.endsWith('.yaml') || f.endsWith('.yml')) {
-            const item = readYaml(path.join(dirPath, f));
+            const item = readYamlSafe(path.join(dirPath, f));
             if (item && item.id) {
               items.push(item);
             }

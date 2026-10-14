@@ -140,6 +140,7 @@ const commandMap = {
   'harness-status': 'cmdHarnessStatus',
   harnessRemove: 'cmdHarnessRemove',
   'harness-remove': 'cmdHarnessRemove',
+  doctor: 'cmdDoctor',
   mcp: 'cmdStartMCP',
   help: 'cmdHelp',
   '--help': 'cmdHelp',

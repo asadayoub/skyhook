@@ -70,6 +70,26 @@ function parseBlockScalar(lines, startIndex, baseIndent, isFolded) {
   return { result, nextIndex: j - 1 };
 }
 
+function validateYamlSyntax(line, value) {
+  if (line.match(/^\s*\t/)) {
+    throw new Error(`YAML Parse Error: tab indentation is not allowed: "${line}"`);
+  }
+  if (value) {
+    if (value.startsWith('[') && !value.endsWith(']') && value.trim() !== '[') {
+      throw new Error(`YAML Parse Error: unclosed inline bracket '[' in line: "${line.trim()}"`);
+    }
+    if (value.startsWith('{') && !value.endsWith('}') && value.trim() !== '{') {
+      throw new Error(`YAML Parse Error: unclosed inline brace '{' in line: "${line.trim()}"`);
+    }
+    if (value.startsWith('"') && (!value.endsWith('"') || value.length === 1)) {
+      throw new Error(`YAML Parse Error: unclosed double quote in line: "${line.trim()}"`);
+    }
+    if (value.startsWith("'") && (!value.endsWith("'") || value.length === 1)) {
+      throw new Error(`YAML Parse Error: unclosed single quote in line: "${line.trim()}"`);
+    }
+  }
+}
+
 export function parseYaml(content) {
   if (typeof content !== 'string') return {};
   if (!content.includes('\n') && (content.endsWith('.yaml') || content.endsWith('.yml'))) {
@@ -79,6 +99,17 @@ export function parseYaml(content) {
       }
     } catch {
       // Fallback to direct parsing
+    }
+  }
+
+  const trimmedContent = content.trim();
+  if (trimmedContent.startsWith('{') || trimmedContent.startsWith('[')) {
+    try {
+      return JSON.parse(trimmedContent);
+    } catch (err) {
+      if ((trimmedContent.startsWith('{') && trimmedContent.endsWith('}')) || (trimmedContent.startsWith('[') && trimmedContent.endsWith(']'))) {
+        throw new Error(`YAML/JSON Parse Error: ${err.message}`);
+      }
     }
   }
 
@@ -92,6 +123,9 @@ export function parseYaml(content) {
     const trimmed = line.trim();
     
     if (!trimmed || trimmed.startsWith('#')) continue;
+    if (line.match(/^\s*\t/)) {
+      throw new Error(`YAML Parse Error: tab indentation is not allowed: "${line}"`);
+    }
     
     const indent = line.length - line.trimStart().length;
     
@@ -109,6 +143,7 @@ export function parseYaml(content) {
         const colonIdx = trimmed.indexOf(':');
         const key = trimmed.slice(0, colonIdx).trim();
         let value = stripComment(trimmed.slice(colonIdx + 1));
+        validateYamlSyntax(line, value);
         
         if (value === '|' || value === '|-' || value === '>' || value === '>-') {
           const { result, nextIndex } = parseBlockScalar(lines, i, indent, value.startsWith('>'));
@@ -162,6 +197,7 @@ export function parseYaml(content) {
         const colonIdx = afterDash.indexOf(':');
         const key = afterDash.slice(0, colonIdx).trim();
         let value = stripComment(afterDash.slice(colonIdx + 1));
+        validateYamlSyntax(line, value);
 
         if (value === '|' || value === '|-' || value === '>' || value === '>-') {
           const { result, nextIndex } = parseBlockScalar(lines, i, indent, value.startsWith('>'));
@@ -182,7 +218,9 @@ export function parseYaml(content) {
           newObj[key] = parseValue(value);
         }
       } else {
-        parent.push(parseValue(stripComment(afterDash)));
+        const itemVal = stripComment(afterDash);
+        validateYamlSyntax(line, itemVal);
+        parent.push(parseValue(itemVal));
       }
       // Reset inArrayItem for next array item
       currentFrame.inArrayItem = false;
@@ -190,6 +228,7 @@ export function parseYaml(content) {
       const colonIdx = trimmed.indexOf(':');
       const key = trimmed.slice(0, colonIdx).trim();
       let value = stripComment(trimmed.slice(colonIdx + 1));
+      validateYamlSyntax(line, value);
 
       if (value === '|' || value === '|-' || value === '>' || value === '>-') {
         const { result, nextIndex } = parseBlockScalar(lines, i, indent, value.startsWith('>'));

@@ -9,6 +9,7 @@ import os from 'os';
 import { BaseAgentHarness } from '../BaseAgentHarness.js';
 import {
   resolveSkyhookMcpBin,
+  buildMcpServerConfig,
   generateGovernanceRules,
   mergeJsonFile,
   readJsonSafe,
@@ -113,7 +114,7 @@ export class ClineHarness extends BaseAgentHarness {
   }
 
   async generateConfig(workspaceDir, options = {}) {
-    const mcpBin = resolveSkyhookMcpBin(workspaceDir);
+    const mcpConfig = buildMcpServerConfig(workspaceDir, options);
     const mcpSettings = this.getClineMcpSettingsPath(options);
 
     return {
@@ -129,8 +130,7 @@ export class ClineHarness extends BaseAgentHarness {
           content: JSON.stringify({
             mcpServers: {
               skyhook: {
-                command: 'node',
-                args: [mcpBin, '--dir', workspaceDir],
+                ...mcpConfig,
                 disabled: false,
                 autoApprove: []
               }
@@ -144,7 +144,7 @@ export class ClineHarness extends BaseAgentHarness {
   async inject(workspaceDir, options = {}) {
     const clineRules = path.join(workspaceDir, '.clinerules');
     const mcpSettings = this.getClineMcpSettingsPath(options);
-    const mcpBin = resolveSkyhookMcpBin(workspaceDir);
+    const mcpConfig = buildMcpServerConfig(workspaceDir, options);
     const modifiedFiles = [];
     const actions = [];
 
@@ -158,8 +158,7 @@ export class ClineHarness extends BaseAgentHarness {
       mergeJsonFile(mcpSettings, (existing) => {
         const servers = existing.mcpServers || {};
         servers.skyhook = {
-          command: 'node',
-          args: [mcpBin, '--dir', workspaceDir],
+          ...mcpConfig,
           disabled: false,
           autoApprove: []
         };

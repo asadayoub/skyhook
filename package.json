@@ -1,15 +1,20 @@
 {
-  "name": "@skyhook/skill",
+  "name": "skyhook",
   "version": "2.0.0",
   "type": "module",
   "description": "Universal Project Intelligence for AI Agents",
-    "bin": {
+  "preferGlobal": true,
+  "bin": {
     "skyhook": "./skyhook/cli/skyhook.js",
     "skyhook-cmd": "./skyhook/cli/skyhook-cmd.js",
-    "skyhook-mcp": "./skyhook/cli/skyhook-mcp.js"
+    "skyhook-mcp": "./skyhook/cli/skyhook-mcp.js",
+    "skyhook-merge-driver": "./skyhook/cli/skyhook-merge-driver.js"
   },
   "files": [
-    "skyhook/**/*"
+    "skyhook/**/*",
+    "LICENSE",
+    "README.md",
+    "TESTING.md"
   ],
   "scripts": {
     "test": "node skyhook/test/run-unit-tests.js",
@@ -29,6 +34,11 @@
     "type": "git",
     "url": "https://github.com/asadayoub/skyhook.git"
   },
+  "author": "Asad Ayoub",
+  "bugs": {
+    "url": "https://github.com/asadayoub/skyhook/issues"
+  },
+  "homepage": "https://github.com/asadayoub/skyhook#readme",
   "engines": {
     "node": ">=18"
   },

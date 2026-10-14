@@ -39,6 +39,71 @@ export function resolveSkyhookMcpBin(workspaceDir = process.cwd()) {
 }
 
 /**
+ * Build portable MCP server configuration object for AI agents
+ * @param {string} [workspaceDir]
+ * @param {Object} [options]
+ * @param {boolean} [options.portable=true]
+ * @param {string} [options.format='variable'] - 'variable' (${workspaceFolder}) or 'relative' (./path)
+ * @returns {{ command: string, args: string[] }}
+ */
+export function buildMcpServerConfig(workspaceDir = process.cwd(), options = {}) {
+  const portable = options.portable !== false;
+  const format = options.format || 'variable';
+
+  // If non-portable requested, return machine-specific absolute configuration
+  if (!portable) {
+    const absBin = resolveSkyhookMcpBin(workspaceDir);
+    return {
+      command: 'node',
+      args: [absBin, '--dir', path.resolve(workspaceDir)]
+    };
+  }
+
+  // Check if workspace contains local skyhook CLI
+  const wsCli = path.join(workspaceDir, 'skyhook/cli/skyhook-mcp.js');
+  if (fs.existsSync(wsCli)) {
+    if (format === 'relative') {
+      return {
+        command: 'node',
+        args: ['./skyhook/cli/skyhook-mcp.js', '--dir', '.']
+      };
+    }
+    return {
+      command: 'node',
+      args: ['${workspaceFolder}/skyhook/cli/skyhook-mcp.js', '--dir', '${workspaceFolder}']
+    };
+  }
+
+  // Check if workspace has node_modules/.bin/skyhook-mcp
+  const wsNodeModulesCli = path.join(workspaceDir, 'node_modules/.bin/skyhook-mcp');
+  if (fs.existsSync(wsNodeModulesCli)) {
+    if (format === 'relative') {
+      return {
+        command: 'node',
+        args: ['./node_modules/.bin/skyhook-mcp', '--dir', '.']
+      };
+    }
+    return {
+      command: 'node',
+      args: ['${workspaceFolder}/node_modules/.bin/skyhook-mcp', '--dir', '${workspaceFolder}']
+    };
+  }
+
+  // Otherwise, fallback to globally resolved or PATH binary
+  if (format === 'relative') {
+    return {
+      command: 'skyhook-mcp',
+      args: ['--dir', '.']
+    };
+  }
+
+  return {
+    command: 'skyhook-mcp',
+    args: ['--dir', '${workspaceFolder}']
+  };
+}
+
+/**
  * Standard Skyhook Governance instructions for AI Agent rules files
  * @param {string} workspaceDir
  * @returns {string}

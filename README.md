@@ -7,9 +7,9 @@ Persistent, structured, version-controlled project memory, active architectural 
 
 [![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://github.com/asadayoub/skyhook/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-213%20passing-brightgreen.svg)](TESTING.md)
-[![MCP](https://img.shields.io/badge/MCP-100%25%20Offline-cyan.svg)](skyhook/docs/MCP_SERVER.md)
-[![Dashboard](https://img.shields.io/badge/dashboard-modular%20MMPA-purple.svg)](skyhook/docs/DASHBOARD_AND_IDE.md)
+[![Tests](https://img.shields.io/badge/tests-379%20passing-brightgreen.svg)](TESTING.md)
+[![MCP](https://img.shields.io/badge/MCP-46%20Tools%20%7C%20Offline-cyan.svg)](skyhook/docs/MCP_SERVER.md)
+[![Dashboard](https://img.shields.io/badge/cockpit-Mission%20Control-purple.svg)](skyhook/docs/DASHBOARD_AND_IDE.md)
 [![Agents](https://img.shields.io/badge/agents-Cursor%20%7C%20Claude%20%7C%20Copilot%20%7C%20Windsurf%20%7C%20Antigravity%20%7C%20Cline-orange.svg)](skyhook/docs/AGENT_HARNESSES.md)
 
 ---
@@ -161,6 +161,9 @@ skyhook adr verify
 
 # 9. Recompile living master plan
 skyhook plan
+
+# 10. Run comprehensive diagnostic health check
+skyhook doctor
 ```
 
 ---
@@ -172,7 +175,7 @@ Comprehensive manuals and deep-dives are available in [`skyhook/docs/`](skyhook/
 - 🏛️ **[System Architecture (v2.0.0)](skyhook/docs/ARCHITECTURE.md)**: System design, dataflow diagrams, and sub-system specifications.
 - 📖 **[CLI Reference Manual](skyhook/docs/CLI_REFERENCE.md)**: Exhaustive reference for all 40+ commands, options, and JSON outputs.
 - 🤖 **[100% Offline MCP Server Guide](skyhook/docs/MCP_SERVER.md)**: Setting up Cursor, OpenAI Codex, Claude Desktop, Windsurf, Antigravity, and Cline.
-- 🖥️ **[Dashboard & Native IDE Extension Manual](skyhook/docs/DASHBOARD_AND_IDE.md)**: MMPA architecture, hash routing, and VS Code extension packaging.
+- 🖥️ **[Mission Control & Cybernetic Dashboard](skyhook/docs/DASHBOARD_AND_IDE.md)**: Realtime multi-agent swarm telemetry (`#/mission-control`), modular MMPA hash routing, interactive Decision DAGs, and VS Code extension packaging.
 - 🔌 **[Poly-Agent Harness Matrix](skyhook/docs/AGENT_HARNESSES.md)**: Non-destructive merging and rule synchronization.
 - 🔍 **[Polyglot AST Traceability & Dark Matter](skyhook/docs/TRACEABILITY_AND_AST.md)**: Multi-language parsers, symbol lineage, and coverage radar.
 - ⚖️ **[ADR Synthesis & Policy Governance](skyhook/docs/ADR_AND_GOVERNANCE.md)**: Decision DAG, supersession, and AST import guards.
@@ -185,10 +188,17 @@ Comprehensive manuals and deep-dives are available in [`skyhook/docs/`](skyhook/
 
 ## 🧪 Verification & Testing
 
-Skyhook is thoroughly tested with **213 automated tests across 6 test suites**:
+Skyhook is engineered with rigorous automated testing featuring **353+ automated tests across offline unit, FSM, AST, and integration test suites**.
+
 ```bash
+# Run 350+ offline sandboxed unit tests
 npm test
+
+# Run full integration suite (WebSocket, MCP, REST APIs)
+npm run test:integration
 ```
+
+For detailed breakdown by subsystem and architecture guidelines, see **[TESTING.md](TESTING.md)**.
 
 ---
 

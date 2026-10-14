@@ -98,18 +98,14 @@ export class SkyhookServer {
     return this.workspaceDir;
   }
 
-  /**
-   * Start the HTTP and WebSocket server
-   * @returns {Promise<Object>} { port, url }
-   */
-  async start() {
-    this.currentPort = await SkyhookServer.findAvailablePort(this.basePort, 15);
-
-    const publicDir = fs.existsSync(path.join(CLI_ROOT, 'dashboard', 'public'))
+  getPublicDir() {
+    return fs.existsSync(path.join(CLI_ROOT, 'dashboard', 'public'))
       ? path.join(CLI_ROOT, 'dashboard', 'public')
       : path.join(SKYHOOK_ROOT, 'dashboard', 'public');
+  }
 
-    this.server = http.createServer(async (req, res) => {
+  async handleHttpRequest(req, res) {
+    const publicDir = this.getPublicDir();
       // Common headers
       res.setHeader('Access-Control-Allow-Origin', '*');
       res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -798,6 +794,16 @@ export class SkyhookServer {
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: err.message }));
       }
+  }
+
+  /**
+   * Start the HTTP and WebSocket server
+   * @returns {Promise<Object>} { port, url }
+   */
+  async start() {
+    this.currentPort = await SkyhookServer.findAvailablePort(this.basePort, 15);
+    this.server = http.createServer((req, res) => {
+      this.handleHttpRequest(req, res);
     });
 
     // Attach WebSocket Gateway on same server

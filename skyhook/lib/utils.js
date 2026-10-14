@@ -38,17 +38,57 @@ export function findSkyhookDir() {
   return null;
 }
 
-export function readYaml(filePath) {
-  try {
-    const content = fs.readFileSync(filePath, 'utf-8');
-    return parseYaml(content);
-  } catch {
-    return null;
+export class DataCorruptionError extends Error {
+  constructor(message, filePath, backupPath) {
+    super(message);
+    this.name = 'DataCorruptionError';
+    this.filePath = filePath;
+    this.backupPath = backupPath;
   }
 }
 
+export function readYamlSafe(filePath, options = {}) {
+  if (!fs.existsSync(filePath)) {
+    return options.defaultIfMissing !== undefined ? options.defaultIfMissing : null;
+  }
+
+  let content;
+  try {
+    content = fs.readFileSync(filePath, 'utf-8');
+  } catch {
+    return options.defaultIfMissing !== undefined ? options.defaultIfMissing : null;
+  }
+
+  try {
+    return parseYaml(content);
+  } catch (err) {
+    // Preserve corrupted file to rescue backup
+    const backupPath = `${filePath}.corrupt.${Date.now()}.bak`;
+    try {
+      fs.writeFileSync(backupPath, content, 'utf-8');
+    } catch (_) {}
+
+    const errorMsg = `[DataCorruptionError] Malformed YAML in "${filePath}": ${err.message}. A rescue backup was preserved at "${backupPath}".`;
+    if (options.throwOnError !== false) {
+      throw new DataCorruptionError(errorMsg, filePath, backupPath);
+    }
+    return options.defaultIfMissing !== undefined ? options.defaultIfMissing : null;
+  }
+}
+
+export function readYaml(filePath, options = {}) {
+  return readYamlSafe(filePath, { throwOnError: false, ...options });
+}
+
 export function writeYaml(filePath, data) {
-  fs.writeFileSync(filePath, stringifyYaml(data), 'utf-8');
+  const dir = path.dirname(filePath);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+  const content = stringifyYaml(data);
+  const tmpPath = `${filePath}.${Date.now()}.${Math.random().toString(36).slice(2)}.tmp`;
+  fs.writeFileSync(tmpPath, content, 'utf-8');
+  fs.renameSync(tmpPath, filePath);
 }
 
 export function generateULID() {

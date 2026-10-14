@@ -42,6 +42,11 @@ export function formatResult(result, args = {}) {
     console.log(JSON.stringify(result, null, 2));
     return;
   }
+
+  if (result.summary) {
+    console.log(result.summary);
+    return;
+  }
   
   if (result.chart) {
     console.log(result.chart);
@@ -430,7 +435,8 @@ async function main() {
     'add-subtask': 'cmdAddSubtask',
     'toggle-subtask': 'cmdToggleSubtask',
     'task-heartbeat': 'cmdTaskHeartbeat',
-    'add-story': 'cmdAddStory'
+    'add-story': 'cmdAddStory',
+    doctor: 'cmdDoctor'
   };
 
   // Support subcommands
@@ -649,14 +655,14 @@ async function main() {
 
   // Handle commands that don't require pre-existing .skyhook directory
   let ctx = null;
-  const noCtxCommands = ['init', 'version', 'help', 'setup', 'install', 'dashboard'];
+  const noCtxCommands = ['init', 'version', 'help', 'setup', 'install', 'dashboard', 'doctor'];
   if (!noCtxCommands.includes(effectiveCommand)) {
     ctx = createSkyhookContext(process.cwd());
     if (!ctx) {
       log('error', 'Not a Skyhook project. Run `skyhook init` first.');
       process.exit(1);
     }
-  } else if (effectiveCommand === 'dashboard') {
+  } else if (effectiveCommand === 'dashboard' || effectiveCommand === 'doctor') {
     ctx = createSkyhookContext(process.cwd()) || {
       projectDir: process.cwd(),
       skyhookDir: path.join(process.cwd(), '.skyhook')

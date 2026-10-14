@@ -324,4 +324,26 @@ export function registerCoreTools(registry) {
       return this.formatSuccess(res);
     }
   }());
+
+  // 9. skyhook_doctor
+  registry.register(new class extends BaseMCPTool {
+    constructor() {
+      super(
+        'skyhook_doctor',
+        'Run comprehensive system health diagnostics (Node runtime, .skyhook initialization, backlog integrity, git lifecycle hooks, agent harnesses, port availability, and AST parsers) and return a structured health report with remediation advice.',
+        {
+          type: 'object',
+          properties: {
+            port: { type: 'number', description: 'Port to check for dashboard availability (default 31415)' }
+          }
+        }
+      );
+    }
+    async execute(args, ctx) {
+      const { cmdDoctor } = await import('../../../handlers/general.js');
+      const res = await cmdDoctor(ctx, args);
+      return this.formatSuccess(res);
+    }
+  }());
 }
+

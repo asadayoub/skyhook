@@ -9,6 +9,7 @@ import os from 'os';
 import { BaseAgentHarness } from '../BaseAgentHarness.js';
 import {
   resolveSkyhookMcpBin,
+  buildMcpServerConfig,
   mergeJsonFile,
   readJsonSafe,
   atomicWriteFile
@@ -73,7 +74,7 @@ export class ClaudeDesktopHarness extends BaseAgentHarness {
   }
 
   async generateConfig(workspaceDir, options = {}) {
-    const mcpBin = resolveSkyhookMcpBin(workspaceDir);
+    const mcpConfig = buildMcpServerConfig(workspaceDir, { portable: false, ...options });
     const configPath = this.getConfigPath(options);
 
     return {
@@ -83,10 +84,7 @@ export class ClaudeDesktopHarness extends BaseAgentHarness {
           type: 'merge-json',
           content: JSON.stringify({
             mcpServers: {
-              skyhook: {
-                command: 'node',
-                args: [mcpBin, '--dir', workspaceDir]
-              }
+              skyhook: mcpConfig
             }
           }, null, 2)
         }
@@ -96,14 +94,11 @@ export class ClaudeDesktopHarness extends BaseAgentHarness {
 
   async inject(workspaceDir, options = {}) {
     const configPath = this.getConfigPath(options);
-    const mcpBin = resolveSkyhookMcpBin(workspaceDir);
+    const mcpConfig = buildMcpServerConfig(workspaceDir, { portable: false, ...options });
 
     mergeJsonFile(configPath, (existing) => {
       const servers = existing.mcpServers || {};
-      servers.skyhook = {
-        command: 'node',
-        args: [mcpBin, '--dir', workspaceDir]
-      };
+      servers.skyhook = mcpConfig;
       return { ...existing, mcpServers: servers };
     });
 

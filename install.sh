@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 # Skyhook Universal Installer
-# curl -fsSL https://raw.githubusercontent.com/asadayoub/skyhook/main/install.sh | bash
+#
+# Preferred zero-config installation:
+#   npm install -g skyhook
+#   or run on-demand:
+#   npx skyhook init
+#
+# Standalone shell installation (curl fallback):
+#   curl -fsSL https://raw.githubusercontent.com/asadayoub/skyhook/main/install.sh | bash
 
 set -e
 
@@ -52,6 +59,13 @@ cat > "$INSTALL_DIR/cli/skyhook-mcp" << 'WRAPPER_EOF'
 exec node "$(dirname "$0")/skyhook-mcp.js" "$@"
 WRAPPER_EOF
 chmod +x "$INSTALL_DIR/cli/skyhook-mcp"
+
+# Create skyhook-merge-driver wrapper for git semantic merges
+cat > "$INSTALL_DIR/cli/skyhook-merge-driver" << 'WRAPPER_EOF'
+#!/usr/bin/env bash
+exec node "$(dirname "$0")/skyhook-merge-driver.js" "$@"
+WRAPPER_EOF
+chmod +x "$INSTALL_DIR/cli/skyhook-merge-driver"
 
 # Verify
 if "$INSTALL_DIR/cli/skyhook" version &> /dev/null; then

@@ -9,6 +9,7 @@ import path from 'path';
 import { BaseAgentHarness } from '../BaseAgentHarness.js';
 import {
   resolveSkyhookMcpBin,
+  buildMcpServerConfig,
   generateGovernanceRules,
   mergeJsonFile,
   readJsonSafe,
@@ -109,17 +110,14 @@ export class CodexHarness extends BaseAgentHarness {
    * @returns {Promise<{ files: Array<{ path: string, content: string, type: string }> }>}
    */
   async generateConfig(workspaceDir, options = {}) {
-    const mcpBin = resolveSkyhookMcpBin(workspaceDir);
+    const mcpConfig = buildMcpServerConfig(workspaceDir, options);
     const files = [
       {
         path: path.join(workspaceDir, '.codex', 'mcp.json'),
         type: 'merge-json',
         content: JSON.stringify({
           mcpServers: {
-            skyhook: {
-              command: 'node',
-              args: [mcpBin, '--dir', workspaceDir]
-            }
+            skyhook: mcpConfig
           }
         }, null, 2)
       },
@@ -149,7 +147,7 @@ export class CodexHarness extends BaseAgentHarness {
    * @returns {Promise<{ success: boolean, modifiedFiles: string[], actions: string[] }>}
    */
   async inject(workspaceDir, options = {}) {
-    const mcpBin = resolveSkyhookMcpBin(workspaceDir);
+    const mcpConfig = buildMcpServerConfig(workspaceDir, options);
     const mcpJsonPath = path.join(workspaceDir, '.codex', 'mcp.json');
     const codexAgentsPath = path.join(workspaceDir, '.codex', 'agents.md');
     const rootAgentsPath = path.join(workspaceDir, 'AGENTS.md');
@@ -160,10 +158,7 @@ export class CodexHarness extends BaseAgentHarness {
     // 1. Merge into .codex/mcp.json
     mergeJsonFile(mcpJsonPath, (existing) => {
       const servers = existing.mcpServers || {};
-      servers.skyhook = {
-        command: 'node',
-        args: [mcpBin, '--dir', workspaceDir]
-      };
+      servers.skyhook = mcpConfig;
       existing.mcpServers = servers;
       return existing;
     });
