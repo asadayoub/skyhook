@@ -43,6 +43,17 @@ export function formatResult(result, args = {}) {
     return;
   }
 
+  if (result.commands) {
+    console.log(`\n\x1b[1m\x1b[36m🚀 Skyhook - Universal Project Intelligence for AI Agents\x1b[0m\n`);
+    console.log(`\x1b[1mUsage:\x1b[0m skyhook <command> [options]\n`);
+    console.log(`\x1b[1mCommands:\x1b[0m`);
+    for (const cmd of result.commands) {
+      console.log(`  \x1b[33m${cmd.name.padEnd(20)}\x1b[0m ${cmd.description}`);
+    }
+    console.log(`\nRun \x1b[36mskyhook doctor\x1b[0m to run system health diagnostics.\n`);
+    return;
+  }
+
   if (result.summary) {
     console.log(result.summary);
     return;
@@ -441,7 +452,11 @@ async function main() {
 
   // Support subcommands
   let effectiveCommand = command;
-  if (command === 'adr') {
+  if (command === '--help' || command === '-h' || parsedArgs.help || parsedArgs.h) {
+    effectiveCommand = 'help';
+  } else if (command === '--version' || command === '-v' || parsedArgs.version || parsedArgs.v) {
+    effectiveCommand = 'version';
+  } else if (command === 'adr') {
     const sub = parsedArgs._.shift() || 'help';
     if (sub === 'sync') effectiveCommand = 'sync-adr';
     else if (sub === 'verify' || sub === 'check') effectiveCommand = 'verify-adr';
@@ -655,7 +670,7 @@ async function main() {
 
   // Handle commands that don't require pre-existing .skyhook directory
   let ctx = null;
-  const noCtxCommands = ['init', 'version', 'help', 'setup', 'install', 'dashboard', 'doctor'];
+  const noCtxCommands = ['init', 'version', '--version', '-v', 'help', '--help', '-h', 'setup', 'install', 'dashboard', 'doctor'];
   if (!noCtxCommands.includes(effectiveCommand)) {
     ctx = createSkyhookContext(process.cwd());
     if (!ctx) {
