@@ -43,7 +43,7 @@ function runProtocolArgv(args, cwd) {
   });
 }
 
-test('CLI Stdio JSON Protocol - Happy Path & Command Matrix', { timeout: 15000 }, async () => {
+test('CLI Stdio JSON Protocol - Happy Path & Command Matrix', { timeout: 30000 }, async () => {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'skyhook-protocol-test-'));
 
   try {

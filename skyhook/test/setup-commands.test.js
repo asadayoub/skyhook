@@ -12,10 +12,8 @@ const repoRoot = path.resolve(__dirname, '../../');
 describe('TASK-C05: Legacy Command Decoupling & Release Workflow Tests', () => {
   it('cmdSetup for claude generates commands invoking skyhook-cmd without dead paths', async () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'skyhook-setup-claude-'));
-    const origCwd = process.cwd();
     try {
-      process.chdir(tmpDir);
-      const res = await cmdSetup(null, { agent: 'claude' });
+      const res = await cmdSetup(null, { agent: 'claude', cwd: tmpDir });
       assert.strictEqual(res.success, true);
       assert.ok(res.files.length > 0);
 
@@ -26,17 +24,14 @@ describe('TASK-C05: Legacy Command Decoupling & Release Workflow Tests', () => {
       assert.ok(!content.includes('skill/commands/index.js'), 'Must NOT reference nonexistent skill/commands/index.js');
       assert.ok(content.includes('skyhook-cmd'), 'Must reference skyhook-cmd binary');
     } finally {
-      process.chdir(origCwd);
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
   });
 
   it('cmdSetup for gemini generates functions calling skyhook-cmd without dead paths', async () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'skyhook-setup-gemini-'));
-    const origCwd = process.cwd();
     try {
-      process.chdir(tmpDir);
-      const res = await cmdSetup(null, { agent: 'gemini' });
+      const res = await cmdSetup(null, { agent: 'gemini', cwd: tmpDir });
       assert.strictEqual(res.success, true);
 
       const funcFile = path.join(tmpDir, '.gemini/functions/skyhook.js');
@@ -46,21 +41,17 @@ describe('TASK-C05: Legacy Command Decoupling & Release Workflow Tests', () => {
       assert.ok(!content.includes('skill/commands/index.js'), 'Must NOT reference nonexistent skill/commands/index.js');
       assert.ok(content.includes('skyhook-cmd'), 'Must reference skyhook-cmd CLI');
     } finally {
-      process.chdir(origCwd);
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
   });
 
   it('cmdSetup routes registered harness agents through HarnessInjector', async () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'skyhook-setup-cursor-'));
-    const origCwd = process.cwd();
     try {
-      process.chdir(tmpDir);
-      const res = await cmdSetup(null, { agent: 'cursor' });
+      const res = await cmdSetup(null, { agent: 'cursor', cwd: tmpDir });
       assert.strictEqual(res.success, true);
       assert.ok(fs.existsSync(path.join(tmpDir, '.cursor/mcp.json')), 'Should inject .cursor/mcp.json');
     } finally {
-      process.chdir(origCwd);
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
   });

@@ -776,8 +776,8 @@ export async function cmdInstall(ctx, args) {
 }
 
 export async function cmdSetup(ctx, args) {
-  const agent = args.agent || 'codex';
-  const cwd = process.cwd();
+  const agent = (args && args.agent) || 'codex';
+  const cwd = (ctx && ctx.projectDir) || (args && args.cwd) || process.cwd();
   
   const skyhookRoot = SKYHOOK_ROOT;
   const skyhookCmd = path.join(skyhookRoot, 'cli', 'skyhook.js');

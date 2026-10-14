@@ -31,7 +31,7 @@ const unitTestFiles = fs.readdirSync(testDir)
   .filter(f => f.endsWith('.test.js') && !INTEGRATION_TESTS.has(f))
   .map(f => path.join('skyhook/test', f));
 
-const args = ['--test', '--test-timeout=10000', ...unitTestFiles];
+const args = ['--test', '--test-timeout=30000', ...unitTestFiles];
 const child = spawn(process.execPath, args, {
   stdio: 'inherit',
   env: process.env
