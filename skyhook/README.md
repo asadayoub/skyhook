@@ -7,8 +7,8 @@ Persistent, structured, version-controlled project memory, active architectural 
 
 [![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://github.com/asadayoub/skyhook/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-213%20passing-brightgreen.svg)](TESTING.md)
-[![MCP](https://img.shields.io/badge/MCP-100%25%20Offline-cyan.svg)](docs/MCP_SERVER.md)
+[![Tests](https://img.shields.io/badge/tests-379%20passing-brightgreen.svg)](TESTING.md)
+[![MCP](https://img.shields.io/badge/MCP-46%20Tools%20%7C%20Offline-cyan.svg)](docs/MCP_SERVER.md)
 [![Dashboard](https://img.shields.io/badge/dashboard-modular%20MMPA-purple.svg)](docs/DASHBOARD_AND_IDE.md)
 [![Agents](https://img.shields.io/badge/agents-Cursor%20%7C%20Claude%20%7C%20Copilot%20%7C%20Windsurf%20%7C%20Antigravity%20%7C%20Cline-orange.svg)](docs/AGENT_HARNESSES.md)
 
@@ -45,7 +45,7 @@ Autonomous AI coding agents are powerful but **stateless**. Every new prompt or 
 
 1. **🤖 100% Offline Model Context Protocol (MCP) Server**:
    - Implements MCP Specification (2024-11-05) over stdio and loopback `127.0.0.1` SSE.
-   - Exposes **44 autonomous tools** and **11 streaming resources** (`skyhook://backlog`, `skyhook://plan`, `skyhook://decisions`, `skyhook://boundaries`, `skyhook://tech-stack`, `skyhook://standards`, `skyhook://blockers`, `skyhook://drift-scorecard`, `skyhook://dark-matter`, `skyhook://profile`, `skyhook://trace-graph`).
+   - Exposes **46 autonomous tools** and **11 streaming resources** (`skyhook://backlog`, `skyhook://plan`, `skyhook://decisions`, `skyhook://boundaries`, `skyhook://tech-stack`, `skyhook://standards`, `skyhook://blockers`, `skyhook://drift-scorecard`, `skyhook://dark-matter`, `skyhook://profile`, `skyhook://trace-graph`).
    - Works natively with Cursor, Claude Desktop, Claude Code, GitHub Copilot, Windsurf, Google Antigravity, Cline, and OpenAI Codex without cloud relays.
 
 2. **🔌 Poly-Agent Harness Injector**:
@@ -54,7 +54,7 @@ Autonomous AI coding agents are powerful but **stateless**. Every new prompt or 
 
 3. **🖥️ Modular Cybernetic Web Dashboard & Native IDE Extension**:
    - Modular Multi-Page Application (MMPA) with zero build tools (native browser ES modules).
-   - Deep-link client hash router (`#/kanban`, `#/topology`, `#/drift`, `#/decisions`, `#/mermaid`, `#/dark-matter`, `#/harness`, `#/settings`).
+   - Deep-link client hash router (`#/kanban`, `#/topology`, `#/drift`, `#/decisions`, `#/mermaid`, `#/dark-matter`, `#/harness`, `#/settings`, `#/mission-control`).
    - Universal Platform Bridge runs identically in browsers and inside native VS Code / Cursor extension Webviews.
 
 4. **🔀 Two-Tier Multi-Agent Agile Backlog & Advisory Leases**:
@@ -85,14 +85,23 @@ Autonomous AI coding agents are powerful but **stateless**. Every new prompt or 
 
 ## 🚀 Quick Install
 
+### Global Installation via npm
 ```bash
-# One-liner installer (macOS/Linux/WSL)
-curl -fsSL https://raw.githubusercontent.com/asadayoub/skyhook/main/install.sh | bash
+# Install globally
+npm install -g skyhook
 
-# Add to PATH (if not already present)
-echo 'export PATH="$HOME/.skyhook/skill/cli:$PATH"' >> ~/.zshrc
-source ~/.zshrc
+# Or run directly via npx without install
+npx skyhook --help
+```
 
+### Standalone Executables
+Skyhook provides 4 native binaries out of the box:
+- `skyhook`: Unified command-line interface for human developers and scripts.
+- `skyhook-cmd`: Headless stdio JSON protocol processor for AI agent tool harnesses.
+- `skyhook-mcp`: 100% offline Model Context Protocol server for Cursor, Claude, Windsurf, Copilot, and Codex.
+- `skyhook-merge-driver`: 3-way semantic Git merge driver for conflict-free concurrent backlog branches.
+
+```bash
 # Verify installation
 skyhook version
 ```
@@ -128,6 +137,9 @@ skyhook adr verify
 
 # 9. Recompile living master plan
 skyhook plan
+
+# 10. Run comprehensive diagnostic health check
+skyhook doctor
 ```
 
 ---
@@ -152,7 +164,7 @@ Comprehensive manuals and deep-dives are available in [`docs/`](docs/):
 
 ## 🧪 Verification & Testing
 
-Skyhook is thoroughly tested with **213 automated tests across 6 test suites**:
+Skyhook is thoroughly tested with **379+ automated tests across 14 offline unit suites and integration suites**:
 ```bash
 npm test
 ```

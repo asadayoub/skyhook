@@ -1,142 +1,145 @@
 # Contributing to Skyhook
 
-Thank you for contributing! Skyhook is a community project and we welcome contributions of all kinds.
+Thank you for contributing! Skyhook is an open-source, community-driven project and we welcome contributions of all kinds — bug fixes, language parsers, agent harness plugins, documentation improvements, and architectural standards.
+
+---
 
 ## Development Setup
 
 ### Prerequisites
 
-- Node.js 18+
-- Git
-- An AI agent for testing (Codex, Claude Code, Gemini CLI)
+- **Node.js 18+** (Node 20+ LTS recommended)
+- **Git**
+- An AI coding agent for testing (Cursor, Claude Code, GitHub Copilot, Windsurf, Codex, Antigravity, or Cline)
 
 ### Clone & Install
 
 ```bash
-git clone https://github.com/skyhook/skyhook.git
+git clone https://github.com/asadayoub/skyhook.git
 cd skyhook
-npm install  # If package.json exists for tooling
+npm install
 ```
 
-### Project Structure
+### Repository Structure
 
 ```
 skyhook/
-├── skill/
-│   ├── plugin.json          # Skill manifest
-│   ├── SKILL.md             # Main documentation
-│   ├── agent-protocol.md    # Agent integration protocol
-│   ├── question-engine.md   # Question generation/interpreation
-│   ├── schemas/             # YAML schemas
-│   ├── standards/           # Built-in standards
-│   ├── profiles/            # Project-type profiles
-│   ├── templates/           # Project templates
-│   ├── workflows/           # Lifecycle workflows
-│   ├── cli/                 # CLI tool (skyhook.js)
-│   └── examples/            # Example workflows
-├── docs/                    # Documentation
-├── examples/                # Example projects
-├── README.md
-├── LICENSE
-└── CONTRIBUTING.md
+├── package.json             # Root npm configuration, scripts & 4 global binaries
+├── skyhook/
+│   ├── cli/                 # Standalone executable binaries
+│   │   ├── skyhook.js              # Positional CLI dispatcher
+│   │   ├── skyhook-cmd.js          # Headless stdio JSON protocol processor
+│   │   ├── skyhook-mcp.js          # 100% offline Model Context Protocol server
+│   │   └── skyhook-merge-driver.js # 3-way semantic Git merge driver
+│   ├── lib/                 # Core Subsystem Engines
+│   │   ├── adr/             # ADR synthesis, DAG, supersession, & AST policy guards
+│   │   ├── backlog/         # Two-tier Agile FSM, leases, event ledger, & locks
+│   │   ├── drift/           # DDD module boundaries & semantic code rules
+│   │   ├── harness/         # Poly-agent harness injectors & MCP server implementation
+│   │   ├── inference/       # Automated tech-stack inference engine
+│   │   ├── parsers/         # Polyglot AST parsers (JS/TS, Python, Go, Rust, Java, Specs)
+│   │   ├── plan/            # Living plan compiler, Gantt charts, & capacity forecaster
+│   │   ├── server/          # Embedded HTTP server, WebSocket gateway, & RPC handlers
+│   │   ├── standards/       # Modular standards registry, resolver, & package installer
+│   │   └── tracer/          # Code traceability resolver, dark matter radar, & symbol cache
+│   ├── dashboard/           # Cybernetic Modular Web Dashboard & Native IDE Webview assets
+│   ├── schemas/             # YAML specification schemas (backlog, decisions, project, etc.)
+│   ├── standards/           # Built-in standards & YAML rule definitions
+│   │   ├── definitions/     # Granular YAML standards definitions
+│   │   └── *.md             # Human-readable architectural reference guides
+│   ├── profiles/            # Base architecture profiles (web-app, saas, cli-tool, etc.)
+│   ├── templates/           # Scaffolding templates for project initialization
+│   ├── workflows/           # Lifecycle and discovery workflow definitions
+│   ├── test/                # 14 offline unit suites & integration test suites
+│   └── docs/                # Comprehensive subsystem manuals & tutorials
+├── README.md                # Root project overview & capabilities
+├── TESTING.md               # Automated testing architecture & test guides
+└── LICENSE                  # MIT License
 ```
+
+---
 
 ## Making Changes
 
-### 1. Standards Changes
+### 1. Engineering Standards Changes
+Edit or add YAML definitions in `skyhook/standards/definitions/<domain>/`:
+- Follow the schema defined in `skyhook/schemas/standard.yaml`.
+- Include clear metadata (ID, title, severity, category, tags).
+- Define automated rules (`prohibited-imports`, `ast-pattern`, `naming-convention`) for AST verification where applicable.
+- Test with: `node skyhook/cli/skyhook.js standards list` and `node skyhook/cli/skyhook.js standards verify`.
 
-Edit files in `skill/standards/`:
-- Follow existing format
-- Keep as defaults (advisory), not restrictions
-- Document override mechanism
-- Update version in header
-
-### 2. Profile Changes
-
-Edit files in `skill/profiles/`:
-- Follow schema in `schemas/`
-- Include detection heuristics
-- Define defaults, questions, scaffold
-- Test with `skyhook profile <name>`
+### 2. Architecture Profile Changes
+Edit or add YAML files in `skyhook/profiles/`:
+- Follow the schema in `skyhook/schemas/project.yaml`.
+- Include stack detection heuristics, default dependencies, and contextual discovery questions.
+- Test with: `node skyhook/cli/skyhook.js profile <name>`.
 
 ### 3. Schema Changes
+Edit files in `skyhook/schemas/`:
+- Increment `schemaVersion` on breaking structural changes.
+- Ensure all templates in `skyhook/templates/` and runtime validators in `skyhook/lib/schema.js` remain synchronized.
+- Verify schema resilience with: `node skyhook/test/schema-resilience.test.js`.
 
-Edit files in `skill/schemas/`:
-- Increment `schemaVersion` on breaking changes
-- Provide migration guide
-- Maintain backward compatibility within MAJOR
-- Update templates to match
+### 4. Subsystem & CLI Changes
+- Place core business logic inside appropriate `skyhook/lib/<subsystem>/` modules.
+- Ensure all CLI binaries in `skyhook/cli/` retain the `#!/usr/bin/env node` shebang on line 1.
+- Maintain 100% offline air-gapped isolation: zero external network binds or cloud telemetry.
+- Support both positional CLI execution and stdio JSON protocol payloads.
 
-### 4. CLI Changes
+### 5. Documentation Updates
+- Update the relevant guides in `skyhook/docs/` whenever commands, flags, or tools are modified.
+- Keep examples working and syntax-highlighted.
+- Update `skyhook/docs/CLI_REFERENCE.md` and `skyhook/docs/MCP_SERVER.md` when introducing new commands or MCP tools.
 
-Edit `skill/cli/skyhook.js`:
-- Keep Node.js 18+ compatible
-- No external dependencies (stdlib only)
-- Follow existing command patterns
-- Test all commands
+---
 
-### 5. Documentation
+## Verification & Testing
 
-Edit files in `docs/` and `README.md`:
-- Keep examples working
-- Update when features change
-- Clear, concise, practical
+Skyhook is thoroughly tested with **379+ automated tests** using Node.js's native test runner (`node:test`).
 
-## Testing
-
-### Manual Testing
-
+### Run Offline Unit Suites
 ```bash
-# Test CLI
-cd skill/cli
-node skyhook.js version
-node skyhook.js help
-
-# Test init in temp directory
-cd /tmp
-mkdir test-skyhook && cd test-skyhook
-git init
-~/skyhook/skill/cli/skyhook.js init
-~/skyhook/skill/cli/skyhook.js discover
-~/skyhook/skill/cli/skyhook.js question requirements
-~/skyhook/skill/cli/skyhook.js plan
-~/skyhook/skill/cli/skyhook.js decide "Test decision"
-~/skyhook/skill/cli/skyhook.js standards
+# Run all 379 offline sandboxed unit tests
+npm test
 ```
 
-### Agent Integration Testing
-
-Test with your preferred agent:
-
-1. **Codex**: Add skill path to instructions
-2. **Claude Code**: Reference in CLAUDE.md
-3. **Gemini CLI**: Use @skyhook reference
-
-Verify:
-- Agent reads .skyhook/ on startup
-- Agent asks contextual questions
-- Agent writes decisions/requirements
-- Agent regenerates plan on changes
-
-### Schema Validation
-
+### Run Integration Suites
 ```bash
-# Check YAML files are valid
-node -e "const fs=require('fs'); const yaml=require('js-yaml'); console.log('Valid:', yaml.load(fs.readFileSync('skill/schemas/project.yaml', 'utf8')).schemaVersion)"
+# Run WebSocket, RPC, and server integration tests
+npm run test:integration
+
+# Run complete test suite (unit + integration)
+npm run test:all
 ```
+
+### Run Diagnostic Doctor Check
+Verify local environment and workspace integrity:
+```bash
+node skyhook/cli/skyhook.js doctor
+```
+
+### Manual CLI & Protocol Testing
+```bash
+# Test positional CLI
+node skyhook/cli/skyhook.js version
+node skyhook/cli/skyhook.js --help
+
+# Test stdio JSON protocol
+echo '{"command":"listCurrentFeatures","args":{}}' | node skyhook/cli/skyhook-cmd.js
+
+# Test MCP server handshake
+echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05"}}' | node skyhook/cli/skyhook-mcp.js
+```
+
+---
 
 ## Pull Request Process
 
-1. **Fork** the repository
-2. **Create** a feature branch: `git checkout -b feat/amazing-feature`
-3. **Make** your changes with clear commits
-4. **Test** thoroughly (see Testing section)
-5. **Update** documentation if needed
-6. **Submit** PR with:
-   - Clear description of changes
-   - Motivation/context
-   - Testing performed
-   - Screenshots if UI related
+1. **Fork** the repository: `https://github.com/asadayoub/skyhook`
+2. **Create** a descriptive feature branch: `git checkout -b feat/my-new-feature`
+3. **Commit** your changes following Conventional Commits format (`feat:`, `fix:`, `docs:`, `test:`, `refactor:`).
+4. **Ensure** all 379 tests pass with zero regressions (`npm test`).
+5. **Submit** your Pull Request with a clear summary of changes, motivation, and verification steps.
 
 ### Commit Message Format
 
@@ -152,44 +155,31 @@ Types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `chore`, `bui
 
 Example:
 ```
-feat(profiles): add mobile-app profile with Expo defaults
+feat(tracer): add Kotlin parser extension for Android architecture governance
 
-- Detection for Expo/React Native
-- Default tech stack: Expo, TypeScript, NativeWind
-- Questions for app store, push notifications, deep linking
-- Scaffold with Expo router structure
+- Add KotlinParser implementing BaseParser interface
+- Register parser in ParserRegistry for .kt and .kts extensions
+- Add unit test suite in skyhook/test/kotlin-parser.test.js
 
-Closes #42
+Closes #128
 ```
 
-## Release Process
+---
 
-Maintainers only:
+## Release Process (Maintainers Only)
 
-1. Update version in `skill/plugin.json`
-2. Update CHANGELOG.md
-3. Create git tag: `git tag v1.0.1`
-4. Push tag: `git push origin v1.0.1`
-5. GitHub Actions builds and publishes
+1. Bump the version in root `package.json`.
+2. Update release notes in `skyhook/docs/` and root documentation.
+3. Commit and tag the release: `git tag v2.X.X`.
+4. Push tag to `origin`: `git push origin v2.X.X`.
+5. GitHub Actions release workflow (`.github/workflows/release.yml`) verifies tests and publishes release artifacts.
+
+---
 
 ## Code of Conduct
 
-- Be respectful and inclusive
-- Focus on constructive feedback
-- Help newcomers
-- No harassment, discrimination, or spam
+- Be respectful, constructive, and inclusive.
+- Focus on architectural integrity and maintainability.
+- Help fellow contributors and AI agent developers.
 
-## Getting Help
-
-- **Issues**: Bug reports, feature requests
-- **Discussions**: Questions, ideas, design discussions
-- **Discord**: Real-time chat (if available)
-
-## Recognition
-
-Contributors are recognized in:
-- README.md contributors section
-- Release notes
-- CONTRIBUTORS.md (if maintained)
-
-Thank you for making Skyhook better! 🚀
+Thank you for contributing to Skyhook! 🚀

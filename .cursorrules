@@ -3,10 +3,12 @@
 
 This repository is governed by Skyhook. As an AI Agent working in this codebase, you MUST adhere to the following rules:
 
-1. **Backlog & Task Leases**:
-   - Query 'skyhook_get_next_task' or inspect 'skyhook://backlog' before starting any feature work.
-   - Acquire an advisory lease for your assigned story to avoid stepping on concurrent agent tasks.
-   - Transition tasks using 'skyhook_update_status' (e.g. backlog -> ready -> in-progress -> in-review -> done).
+1. **Backlog & Task Hierarchy (Epic ➔ Story ➔ Task ➔ Subtask)**:
+   - Query 'skyhook_get_next_task' or 'skyhook_claim_task' (or inspect 'skyhook://backlog') before starting any feature work.
+   - Acquire an advisory lease for your assigned task ('TASK-XXX') or story ('STORY-XXX') to avoid stepping on concurrent agent tasks.
+   - For long-running tasks, extend your lease periodically using 'skyhook_heartbeat_lease'.
+   - Respect Definition of Done (DoD) subtasks ('SUB-XXX'): complete all subtasks before transitioning the parent item to done.
+   - Transition states using 'skyhook_update_status' or 'skyhook_update_task_status' (backlog -> ready -> in-progress -> in-review -> done).
 
 2. **Architectural Governance & Boundary Policies**:
    - Never bypass Domain-Driven Design (DDD) module boundaries or introduce circular dependencies.

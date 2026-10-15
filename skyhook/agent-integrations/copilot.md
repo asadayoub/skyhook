@@ -1,158 +1,69 @@
 # Skyhook + GitHub Copilot Integration
 
-## Quick Setup
+Skyhook provides deep native integration with **GitHub Copilot** in VS Code, Cursor, and JetBrains IDEs by injecting persistent custom instructions and setting up the 100% offline MCP server.
+
+---
+
+## 1. Quick Setup
 
 ```bash
-# 1. Install Skyhook (one-time)
-curl -fsSL https://raw.githubusercontent.com/asadayoub/skyhook/main/install.sh | bash
-echo 'export PATH="$HOME/.skyhook/skill/cli:$PATH"' >> ~/.zshrc
-source ~/.zshrc
+# 1. Install Skyhook globally
+npm install -g @skyhook/cli
 
-# 2. In your project
+# 2. In your project, initialize Skyhook and inject Copilot harness:
 cd your-project
 skyhook init
-skyhook discover
+skyhook harness inject --target=copilot
 ```
 
-## Copilot Custom Instructions
+`skyhook harness inject --target=copilot` automatically configures:
+- `.github/copilot-instructions.md`: Injects Skyhook governance rules, Task/Subtask hierarchy, and DoD checklist invariants.
+- `.vscode/settings.json`: Configures the Skyhook MCP server with portable paths for Copilot MCP integration.
 
-Create `.github/copilot-instructions.md`:
+---
+
+## 2. Copilot Custom Instructions (`.github/copilot-instructions.md`)
+
+Copilot reads workspace custom instructions to align code completions with architectural rules:
 
 ```markdown
-# Skyhook Project Intelligence
+<!-- SKYHOOK_RULES_START -->
+# Skyhook Project Intelligence & Governance Rules
 
-This project uses Skyhook for persistent, structured project intelligence.
+This repository is governed by Skyhook. As an AI Agent working in this codebase, you MUST adhere to the following rules:
 
-## Skyhook Commands
+1. **Backlog & Task Hierarchy (Epic ➔ Story ➔ Task ➔ Subtask)**:
+   - Query 'skyhook_get_next_task' or 'skyhook_claim_task' (or inspect 'skyhook://backlog') before starting any feature work.
+   - Acquire an advisory lease for your assigned task ('TASK-XXX') or story ('STORY-XXX') to avoid stepping on concurrent agent tasks.
+   - For long-running tasks, extend your lease periodically using 'skyhook_heartbeat_lease'.
+   - Respect Definition of Done (DoD) subtasks ('SUB-XXX'): complete all subtasks before transitioning the parent item to done.
+   - Transition states using 'skyhook_update_status' or 'skyhook_update_task_status' (backlog -> ready -> in-progress -> in-review -> done).
 
-All Skyhook commands are available via `skyhook-cmd` binary (stdio JSON protocol).
+2. **Architectural Governance & Boundary Policies**:
+   - Never bypass Domain-Driven Design (DDD) module boundaries or introduce circular dependencies.
+   - Call 'skyhook_verify_policies' before modifying code across modules.
+   - If an architectural decision is made, record it via 'skyhook_record_decision'.
 
-### Key Commands for Copilot
-
-- **List features**: `echo '{"command":"listCurrentFeatures","args":{}}' | skyhook-cmd`
-- **Next task**: `echo '{"command":"getNextTask","args":{}}' | skyhook-cmd`
-- **Blockers**: `echo '{"command":"getBlockers","args":{}}' | skyhook-cmd`
-- **Trace requirement**: `echo '{"command":"trace","args":{"id":"REQ-001"}}' | skyhook-cmd`
-- **Impact analysis**: `echo '{"command":"impact","args":{"id":"REQ-001"}}' | skyhook-cmd`
-- **Record decision**: `echo '{"command":"recordDecision","args":{"title":"...","decision":"...","context":"..."}}' | skyhook-cmd`
-- **Sync check**: `echo '{"command":"sync","args":{}}' | skyhook-cmd`
-- **Get context**: `echo '{"command":"getContext","args":{"topic":"authentication"}}' | skyhook-cmd`
-- **Dashboard**: `skyhook-cmd dashboard start` (opens http://localhost:4343)
-
-## Project Context Files
-
-Skyhook maintains `.skyhook/` directory:
-
-```
-.skyhook/
-├── project.yaml          # Project metadata
-├── context.md            # Problem statement, solution overview
-├── vision.md             # Product vision, KPIs, personas
-├── requirements/
-│   ├── functional.yaml
-│   ├── non-functional.yaml
-│   └── constraints.yaml
-├── decisions/
-│   ├── index.yaml
-│   └── *.md              # Auto-generated ADRs
-├── backlog/
-│   └── epics.yaml        # Epics, stories, tasks (WSJF)
-├── tech-stack.yaml       # Technology choices
-├── ux/
-│   └── styleguide.md
-├── standards/            # Project-specific standards
-└── changelog.md          # Full history
+3. **Traceability Annotations**:
+   - Tag exported symbols (classes, functions, interfaces) with JSDoc/docstring comments linking to story or requirement IDs:
+     `@skyhook-implements REQ-XXX` or `@skyhook-story STORY-YYY`
+   - Verify traceability using 'skyhook_trace_requirement' or the 'skyhook trace' CLI.
+<!-- SKYHOOK_RULES_END -->
 ```
 
-## Traceability
+---
 
-Use `@skyhook-implements REQ-XXX` comments in code:
+## 3. Invoking Skyhook from Copilot Chat
 
-```typescript
-// @skyhook-implements REQ-003
-export function RevenueChart() { ... }
-```
+When interacting with Copilot Chat in your IDE:
 
-This enables:
-- `/skyhook-trace --id=REQ-003` - Find all code implementing a requirement
-- `/skyhook-impact --id=REQ-003` - Analyze change impact
-- `/skyhook-untraced` - Find requirements with no code references
-
-## Workflow for Copilot
-
-1. **Session start**: Ask "What's my next task?" → runs `getNextTask`
-2. **Before coding**: Ask "Trace REQ-XXX" → runs `trace`
-3. **Architecture decision**: Ask "Record decision: ..." → runs `recordDecision` (auto-generates ADR)
-4. **Before PR**: Ask "Check for drift" → runs `sync`
-5. **Visual overview**: Ask "Start dashboard" → runs `dashboard start`
-
-## Example Prompts
-
-```
-"What's the highest priority task I should work on?"
-"Show me all blockers in the project"
-"Trace REQ-003 to see what stories and code implement it"
-"What's the impact of changing the authentication requirement?"
-"Record a decision: Use Redis for session caching"
-"Check if our code matches the documented tech stack"
-"Start the Skyhook dashboard for a visual overview"
-```
-
-## VS Code Tasks (Optional)
-
-Add to `.vscode/tasks.json`:
-
-```json
-{
-  "version": "2.0.0",
-  "tasks": [
-    {
-      "label": "Skyhook: Next Task",
-      "type": "shell",
-      "command": "echo '{\"command\":\"getNextTask\",\"args\":{}}' | skyhook-cmd",
-      "presentation": { "reveal": "always", "panel": "new" }
-    },
-    {
-      "label": "Skyhook: List Features",
-      "type": "shell",
-      "command": "echo '{\"command\":\"listCurrentFeatures\",\"args\":{}}' | skyhook-cmd",
-      "presentation": { "reveal": "always", "panel": "new" }
-    },
-    {
-      "label": "Skyhook: Check Drift",
-      "type": "shell",
-      "command": "echo '{\"command\":\"sync\",\"args\":{}}' | skyhook-cmd",
-      "presentation": { "reveal": "always", "panel": "new" }
-    },
-    {
-      "label": "Skyhook: Start Dashboard",
-      "type": "shell",
-      "command": "skyhook-cmd dashboard start",
-      "presentation": { "reveal": "always", "panel": "new" }
-    }
-  ]
-}
-```
-
-Then use `Cmd+Shift+P` → "Tasks: Run Task" → "Skyhook: Next Task"
-
-## GitHub Actions (CI Integration)
-
-Add `.github/workflows/skyhook-drift.yml`:
-
-```yaml
-name: Skyhook Drift Check
-on: [push, pull_request]
-jobs:
-  drift-check:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install Skyhook
-        run: |
-          curl -fsSL https://raw.githubusercontent.com/asadayoub/skyhook/main/install.sh | bash
-          echo "$HOME/.skyhook/skill/cli" >> $GITHUB_PATH
-      - name: Check Drift
-        run: echo '{"command":"sync","args":{}}' | skyhook-cmd
-```
-```
+- **Claim next task**:
+  `@skyhook get next task for agent Copilot`
+- **Check active blockers**:
+  `@skyhook what are the current blocked backlog items?`
+- **Trace requirement**:
+  `@skyhook trace REQ-001 to find which code implements it`
+- **Verify architectural boundaries**:
+  `@skyhook verify adr policies on src/`
+- **Open Cybernetic Dashboard**:
+  `skyhook dashboard start` (serves at [http://127.0.0.1:31415](http://127.0.0.1:31415))

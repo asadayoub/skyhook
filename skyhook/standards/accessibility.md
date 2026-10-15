@@ -1,9 +1,28 @@
-# Skyhook Built-in Accessibility Standards
+# Skyhook Accessibility Standards
 
-## Purpose
+## Purpose & Living Standards Engine
 
-Detailed accessibility requirements beyond the UX standards baseline.
-Target: **WCAG 2.1 Level AA** minimum, **AAA** for public-facing content.
+Detailed accessibility requirements targeting **WCAG 2.1 Level AA** minimum and **AAA** for public content. In Skyhook v2.0.0, accessibility standards are machine-evaluable specifications indexed by the **Standards Engine** (`StandardsRegistry.js`).
+
+### Active Accessibility Definitions
+The principles described in this document are compiled into declarative YAML definitions located in [`skyhook/standards/definitions/accessibility/`](definitions/accessibility/):
+- **`STD-A11Y-001`** (Critical): [Meaningful Text Alternatives](definitions/accessibility/STD-A11Y-001-text-alternatives.yaml) — Non-text content must have descriptive alternative text (`alt` attributes, aria-labels, or structured data tables).
+- **`STD-A11Y-002`** (Critical): [Full Keyboard Operability](definitions/accessibility/STD-A11Y-002-keyboard-navigation.yaml) — All interactive components reachable and operable via keyboard without focus traps.
+- **`STD-A11Y-003`** (High): [Perceivable Color Contrast](definitions/accessibility/STD-A11Y-003-color-contrast.yaml) — Minimum 4.5:1 contrast ratio for normal text and 3:1 for large text / UI controls.
+- **`STD-A11Y-004`** (High): [Valid ARIA Attributes & Roles](definitions/accessibility/STD-A11Y-004-aria-attributes.yaml) — Proper semantic landmarks, live regions, and screen-reader accessibility trees.
+
+### 4-Tier Standards Discovery Hierarchy
+Standards are resolved across 4 discovery tiers (highest precedence first):
+1. **Workspace Custom**: `.skyhook/standards/custom/*.yaml` or `.skyhook/standards/*.yaml`
+2. **Workspace Installed Packages**: `.skyhook/standards/packages/*/*.yaml`
+3. **Global User Standards**: `~/.skyhook/standards/*.yaml`
+4. **Built-in Core Library**: `skyhook/standards/definitions/**/*.yaml`
+
+### CLI & MCP Agent Workflow
+- **List standards**: `skyhook standards list --category accessibility` (or MCP `skyhook_list_standards`)
+- **Inspect details**: `skyhook standards view STD-A11Y-001` (or MCP `skyhook_view_standard`)
+- **Verify codebase**: `skyhook standards verify --path src/` (or MCP `skyhook_verify_standards`)
+- **Scaffold new rule**: `skyhook standards new STD-A11Y-CUSTOM --title "Screen Reader Live Region Gate"`
 
 ---
 

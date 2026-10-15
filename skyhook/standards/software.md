@@ -1,9 +1,27 @@
-# Skyhook Built-in Software Standards
+# Skyhook Software Standards
 
-## Purpose
+## Purpose & Living Standards Engine
 
-Opinionated but overridable standards for code quality, architecture, and maintainability.
-These are **defaults** — projects can override any standard in `.skyhook/standards/software.md`.
+Opinionated but overridable standards for code quality, architecture, and maintainability. In Skyhook v2.0.0, software standards are machine-evaluable specifications indexed by the **Standards Engine** (`StandardsRegistry.js`).
+
+### Active Software Definitions
+The principles described in this document are compiled into declarative YAML definitions located in [`skyhook/standards/definitions/software/`](definitions/software/):
+- **`STD-SOFT-001`** (Critical): [Structured Error Handling](definitions/software/STD-SOFT-001-error-handling.yaml) — Explicit typed errors, no swallowed exceptions, and centralized failure boundaries.
+- **`STD-SOFT-002`** (High): [Data Immutability & Pure Transformations](definitions/software/STD-SOFT-002-immutability.yaml) — Pure functions, read-only structures, and defensive copying.
+- **`STD-SOFT-003`** (High): [Strict Type Safety](definitions/software/STD-SOFT-003-type-safety.yaml) — Explicit type signatures, no unchecked `any`, and schema-driven contracts.
+
+### 4-Tier Standards Discovery Hierarchy
+Standards are resolved across 4 discovery tiers (highest precedence first):
+1. **Workspace Custom**: `.skyhook/standards/custom/*.yaml` or `.skyhook/standards/*.yaml`
+2. **Workspace Installed Packages**: `.skyhook/standards/packages/*/*.yaml`
+3. **Global User Standards**: `~/.skyhook/standards/*.yaml`
+4. **Built-in Core Library**: `skyhook/standards/definitions/**/*.yaml`
+
+### CLI & MCP Agent Workflow
+- **List standards**: `skyhook standards list --category software` (or MCP `skyhook_list_standards`)
+- **Inspect details**: `skyhook standards view STD-SOFT-001` (or MCP `skyhook_view_standard`)
+- **Verify codebase**: `skyhook standards verify --path src/` (or MCP `skyhook_verify_standards`)
+- **Scaffold new rule**: `skyhook standards new STD-SOFT-CUSTOM --title "Async Concurrency Limits"`
 
 ## Core Principles
 

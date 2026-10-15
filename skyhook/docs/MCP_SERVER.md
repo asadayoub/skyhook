@@ -25,7 +25,7 @@ flowchart TD
     end
 
     subgraph MCPEngine["Skyhook MCPServer (JSON-RPC 2.0 Router)"]
-        Tools["37 Registered Tools<br/>8 Functional Domains"]
+        Tools["46 Registered Tools<br/>8 Functional Domains"]
         Resources["11 Registered Resources<br/>(skyhook:// URI scheme)"]
         Prompts["2 Registered Prompts"]
     end
@@ -69,17 +69,20 @@ Add to `.cursor/mcp.json`:
   "mcpServers": {
     "skyhook": {
       "command": "node",
-      "args": ["./node_modules/@skyhook/skill/skyhook/cli/skyhook-mcp.js"]
+      "args": ["${workspaceFolder}/skyhook/cli/skyhook-mcp.js"]
     }
   }
 }
 ```
+*Note: If globally installed via `npm install -g @skyhook/cli`, use `"command": "skyhook-mcp"` without args.*
 *Tip: Run `skyhook harness inject --target=cursor` to auto-configure this file.*
 
 ### OpenAI Codex
 Run via native CLI registration:
 ```bash
-codex mcp add skyhook -- node /ABSOLUTE/PATH/TO/skyhook/cli/skyhook-mcp.js
+codex mcp add skyhook -- skyhook-mcp
+# Or with node and workspace script:
+codex mcp add skyhook -- node skyhook/cli/skyhook-mcp.js
 ```
 Or add to `.codex/mcp.json`:
 ```json
@@ -87,7 +90,7 @@ Or add to `.codex/mcp.json`:
   "mcpServers": {
     "skyhook": {
       "command": "node",
-      "args": ["./node_modules/@skyhook/skill/skyhook/cli/skyhook-mcp.js"]
+      "args": ["${workspaceFolder}/skyhook/cli/skyhook-mcp.js"]
     }
   }
 }
@@ -104,12 +107,12 @@ Add to your OS-specific configuration:
 {
   "mcpServers": {
     "skyhook": {
-      "command": "node",
-      "args": ["/ABSOLUTE/PATH/TO/skyhook/cli/skyhook-mcp.js"]
+      "command": "skyhook-mcp"
     }
   }
 }
 ```
+*Or specify absolute script path: `"command": "node", "args": ["/ABSOLUTE/PATH/TO/skyhook/cli/skyhook-mcp.js"]`.*
 
 ### Codeium Windsurf
 Add to `.codeium/windsurf/mcp_config.json`:
@@ -118,7 +121,7 @@ Add to `.codeium/windsurf/mcp_config.json`:
   "mcpServers": {
     "skyhook": {
       "command": "node",
-      "args": ["./node_modules/@skyhook/skill/skyhook/cli/skyhook-mcp.js"]
+      "args": ["${workspaceFolder}/skyhook/cli/skyhook-mcp.js"]
     }
   }
 }
@@ -131,7 +134,7 @@ Add to `.agents/mcp_config.json`:
   "mcpServers": {
     "skyhook": {
       "command": "node",
-      "args": ["./node_modules/@skyhook/skill/skyhook/cli/skyhook-mcp.js"]
+      "args": ["${workspaceFolder}/skyhook/cli/skyhook-mcp.js"]
     }
   }
 }
@@ -144,7 +147,7 @@ Add to `cline_mcp_settings.json`:
   "mcpServers": {
     "skyhook": {
       "command": "node",
-      "args": ["./node_modules/@skyhook/skill/skyhook/cli/skyhook-mcp.js"]
+      "args": ["${workspaceFolder}/skyhook/cli/skyhook-mcp.js"]
     }
   }
 }
@@ -152,9 +155,9 @@ Add to `cline_mcp_settings.json`:
 
 ---
 
-## 3. Registered MCP Tools (44 Tools across 8 Domains)
+## 3. Registered MCP Tools (46 Tools across 8 Domains)
 
-Skyhook registers 44 full-lifecycle autonomous tools partitioned across 8 operational domains:
+Skyhook registers 46 full-lifecycle autonomous tools partitioned across 8 operational domains:
 
 ### 1. Core & Environment Tools
 | Tool Name | Description | Key Arguments |
@@ -163,6 +166,7 @@ Skyhook registers 44 full-lifecycle autonomous tools partitioned across 8 operat
 | `skyhook_get_context` | Returns unified workspace context, active stack, and backlog status | `topic`, `includeRules` |
 | `skyhook_get_profile` | Retrieves active architectural profile constraints and defaults | None |
 | `skyhook_manage_tech_stack` | Adds, removes, or inspects declared technologies and libraries | `action` (`add`\|`remove`\|`list`), `technology` |
+| `skyhook_doctor` | Runs system health diagnostics (Node, `.skyhook`, backlog, git hooks, harnesses, AST) | `port` (default 31415) |
 
 ### 2. Planning & Discovery Tools
 | Tool Name | Description | Key Arguments |
@@ -185,6 +189,7 @@ Skyhook registers 44 full-lifecycle autonomous tools partitioned across 8 operat
 | Tool Name | Description | Key Arguments |
 |---|---|---|
 | `skyhook_get_next_task` | Claims next highest-priority task or story and issues advisory lease with standards briefing | `assignee`, `level` (`task`\|`story`\|`any`), `story`, `epic`, `type`, `lease` |
+| `skyhook_claim_task` | Atomically claims a specific or next ready task with lease and execution context packet | `assignee` (*required*), `taskId`, `level`, `story`, `epic`, `type`, `role`, `lease` |
 | `skyhook_update_status` | Transitions story or task lifecycle (`backlog` ➔ `ready` ➔ `in-progress` ➔ `in-review` ➔ `done`) | `storyId`, `taskId`, `status`, `reason`, `force` |
 | `skyhook_release_lease` | Releases advisory lease on a story or task without completing it | `storyId`, `taskId`, `force` |
 | `skyhook_create_task` | Creates a fine-grained task under an existing Story or Epic | `title`, `parentId`, `type`, `priority`, `targetFiles`, `subtasks` |
@@ -274,7 +279,7 @@ You can test the MCP server directly by piping JSON-RPC 2.0 messages via stdin:
 # Handshake test
 echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05"}}' | node skyhook/cli/skyhook-mcp.js
 
-# List tools (returns all 37 registered tools)
+# List tools (returns all 46 registered tools)
 echo '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}' | node skyhook/cli/skyhook-mcp.js
 
 # List resources (returns all 11 streaming resources)

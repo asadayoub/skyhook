@@ -1,9 +1,28 @@
-# Skyhook Built-in Security Standards
+# Skyhook Security Standards
 
-## Purpose
+## Purpose & Living Standards Engine
 
-Security baseline based on OWASP Top 10, ASVS, and secure-by-default principles.
-These are **defaults** — override in `.skyhook/standards/security.md`.
+Security baseline based on OWASP Top 10, ASVS, and secure-by-default principles. In Skyhook v2.0.0, security standards are machine-evaluable specifications indexed by the **Standards Engine** (`StandardsRegistry.js`).
+
+### Active Security Definitions
+The principles described in this document are compiled into declarative YAML definitions located in [`skyhook/standards/definitions/security/`](definitions/security/):
+- **`STD-SEC-001`** (Critical): [Cryptographically Secure JWT Authentication](definitions/security/STD-SEC-001-jwt-auth.yaml) — Enforce asymmetric signing (RS256/ES256), strict token expiration, and secure header validation.
+- **`STD-SEC-002`** (Critical): [SQL Injection Prevention & Parameterization](definitions/security/STD-SEC-002-sql-injection-prevention.yaml) — Prohibit raw string interpolation in SQL/ORM queries; mandate parameterized statements.
+- **`STD-SEC-003`** (Critical): [Secrets Management & Environment Hygiene](definitions/security/STD-SEC-003-secrets-management.yaml) — Zero hardcoded credentials, secret scanning in pre-commit, and runtime environment variable isolation.
+- **`STD-SEC-004`** (High): [Strict CORS & Content Security Policy (CSP)](definitions/security/STD-SEC-004-cors-csp-headers.yaml) — Defense-in-depth HTTP headers, explicit origin whitelists, and restricted script execution policies.
+
+### 4-Tier Standards Discovery Hierarchy
+Standards are resolved across 4 discovery tiers (highest precedence first):
+1. **Workspace Custom**: `.skyhook/standards/custom/*.yaml` or `.skyhook/standards/*.yaml`
+2. **Workspace Installed Packages**: `.skyhook/standards/packages/*/*.yaml`
+3. **Global User Standards**: `~/.skyhook/standards/*.yaml`
+4. **Built-in Core Library**: `skyhook/standards/definitions/**/*.yaml`
+
+### CLI & MCP Agent Workflow
+- **List standards**: `skyhook standards list --category security` (or MCP `skyhook_list_standards`)
+- **Inspect details**: `skyhook standards view STD-SEC-001` (or MCP `skyhook_view_standard`)
+- **Verify codebase**: `skyhook standards verify --path src/` (or MCP `skyhook_verify_standards`)
+- **Scaffold new rule**: `skyhook standards new STD-SEC-CUSTOM --title "mTLS Service Mesh Policy"`
 
 ---
 

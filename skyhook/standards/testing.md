@@ -1,9 +1,26 @@
-# Skyhook Built-in Testing Standards
+# Skyhook Testing Standards
 
-## Purpose
+## Purpose & Living Standards Engine
 
-Testing strategy and standards for reliable, maintainable test suites.
-These are **defaults** — override in `.skyhook/standards/testing.md`.
+Testing strategy and standards for reliable, maintainable test suites. In Skyhook v2.0.0, testing standards are machine-evaluable specifications indexed by the **Standards Engine** (`StandardsRegistry.js`).
+
+### Active Testing Definitions
+The principles described in this document are compiled into declarative YAML definitions located in [`skyhook/standards/definitions/testing/`](definitions/testing/):
+- **`STD-TEST-001`** (High): [Testing Pyramid Balance](definitions/testing/STD-TEST-001-testing-pyramid.yaml) — Maintain appropriate distribution across unit (70%), integration (20%), and E2E (10%) tests.
+- **`STD-TEST-002`** (Critical): [Deterministic Test Isolation](definitions/testing/STD-TEST-002-test-isolation.yaml) — Zero cross-test state leakage, hermetic temporary directories, and clean resource teardowns.
+
+### 4-Tier Standards Discovery Hierarchy
+Standards are resolved across 4 discovery tiers (highest precedence first):
+1. **Workspace Custom**: `.skyhook/standards/custom/*.yaml` or `.skyhook/standards/*.yaml`
+2. **Workspace Installed Packages**: `.skyhook/standards/packages/*/*.yaml`
+3. **Global User Standards**: `~/.skyhook/standards/*.yaml`
+4. **Built-in Core Library**: `skyhook/standards/definitions/**/*.yaml`
+
+### CLI & MCP Agent Workflow
+- **List standards**: `skyhook standards list --category testing` (or MCP `skyhook_list_standards`)
+- **Inspect details**: `skyhook standards view STD-TEST-001` (or MCP `skyhook_view_standard`)
+- **Verify codebase**: `skyhook standards verify --path test/` (or MCP `skyhook_verify_standards`)
+- **Scaffold new rule**: `skyhook standards new STD-TEST-CUSTOM --title "Visual Regression Gate"`
 
 ---
 

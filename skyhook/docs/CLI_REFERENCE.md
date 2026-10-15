@@ -1,12 +1,14 @@
 # Skyhook CLI Reference Manual
 
-The `skyhook` executable provides over **40 commands and subcommands** for architecture governance, multi-agent backlog coordination, polyglot AST code tracing, and cybernetic dashboard management.
+The `skyhook` executable provides over **60 commands and subcommands** across 10 operational domains for architecture governance, multi-agent backlog coordination, polyglot AST code tracing, system diagnostics, and cybernetic dashboard management.
 
 ---
 
 ## Command Categories
 - [Setup & Workspace Initialization](#setup--workspace-initialization)
+- [System Diagnostics & Health Check](#system-diagnostics--health-check)
 - [Multi-Agent Backlog & Task Coordination](#multi-agent-backlog--task-coordination)
+- [Modular Backlog Storage & Semantic Git Merge Driver](#modular-backlog-storage--semantic-git-merge-driver)
 - [Architecture Decision Records (ADRs)](#architecture-decision-records-adrs)
 - [Architecture Drift & Quality Governance](#architecture-drift--quality-governance)
 - [Polyglot AST Traceability & Coverage](#polyglot-ast-traceability--coverage)
@@ -70,6 +72,44 @@ skyhook version
 
 ---
 
+## System Diagnostics & Health Check
+
+### `skyhook doctor`
+Runs comprehensive system health and diagnostic checks across the Node.js runtime, standalone binary availability, local offline dashboard assets, network port availability, Git repository boundary cleanliness, and `.skyhook/` schema specifications.
+```bash
+skyhook doctor [--port <number>] [--no-color] [--json]
+```
+- **Options**:
+  - `--port <number>`: Target port to verify for dashboard availability (defaults to `31415`).
+  - `--no-color`: Suppresses ANSI terminal colors for raw log piping.
+  - `--json`: Returns complete diagnostic health report as structured JSON.
+- **Diagnostics Evaluated**:
+  1. `node_version`: Confirms Node.js runtime is 18.0.0 or newer.
+  2. `binaries`: Verifies existence and executable permissions of all 4 standalone binaries (`skyhook`, `skyhook-cmd`, `skyhook-mcp`, `skyhook-merge-driver`).
+  3. `dashboard_assets`: Verifies local air-gapped vendored dashboard assets (`vendor/mermaid.min.js`) exist without remote CDN calls.
+  4. `dashboard_port`: Probes port availability on `127.0.0.1` to ensure collision-free web dashboard startup.
+  5. `git_cleanliness`: Audits repository boundaries, untracked transient artifacts, and `.gitignore` integrity.
+  6. `schema_validation`: Audits YAML specifications in `.skyhook/` (`project.yaml`, `tech-stack.yaml`, requirements, backlog) against defined schemas.
+- **Example**:
+  ```bash
+  skyhook doctor
+  ```
+- **Terminal Output**:
+  ```
+  🩺 Skyhook System Doctor
+  ======================================
+  ✔ Node.js Runtime: v20.18.0 (>= 18.0.0 required)
+  ✔ Executable Binaries: 4/4 present (skyhook, skyhook-cmd, skyhook-mcp, skyhook-merge-driver)
+  ✔ Dashboard Assets: 100% offline air-gapped (/vendor/mermaid.min.js present)
+  ✔ Port Probing: Port 31415 is available for web dashboard
+  ✔ Git Cleanliness: Clean repository boundary (clean working tree)
+  ✔ Schema Health: 5/5 valid specifications (.skyhook/ configuration verified)
+  ======================================
+  System Status: ✅ HEALTHY (6 passed, 0 warnings, 0 errors)
+  ```
+
+---
+
 ## Multi-Agent Backlog & Task Coordination
 
 ### `skyhook get-next-task`
@@ -96,6 +136,23 @@ skyhook get-next-task [--agent <name>] [--level task|story|any] [--story <story-
   Subtasks (1/2 completed):
     ☑ [SUB-001] Invalidate prior token
     ☐ [SUB-002] Issue cryptographic rotating pair
+  ```
+
+---
+
+### `skyhook task claim`
+Explicitly claims a specific task by ID, verifies advisory lock availability, issues an agent lease, checks for AST target file overlap warnings, and automatically triggers living plan recompilation.
+```bash
+skyhook task claim <task-id> [--agent <name>] [--lease <mins>] [--skipPlanRecompile] [--json]
+```
+- **Options**:
+  - `<task-id>`: Specific ID of the task to claim (e.g. `TASK-001`).
+  - `--agent <string>`: Identifier of the agent claiming the task (e.g. `Claude-Code`, `Cursor-Cascade`).
+  - `--lease <number>`: Lease TTL duration in minutes (default: 30).
+  - `--skipPlanRecompile`: Suppresses automatic `PROJECT_PLAN.md` recompilation during high-throughput batch task execution.
+- **Example**:
+  ```bash
+  skyhook task claim TASK-001 --agent="Claude-Code"
   ```
 
 ---
@@ -249,6 +306,44 @@ skyhook add-feature <title> [--epic <epic-id>] [--points <number>] [--criteria <
 
 ---
 
+## Modular Backlog Storage & Semantic Git Merge Driver
+
+### `skyhook backlog migrate`
+Migrates the repository backlog storage format between the legacy monolithic `epics.yaml` layout and the modular directory structure (`.skyhook/backlog/epics/`, `.skyhook/backlog/stories/`, `.skyhook/backlog/tasks/`).
+```bash
+skyhook backlog migrate [--target <modular|monolithic>]
+```
+- **Options**:
+  - `--target <modular|monolithic>`: Target layout format. Defaults to `modular`.
+- **Benefits of Modular Layout**:
+  - Isolates concurrent branch mutations into separate YAML files.
+  - Enables clean git status diffs when multiple agents work on independent epics or stories.
+  - Eliminates file collisions when paired with `skyhook-merge-driver`.
+
+---
+
+### `skyhook-merge-driver`
+A standalone 3-way semantic Git merge driver executable designed to merge concurrent backlog changes across branches without conflicts.
+```bash
+skyhook-merge-driver <ancestor-file> <current-file> <other-file> <pathname>
+```
+- **How It Works**:
+  1. Parses ancestor (`%O`), current (`%A`), and incoming (`%B`) YAML files.
+  2. Detects concurrent task additions, status advancements, and subtask toggles.
+  3. Reconciles non-overlapping field updates semantically rather than line-by-line.
+  4. Writes the merged result to current (`%A`) and exits with code 0 on clean merge.
+- **Git Registration**:
+  ```bash
+  git config merge.skyhook-backlog.name "Skyhook Backlog 3-Way Merge Driver"
+  git config merge.skyhook-backlog.driver "skyhook-merge-driver %O %A %B %P"
+  ```
+  And declare in `.gitattributes`:
+  ```gitattributes
+  .skyhook/backlog/** merge=skyhook-backlog
+  ```
+
+---
+
 ## Architecture Decision Records (ADRs)
 
 ### `skyhook decide`
@@ -394,23 +489,48 @@ skyhook hook status
 ## Polyglot AST Traceability & Coverage
 
 ### `skyhook trace`
-Traces a requirement ID to user stories, ADRs, and AST-parsed code references.
+Traces a requirement ID to linked stories, governing ADRs, code references, and API specification contracts using the 3-Tier Traceability Resolver.
 ```bash
-skyhook trace <requirement-id>
+skyhook trace <requirement-id> [--map <file-path>] [--no-cache] [--reindex] [--json]
 ```
+- **Options**:
+  - `<requirement-id>`: ID of the requirement to trace (e.g. `REQ-001`).
+  - `--map <file-path>`: Appends a non-intrusive declarative mapping entry to `.skyhook/requirements/mapping.yaml` (Tier 2 traceability for unannotated/third-party files).
+  - `--no-cache`: Bypasses the incremental disk symbol cache (`.skyhook/.cache/symbols.json`) and forces fresh AST extraction.
+  - `--reindex`: Invalidates the symbol cache and re-indexes all repository source files.
 - **Example**:
   ```bash
+  # Standard trace query
   skyhook trace REQ-001
+
+  # Non-intrusively map an unannotated file to a requirement
+  skyhook trace REQ-001 --map "src/auth/legacyService.js"
   ```
 - **Output**:
   ```
   ℹ Requirement: REQ-001 (Double Entry Ledger)
-  ┌───────────────────────┬──────────────────────────┬──────────────┬──────┐
-  │ File                  │ Symbol                   │ Type         │ Line │
-  ├───────────────────────┼──────────────────────────┼──────────────┼──────┤
-  │ src/ledger/Service.ts │ LedgerService            │ Class        │ 14   │
-  │ src/ledger/Service.ts │ executeTransfer          │ Method       │ 42   │
-  └───────────────────────┴──────────────────────────┴──────────────┴──────┘
+
+  🏛️ Governing Architectural Decisions (ADRs):
+  ┌─────────┬─────────┬──────────────┬────────────────────────┬────────────┐
+  │ (index) │ id      │ status       │ title                  │ file       │
+  ├─────────┼─────────┼──────────────┼────────────────────────┼────────────┤
+  │ 0       │ ADR-002 │ 'accepted'   │ 'PostgreSQL Isolation' │ 'ADR-002.md'│
+  └─────────┴─────────┴──────────────┴────────────────────────┴────────────┘
+
+  💻 Source Implementations (2):
+  ┌─────────┬───────────────────────┬──────────────────────────┬──────────────┬──────┐
+  │ (index) │ file                  │ symbol                   │ type         │ line │
+  ├─────────┼───────────────────────┼──────────────────────────┼──────────────┼──────┤
+  │ 0       │ 'src/ledger/Service.ts'│ 'LedgerService'          │ 'class'      │ 14   │
+  │ 1       │ 'src/ledger/Service.ts'│ 'executeTransfer'        │ 'function'   │ 42   │
+  └─────────┴───────────────────────┴──────────────────────────┴──────────────┴──────┘
+
+  📑 Derived API Contracts & Specs (1):
+  ┌─────────┬───────────────────────┬──────────────────────────┬─────────────────────┬──────┐
+  │ (index) │ file                  │ symbol                   │ type                │ line │
+  ├─────────┼───────────────────────┼──────────────────────────┼─────────────────────┼──────┤
+  │ 0       │ 'specs/openapi.yaml'  │ 'POST /api/v1/transfer'  │ 'contract-endpoint' │ 18   │
+  └─────────┴───────────────────────┴──────────────────────────┴─────────────────────┴──────┘
   ```
 
 ---

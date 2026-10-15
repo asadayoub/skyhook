@@ -208,8 +208,9 @@ flowchart TD
 - **Mechanism**:
   - Built with **native browser ES Modules** (`<script type="module" src="/main.js">`). Requires **zero bundlers**, zero Webpack, and zero build commands.
   - **Universal Platform Bridge** (`core/Bridge.js`, `BrowserBridge.js`, `VSCodeBridge.js`): Automatically detects whether it is running in a browser or inside a VS Code / Cursor Webview. Routes RPC calls through `fetch`/WebSocket or `acquireVsCodeApi().postMessage`.
-  - **Deep-Link Hash Router** (`core/Router.js`): Maps `#/kanban`, `#/topology`, `#/drift`, `#/decisions`, `#/mermaid`, `#/dark-matter`, `#/harness`, and `#/settings`. Parses query parameters (`#/decisions?id=ADR-001`) and gracefully falls back on 404 routes.
+  - **Deep-Link Hash Router** (`core/Router.js`): Maps `#/mission-control`, `#/kanban`, `#/topology`, `#/drift`, `#/decisions`, `#/mermaid`, `#/dark-matter`, `#/harness`, and `#/settings`. Parses query parameters (`#/decisions?id=ADR-001`) and gracefully falls back on 404 routes.
   - **Lifecycle Engine** (`core/BaseView.js`): Orchestrates `mount()`, `postRender()`, `update()`, and `unmount()`. Automatically sweeps all active timers and store subscriptions on navigation to prevent memory leaks.
+  - **100% Offline Asset Delivery**: Vendored Mermaid.js (`/vendor/mermaid.min.js`) serves directly from local disk with strict Content Security Policy (`script-src 'self' 'unsafe-eval'`), eliminating all external CDN calls.
   - **IDE Packaging Manifest** (`ide/ExtensionManifest.json`): Outlines the exact CSP, message schemas, and webview configurations required to package the dashboard into a `.vsix` extension.
 
 ```mermaid
@@ -221,15 +222,16 @@ flowchart TD
         BaseView["BaseView (Lifecycle & Sweep)"]
     end
 
-    subgraph Views["8 Modular Feature Views"]
-        V1["KanbanView"]
-        V2["TopologyView"]
-        V3["DriftView"]
-        V4["DecisionsView"]
-        V5["MermaidView"]
-        V6["DarkMatterView"]
-        V7["HarnessView"]
-        V8["SettingsView"]
+    subgraph Views["9 Modular Feature Views"]
+        V0["MissionControlView (#/mission-control)"]
+        V1["KanbanView (#/kanban)"]
+        V2["TopologyView (#/topology)"]
+        V3["DriftView (#/drift)"]
+        V4["DecisionsView (#/decisions)"]
+        V5["MermaidView (#/mermaid)"]
+        V6["DarkMatterView (#/dark-matter)"]
+        V7["HarnessView (#/harness)"]
+        V8["SettingsView (#/settings)"]
     end
 
     Router --> BaseView
@@ -247,7 +249,7 @@ flowchart TD
   - **Transports**:
     - `StdioTransport.js`: Pipes JSON-RPC messages over standard I/O. Redirects `console.log` to `process.stderr` to keep `stdout` pristine for client parsing.
     - `SSETransport.js`: Local HTTP loopback server listening on `127.0.0.1` serving `/sse` streams and `/messages` session endpoints.
-  - **44 Autonomous MCP Tools**: Partitioned across 8 domains (Core, Planning, Standards, Backlog, ADR, Drift, Plan, Trace).
+  - **46 Autonomous MCP Tools**: Partitioned across 8 domains (Core, Planning, Standards, Backlog, ADR, Drift, Plan, Trace).
   - **11 Streaming MCP Resources**: `skyhook://backlog`, `skyhook://plan`, `skyhook://decisions`, `skyhook://boundaries`, `skyhook://tech-stack`, `skyhook://standards`, `skyhook://blockers`, `skyhook://drift-scorecard`, `skyhook://dark-matter`, `skyhook://profile`, and `skyhook://trace-graph`.
   - **2 MCP Prompts**: `task_kickoff`, `architecture_review`.
   - **Poly-Agent Harness Matrix**:
@@ -282,9 +284,13 @@ flowchart TD
 ├── requirements/
 │   ├── functional.yaml              # User stories, acceptance criteria, WSJF priorities
 │   ├── non-functional.yaml          # Performance, security, accessibility criteria
-│   └── constraints.yaml             # Architectural, business, and regulatory constraints
+│   ├── constraints.yaml             # Architectural, business, and regulatory constraints
+│   └── mapping.yaml                 # Tier 2 declarative requirement-to-code symbol mappings
 ├── backlog/
-│   ├── epics.yaml                   # Epics, direct tasks, stories, child tasks, & DoD subtasks
+│   ├── epics.yaml                   # Coarse-grained epics (or modular directory epics/)
+│   ├── epics/                       # Modular epic YAML files (optional decomposed mode)
+│   ├── tasks/                       # Standalone task definitions (TASK-*.yaml)
+│   ├── archive/                     # Completed and archived backlog items
 │   ├── events.jsonl                 # Append-only event ledger for FSM replay & metrics
 │   └── .lock                        # Cross-process advisory lock file
 ├── decisions/
@@ -298,6 +304,8 @@ flowchart TD
 │   ├── PROJECT_PLAN.md              # Living compiled master plan with Mermaid Gantt
 │   ├── requirements/                # Scoped requirement plans
 │   └── epics/                       # Scoped epic plans
+├── .cache/                          # High-performance incremental caches
+│   └── symbols.json                 # AST symbol fingerprint cache for instant trace queries
 ├── trace-graph.md                   # Visual architecture & Decision DAG (Mermaid)
 ├── harness-manifest.json            # Injected agent harness registry & timestamps
 └── changelog.md                     # Automated audit log of requirements and state changes
@@ -307,7 +315,7 @@ flowchart TD
 
 ## 4. Verification & Testing Standards
 
-Skyhook maintains 100% offline automated test suites with **213 comprehensive tests across 6 test suites**:
+Skyhook maintains 100% offline automated test suites with **379 comprehensive tests across 14 unit test suites**:
 - **Zero Network Invocations**: Tests use local filesystem fixtures (`os.tmpdir()`) and loopback servers (`127.0.0.1`).
 - **Clean Teardowns**: Tests shut down HTTP/WebSocket servers and clean up temporary workspaces on completion to prevent dangling handles.
 - **Run the full test suite**:

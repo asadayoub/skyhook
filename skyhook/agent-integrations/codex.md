@@ -1,96 +1,88 @@
-# Skyhook + Codex Integration
+# Skyhook + OpenAI Codex Integration
 
-## Quick Setup
+Skyhook seamlessly integrates with **OpenAI Codex** CLI and editor environments, providing offline MCP tools, automated instruction injection, and atomic task leases.
+
+---
+
+## 1. Quick Setup
 
 ```bash
-# 1. Install Skyhook (one-time)
-curl -fsSL https://raw.githubusercontent.com/asadayoub/skyhook/main/install.sh | bash
-echo 'export PATH="$HOME/.skyhook/skill/cli:$PATH"' >> ~/.zshrc
-source ~/.zshrc
+# 1. Install Skyhook globally
+npm install -g @skyhook/cli
 
-# 2. In your project
+# 2. In your project, initialize Skyhook and inject Codex harness:
 cd your-project
 skyhook init
-skyhook discover
+skyhook harness inject --target=codex
 ```
 
-## Codex AGENTS.md Configuration
+`skyhook harness inject --target=codex` automatically configures:
+- `.codex/agents.md` & `AGENTS.md`: Injects Skyhook governance rules, Task/Subtask hierarchy, and DoD checklist invariants.
+- `.codex/mcp.json`: Registers the 100% offline Skyhook MCP server with portable paths.
+- Codex CLI registration: Automatically invokes `codex mcp add skyhook -- ...` when the Codex CLI is detected in PATH.
 
-Create `.codex/agents.md` in your project:
+---
+
+## 2. MCP Server Configuration
+
+You can also manually register Skyhook with Codex via CLI:
+```bash
+# Register standalone binary with Codex CLI
+codex mcp add skyhook -- skyhook-mcp
+
+# Or register using node and workspace script
+codex mcp add skyhook -- node skyhook/cli/skyhook-mcp.js
+```
+
+Or verify `.codex/mcp.json`:
+```json
+{
+  "mcpServers": {
+    "skyhook": {
+      "command": "node",
+      "args": ["${workspaceFolder}/skyhook/cli/skyhook-mcp.js"]
+    }
+  }
+}
+```
+
+---
+
+## 3. Codex AGENTS.md Configuration
+
+Skyhook maintains `.codex/agents.md` to instruct Codex models on backlog lifecycle, boundary rules, and traceability:
 
 ```markdown
-# Skyhook Agent Instructions
+<!-- SKYHOOK_RULES_START -->
+# Skyhook Project Intelligence & Governance Rules
 
-## Available Slash Commands
+This repository is governed by Skyhook. As an AI Agent working in this codebase, you MUST adhere to the following rules:
 
-All Skyhook commands are invoked via stdio JSON. Use the `skyhook-cmd` binary.
+1. **Backlog & Task Hierarchy (Epic ➔ Story ➔ Task ➔ Subtask)**:
+   - Query 'skyhook_get_next_task' or 'skyhook_claim_task' (or inspect 'skyhook://backlog') before starting any feature work.
+   - Acquire an advisory lease for your assigned task ('TASK-XXX') or story ('STORY-XXX') to avoid stepping on concurrent agent tasks.
+   - For long-running tasks, extend your lease periodically using 'skyhook_heartbeat_lease'.
+   - Respect Definition of Done (DoD) subtasks ('SUB-XXX'): complete all subtasks before transitioning the parent item to done.
+   - Transition states using 'skyhook_update_status' or 'skyhook_update_task_status' (backlog -> ready -> in-progress -> in-review -> done).
 
-### Feature Management
-- `/skyhook-listCurrentFeatures` - List all features with status
-- `/skyhook-getFeature --id=EPIC-001` - Get detailed feature info
-- `/skyhook-addFeature --title="New Feature" --description="..." --stories='[{"title":"Story 1","userStory":"As a user..."}]'`
+2. **Architectural Governance & Boundary Policies**:
+   - Never bypass Domain-Driven Design (DDD) module boundaries or introduce circular dependencies.
+   - Call 'skyhook_verify_policies' before modifying code across modules.
+   - If an architectural decision is made, record it via 'skyhook_record_decision'.
 
-### Task Management
-- `/skyhook-getNextTask` - Get highest priority ready task with context
-- `/skyhook-getBlockers` - Get all blocked items
-- `/skyhook-updateStatus --storyId=STORY-001 --status=in-progress`
-
-### Decisions & Architecture
-- `/skyhook-recordDecision --title="Use PostgreSQL" --decision="PostgreSQL with Prisma" --context="Need ACID" --category=technology`
-- `/skyhook-sync` - Check code vs documentation drift
-
-### Traceability & Impact
-- `/skyhook-trace --id=REQ-001` - Trace requirement to code/stories/decisions
-- `/skyhook-impact --id=REQ-001` - Analyze change impact
-- `/skyhook-untraced` - Find requirements with no code references
-
-### Context
-- `/skyhook-getContext --topic=authentication` - Get relevant context for topic
-
-### Dashboard
-- `/skyhook-dashboard start` - Start web UI at http://localhost:4343
-- `/skyhook-dashboard stop` - Stop dashboard
-- `/skyhook-dashboard status` - Check status
-
-## Example Workflow
-
-1. **Start of session**: Run `/skyhook-getNextTask` to see what to work on
-2. **Before coding**: Run `/skyhook-trace --id=REQ-XXX` to understand requirements
-3. **After decision**: Run `/skyhook-recordDecision` to auto-generate ADR
-4. **Before commit**: Run `/skyhook-sync` to check for drift
-5. **Visual overview**: Run `/skyhook-dashboard start` and open http://localhost:4343
-
-## JSON Protocol
-
-All commands accept JSON via stdin:
-
-```json
-{"command": "listCurrentFeatures", "args": {"status": "in-progress"}}
+3. **Traceability Annotations**:
+   - Tag exported symbols (classes, functions, interfaces) with JSDoc/docstring comments linking to story or requirement IDs:
+     `@skyhook-implements REQ-XXX` or `@skyhook-story STORY-YYY`
+   - Verify traceability using 'skyhook_trace_requirement' or the 'skyhook trace' CLI.
+<!-- SKYHOOK_RULES_END -->
 ```
 
-Returns structured JSON for programmatic use.
-```
+---
 
-## Project Structure
+## 4. Key Agent Workflows
 
-```
-your-project/
-├── .skyhook/
-│   ├── project.yaml
-│   ├── context.md
-│   ├── vision.md
-│   ├── requirements/
-│   ├── decisions/
-│   ├── backlog/
-│   ├── tech-stack.yaml
-│   └── changelog.md
-├── .codex/
-│   └── agents.md          # This file
-└── your-code/
-```
-
-## Tips
-
-- Commit `.skyhook/` to git for team collaboration
-- Use `@skyhook-implements REQ-001` comments in code for traceability
-- Dashboard is on-demand only - no background process
+1. **Claiming Work**: Codex calls `skyhook_claim_task` (or `skyhook task claim`), receiving requirements, DoD checklists, and target source files.
+2. **Lease Maintenance**: For long-running tasks, Codex calls `skyhook_heartbeat_lease` to keep its advisory lock active.
+3. **Traceability Tagging**: Codex decorates exported functions with `// @skyhook-implements REQ-XXX`.
+4. **Pre-Commit Verification**: Run `skyhook adr verify` to confirm zero architectural boundary breaches.
+5. **HUD Telemetry**: View real-time agent activity on the cybernetic dashboard at [http://127.0.0.1:31415/#/mission-control](http://127.0.0.1:31415/#/mission-control).

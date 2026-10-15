@@ -25,7 +25,8 @@ flowchart TD
         BaseView["BaseView Lifecycle Engine<br/>mount -> postRender -> update -> unmount"]
     end
 
-    subgraph Views["8 Modular Feature Pages"]
+    subgraph Views["9 Modular Feature Pages"]
+        MissionControl["#/mission-control (Agent Swarm Telemetry & HUD)"]
         Kanban["#/kanban (Multi-Agent Board & Leases)"]
         Topology["#/topology (Interactive SVG Graph)"]
         Drift["#/drift (DDD Scorecard & 1-Click Adopt)"]
@@ -96,6 +97,7 @@ Skyhook uses **Hash-based client routing** (`#/view`) because hash routing funct
 ### Route Mapping:
 | Route | Page | Description |
 |---|---|---|
+| `#/mission-control` | Mission Control | Real-time agent swarm telemetry, active task HUD, and round-trip WebSocket latency monitoring. |
 | `#/kanban` | Kanban View | Multi-agent Agile board with live lease countdown timers. |
 | `#/topology` | Topology View | Interactive SVG architecture and traceability graph. |
 | `#/drift` | Drift Center | DDD layer violation scorecard and 1-click auto-adoption. |
@@ -146,7 +148,7 @@ export class CustomView extends BaseView {
 
 ## 5. Native IDE Extension Packaging Specification
 
-The file [`skyhook/dashboard/public/ide/ExtensionManifest.json`](file:///Users/asad/Documents/Codex/2026-08-29/wh/skyhook-repo/skyhook/dashboard/public/ide/ExtensionManifest.json) specifies the exact contract for packaging the dashboard into a VS Code or Cursor extension:
+The file [`skyhook/dashboard/public/ide/ExtensionManifest.json`](file:///Users/asad/Documents/Codex/2026-08-29/wh/skyhook-repo/skyhook/dashboard/public/ide/ExtensionManifest.json) specifies the exact contract for packaging the dashboard into a VS Code or Cursor extension. Note that the dashboard uses 100% offline vendored Mermaid.js (`/vendor/mermaid.min.js`), enforcing a strict Content Security Policy with zero remote CDN dependencies:
 
 ```json
 {
@@ -154,14 +156,21 @@ The file [`skyhook/dashboard/public/ide/ExtensionManifest.json`](file:///Users/a
   "version": "2.0.0",
   "contentSecurityPolicy": {
     "defaultSrc": ["'none'"],
-    "scriptSrc": ["'self'", "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js", "'unsafe-eval'", "'unsafe-inline'"],
+    "scriptSrc": [
+      "'self'",
+      "'unsafe-eval'",
+      "'unsafe-inline'"
+    ],
     "styleSrc": ["'self'", "'unsafe-inline'"],
-    "connectSrc": ["'self'", "http://127.0.0.1:*", "ws://127.0.0.1:*"]
+    "imgSrc": ["'self'", "data:", "https:"],
+    "connectSrc": ["'self'", "http://127.0.0.1:*", "ws://127.0.0.1:*"],
+    "fontSrc": ["'self'"]
   },
   "entrypoint": {
     "html": "skyhook/dashboard/public/index.html",
     "script": "skyhook/dashboard/public/main.js",
-    "styles": ["skyhook/dashboard/public/cyber.css"]
+    "styles": ["skyhook/dashboard/public/cyber.css"],
+    "type": "module"
   }
 }
 ```

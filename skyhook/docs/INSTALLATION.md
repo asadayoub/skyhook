@@ -1,275 +1,263 @@
-# Skyhook Installation Guide
+# Skyhook Installation & Packaging Guide (v2.0.0)
 
 ## Overview
 
-Skyhook is a universal project intelligence skill for AI agents. It provides persistent, structured, version-controlled project understanding via a `.skyhook/` directory with plain Markdown/YAML files.
+Skyhook is an open-source, universal project intelligence and active architectural governance engine for AI coding agents and human engineering teams. It operates 100% offline and local-first, persisting structured project state, architectural decision records, Definition of Done checklists, and polyglot AST traceability directly in your repository.
 
 **Repository:** https://github.com/asadayoub/skyhook  
-**Latest Release:** https://github.com/asadayoub/skyhook/releases/latest
+**Latest Release:** https://github.com/asadayoub/skyhook/releases/latest  
+**Current Version:** `2.0.0`
 
 ---
 
-## Quick Start
+## 🚀 Quick Install Options
 
-### Option 1: One-Line Installer (Recommended)
+### Option 1: Global Installation via npm (Recommended)
+
+Install Skyhook globally to access all 4 command-line executables anywhere:
 
 ```bash
-# macOS/Linux/WSL
-curl -fsSL https://raw.githubusercontent.com/asadayoub/skyhook/main/install.sh | bash
+npm install -g skyhook
+```
 
-# Add to PATH
-echo 'export PATH="$HOME/.skyhook/skill/cli:$PATH"' >> ~/.zshrc
-source ~/.zshrc
-
-# Verify
+Verify your installation:
+```bash
 skyhook version
 ```
 
-### Option 2: Download Release (No Git Required)
+---
+
+### Option 2: Zero-Install Instant Invocation (npx)
+
+Run any Skyhook command instantly without a global installation:
 
 ```bash
-mkdir -p ~/.skyhook
-curl -fsSL https://github.com/asadayoub/skyhook/releases/latest/download/skyhook-skill.tar.gz | tar -xz -C ~/.skyhook
-echo 'export PATH="$HOME/.skyhook/skill/cli:$PATH"' >> ~/.zshrc
-source ~/.zshrc
-```
+# Initialize a project
+npx skyhook init --name="Fintech Core" --profile=saas
 
-### Option 3: Git Clone
+# Query next ready task
+npx skyhook get-next-task
 
-```bash
-git clone https://github.com/asadayoub/skyhook.git ~/.skyhook/skill
-echo 'export PATH="$HOME/.skyhook/skill/cli:$PATH"' >> ~/.zshrc
-source ~/.zshrc
-```
-
-### Option 4: Specific Version
-
-```bash
-curl -fsSL https://github.com/asadayoub/skyhook/releases/download/v1.2.0/skyhook-skill.tar.gz | tar -xz -C ~/.skyhook
+# Run system health diagnostics
+npx skyhook doctor
 ```
 
 ---
 
-## Requirements
+### Option 3: Local Repository Clone & Development
 
-- **Node.js 18+** (for CLI and dashboard)
-- **Git** (for version control of `.skyhook/`)
-- **An AI agent** that supports file system access (Codex, Claude Code, Gemini CLI, GitHub Copilot, or any custom agent)
-
----
-
-## Supported AI Agents
-
-| Agent | Integration Method | Setup Command |
-|-------|-------------------|---------------|
-| **Codex** | Skill system / AGENTS.md | `skyhook setup codex` |
-| **Claude Code** | Native slash commands | `skyhook setup claude` |
-| **Gemini CLI** | Function calling | `skyhook setup gemini` |
-| **GitHub Copilot** | VS Code tasks + instructions | `skyhook setup copilot` |
-| **Generic/Universal** | JSON stdio protocol | `skyhook setup all` |
-
----
-
-## Verification
-
-After installation, verify Skyhook works:
+If you are contributing to Skyhook or extending internal parsers:
 
 ```bash
-# Check CLI
+# Clone the repository
+git clone https://github.com/asadayoub/skyhook.git
+cd skyhook
+
+# Install dependencies
+npm install
+
+# Link binaries globally to your PATH
+npm link
+
+# Run automated verification tests
+npm test
+```
+
+---
+
+## 📦 The 4 Standalone Executables
+
+Skyhook publishes 4 distinct executable binaries configured in `package.json`:
+
+| Binary | Description | Primary Consumers |
+|---|---|---|
+| **`skyhook`** | Positional command-line interface with ANSI color output and rich tables. | Human developers, terminal operators, CI/CD pipelines. |
+| **`skyhook-cmd`** | Headless stdio JSON protocol processor (`echo '{"command":"..."}' \| skyhook-cmd`). | IDE extensions, agent subshells, shell scripts. |
+| **`skyhook-mcp`** | 100% offline Model Context Protocol server exposing 46 tools and 11 streaming resources over stdio / SSE. | Cursor, Claude Desktop, Windsurf, Copilot, Codex, Cline. |
+| **`skyhook-merge-driver`** | 3-way semantic Git merge driver for conflict-free concurrent backlog branches. | Git engine during multi-agent merges. |
+
+---
+
+## 🔀 Configuring the 3-Way Git Merge Driver
+
+When multiple developers or concurrent AI agents work on backlog items simultaneously on different git branches, merging `epics.yaml` or modular backlog files can lead to git merge conflicts. Skyhook provides a native 3-way semantic merge driver to resolve these automatically:
+
+### 1. Register the Driver in Git Config
+```bash
+git config merge.skyhook-backlog.name "Skyhook Backlog 3-Way Merge Driver"
+git config merge.skyhook-backlog.driver "skyhook-merge-driver %O %A %B %P"
+```
+
+### 2. Configure Repository Attributes (`.gitattributes`)
+In your project repository root, ensure `.gitattributes` contains:
+```gitattributes
+.skyhook/backlog/** merge=skyhook-backlog
+```
+
+*(Tip: Running `skyhook hook install` automatically registers this merge driver and configures Git lifecycle hooks).*
+
+---
+
+## 🔌 Poly-Agent Harness Auto-Configuration
+
+After installing Skyhook, auto-configure your installed AI coding agents:
+
+```bash
+# Auto-detect and configure all installed agents
+skyhook harness inject --all
+
+# Or target specific environments
+skyhook harness inject --target=cursor,windsurf,codex
+skyhook setup claude
+skyhook setup gemini
+```
+
+### Supported AI Agent Matrix
+- **Cursor**: Injects `.cursor/rules/skyhook.mdc` and `.cursor/mcp.json`.
+- **Claude Desktop / Claude Code**: Merges `claude_desktop_config.json` and injects `CLAUDE.md`.
+- **GitHub Copilot**: Injects `.github/copilot-instructions.md` and `.vscode/settings.json`.
+- **Codeium Windsurf**: Injects `.windsurfrules` and `.codeium/windsurf/mcp_config.json`.
+- **Google Antigravity**: Injects `.agents/rules/skyhook-governance.md` and `.agents/mcp_config.json`.
+- **Cline / Roo Code**: Injects `.clinerules` and `cline_mcp_settings.json`.
+- **OpenAI Codex**: Injects `.codex/agents.md`, `.codex/mcp.json`, and registers via `codex mcp add`.
+
+---
+
+## 🩺 System Verification & Diagnostic Health Check
+
+Verify your installation and workspace health by running the diagnostic engine:
+
+```bash
+# Check version information
 skyhook version
-# Output: Skyhook CLI v1.2.0
 
-# In a project
-cd your-project
-skyhook init
-skyhook discover
+# Run comprehensive system diagnostics
+skyhook doctor
 ```
+
+The diagnostic doctor checks:
+1. **Node.js Environment**: Confirms Node 18+ runtime version.
+2. **Global & Workspace Binaries**: Confirms executable availability.
+3. **Dashboard Asset Integrity**: Verifies local air-gapped `/vendor/mermaid.min.js` assets.
+4. **Port Availability**: Probes default port `31415` for conflict-free dashboard startup.
+5. **Git Cleanliness**: Validates repository boundary and `.gitignore` hygiene.
+6. **Schema Validation**: Audits `.skyhook/` YAML specifications against schemas.
 
 ---
 
-## Directory Structure
+## 🗂️ Project Directory Structure (`.skyhook/`)
 
-### After Global Install (`~/.skyhook/skill/`)
-```
-~/.skyhook/
-└── skill/                 # Skyhook skill (this repo)
-    ├── plugin.json       # Plugin metadata
-    ├── SKILL.md          # Main documentation
-    ├── agent-protocol.md # Agent integration protocol
-    ├── question-engine.md
-    ├── schemas/          # YAML schemas (6)
-    ├── standards/        # Built-in standards (6)
-    ├── profiles/         # Project-type profiles (6 + variants)
-    ├── templates/        # Project templates
-    ├── workflows/        # Lifecycle workflows
-    ├── cli/              # CLI tool (skyhook.js)
-    ├── commands/         # Slash commands (skyhook-cmd)
-    ├── lib/              # Inference engine
-    ├── dashboard/        # Web dashboard
-    ├── agent-integrations/ # Agent setup guides
-    ├── docs/             # Architecture, installation
-    └── examples/         # Example workflows
-```
+Running `skyhook init` in any repository generates the following structure:
 
-### After Project Init (`.skyhook/`)
 ```
 your-project/
-├── .skyhook/             # Project state (COMMIT TO GIT!)
-│   ├── project.yaml
-│   ├── context.md
-│   ├── vision.md
-│   ├── requirements/
-│   │   ├── functional.yaml
-│   │   ├── non-functional.yaml
-│   │   └── constraints.yaml
-│   ├── decisions/
-│   │   ├── index.yaml
-│   │   └── *.md          # Auto-generated ADRs
-│   ├── backlog/
-│   │   └── epics.yaml    # Epics, stories, tasks (WSJF)
-│   ├── tech-stack.yaml
-│   ├── ux/
-│   │   └── styleguide.md
-│   ├── standards/        # Project-specific overrides
-│   ├── plan/             # Generated plans
-│   └── changelog.md      # Full history
-└── your-code/
+├── .skyhook/                        # Version-controlled project intelligence
+│   ├── project.yaml                 # Project metadata, profile, and settings
+│   ├── tech-stack.yaml              # Declared vs inferred dependencies
+│   ├── requirements/                # Structured requirements
+│   │   ├── functional.yaml          # Functional requirements & WSJF priorities
+│   │   ├── non-functional.yaml      # Non-functional constraints (SLA, security)
+│   │   ├── constraints.yaml         # Business & regulatory constraints
+│   │   └── mapping.yaml             # Tier 2 non-intrusive symbol mapping manifest
+│   ├── backlog/                     # Living backlog & multi-agent concurrency
+│   │   ├── epics.yaml               # Monolithic backlog store (or modular layout)
+│   │   ├── epics/                   # Granular epic definitions (modular layout)
+│   │   ├── stories/                 # Granular user stories (modular layout)
+│   │   ├── tasks/                   # Granular tasks & DoD subtasks (modular layout)
+│   │   ├── events.jsonl             # Append-only audit trail and agility metrics
+│   │   └── .lock                    # Advisory cross-process concurrency lock
+│   ├── decisions/                   # Architecture Decision Records (ADRs)
+│   │   ├── index.yaml               # Fast decision registry & status index
+│   │   └── records/*.md             # Markdown ADRs with compiled policy rules
+│   ├── standards/                   # Workspace-custom standards & overrides
+│   │   └── *.yaml                   # Declarative YAML standards rules
+│   ├── plan/                        # Living Project Plan
+│   │   ├── PROJECT_PLAN.md          # Compiled master living plan with Gantt charts
+│   │   ├── requirements/            # Scoped requirement plans
+│   │   └── epics/                   # Scoped epic plans
+│   ├── .cache/                      # Incremental cache (git-ignored)
+│   │   └── symbols.json             # Fast AST symbol lineage cache (<30ms hits)
+│   ├── trace-graph.md               # Visual Mermaid Decision DAG & traceability graph
+│   └── changelog.md                 # Project state audit log
+└── your-source-code/
 ```
 
 ---
 
-## Configuration
+## 🖥️ Launching the Cybernetic Web Dashboard
 
-### Project Config (`.skyhook/project.yaml`)
-
-Created automatically during `skyhook init`. Key settings:
-
-```yaml
-configuration:
-  questionThreshold: "contextual"  # minimal | contextual | comprehensive
-  autoPlan: true                   # Auto-generate plan after changes
-  standardsLevel: "advisory"       # advisory | strict | custom
-  trackDecisions: true             # Record architectural decisions
-  syncOnCommit: false              # Run sync on git commit
-```
-
-### Agent-Specific Setup
-
-Run after `skyhook init` in your project:
+Skyhook includes a Modular Multi-Page Application (MMPA) web dashboard featuring real-time Multi-Agent Kanban, Topology Visualization, Drift Analysis, and Mission Control telemetry:
 
 ```bash
-# Configure all agents at once
-skyhook setup all
+# Launch dashboard on default port (31415)
+skyhook dashboard start
 
-# Or individually
-skyhook setup codex      # Creates .codex/agents.md
-skyhook setup claude     # Creates .claude/commands/skyhook-*.md
-skyhook setup gemini     # Creates .gemini/functions/skyhook.js + settings.json
-skyhook setup copilot    # Creates .github/copilot-instructions.md + .vscode/tasks.json
+# Or specify a custom port
+skyhook dashboard start --port 32000
+
+# Inspect dashboard process status
+skyhook dashboard status
+
+# Stop background dashboard process
+skyhook dashboard stop
 ```
+
+Navigate to **http://127.0.0.1:31415** in your browser or view embedded in VS Code / Cursor.
 
 ---
 
-## Updating Skyhook
+## 🔄 Updating Skyhook
+
+To upgrade to the latest stable release:
 
 ```bash
-# Via installer (gets latest main)
-curl -fsSL https://raw.githubusercontent.com/asadayoub/skyhook/main/install.sh | bash
+# If installed globally via npm
+npm update -g skyhook
 
-# Or specific version
-curl -fsSL https://github.com/asadayoub/skyhook/releases/download/v1.2.0/skyhook-skill.tar.gz | tar -xz -C ~/.skyhook
-
-# Or git pull if cloned
-cd ~/.skyhook/skill && git pull
+# If cloned from source
+cd /path/to/skyhook-repo
+git pull origin main
+npm test
+npm link
 ```
 
 ---
 
-## Uninstalling
-
-```bash
-# Global install
-rm -rf ~/.skyhook/skill
-
-# Remove PATH entry from ~/.zshrc / ~/.bashrc
-# Note: .skyhook/ (project state) is preserved in each project
-```
-
----
-
-## Troubleshooting
+## 🛠️ Troubleshooting
 
 ### "skyhook: command not found"
+- If installed via npm, ensure your global npm bin directory is on your system `PATH`:
+  ```bash
+  # Check npm global bin directory
+  npm bin -g
+  
+  # Ensure it is in your shell profile (~/.zshrc, ~/.bashrc)
+  export PATH="$(npm bin -g):$PATH"
+  ```
+- Alternatively, run commands via `npx skyhook <command>`.
 
-Add to PATH:
+### "Not a Skyhook project. Run `skyhook init` first."
+- Commands that inspect project backlog, ADRs, or living plans require a `.skyhook/` governance directory. Run `skyhook init` in your repository root.
+- Informational commands (`skyhook --help`, `skyhook version`, `skyhook doctor`) can run in any directory.
+
+### "EADDRINUSE: Port 31415 already in use"
+- Skyhook features automatic port hunting (`31415`, `31416`, `31417`, ...).
+- To inspect or stop an existing dashboard instance:
+  ```bash
+  skyhook dashboard status
+  skyhook dashboard stop
+  # Or force kill:
+  lsof -ti :31415 | xargs kill -9
+  ```
+
+### Diagnostic Audit
+When in doubt, run the interactive diagnostic suite:
 ```bash
-# Add to ~/.zshrc or ~/.bashrc or ~/.config/fish/config.fish
-export PATH="$HOME/.skyhook/skill/cli:$PATH"
-source ~/.zshrc
-```
-
-Or use npx-style direct invocation:
-```bash
-~/.skyhook/skill/cli/skyhook.js version
-```
-
-### "No Skyhook project found"
-
-Run `skyhook init` in your project root.
-
-### Agent doesn't detect Skyhook
-
-1. Ensure `.skyhook/` exists in project root
-2. Check agent's working directory matches project root
-3. Verify agent has file system access to `.skyhook/`
-4. Run `skyhook setup <agent>` to create agent config files
-5. Restart the agent
-
-### Schema validation errors
-
-If you edit `.skyhook/` files manually:
-- Check schema version matches (currently 1.0.0)
-- Validate required fields
-- Run `skyhook sync` to check for issues
-
-### Dashboard won't start
-
-```bash
-# Check if port 4343 is in use
-lsof -i :4343
-
-# Kill existing process
-pkill -f "skyhook.*dashboard"
-
-# Try again
-skyhook-cmd dashboard start
+skyhook doctor
 ```
 
 ---
 
-## Next Steps
+## 📄 License
 
-1. **Initialize a project**: `cd your-project && skyhook init`
-2. **Run discovery**: `skyhook discover` (interactive requirements gathering)
-3. **Configure agents**: `skyhook setup all`
-4. **Try slash commands**: `echo '{"command":"getNextTask","args":{}}' | skyhook-cmd`
-5. **Start dashboard**: `skyhook-cmd dashboard start` → open http://localhost:4343
-6. **Customize**: Override standards in `.skyhook/standards/`
-7. **Extend**: Add custom profiles in `.skyhook/profiles/`
-
----
-
-## Resources
-
-- **Repository:** https://github.com/asadayoub/skyhook
-- **Documentation:** https://github.com/asadayoub/skyhook/tree/main/skyhook/docs
-- **Issues:** https://github.com/asadayoub/skyhook/issues
-- **Discussions:** https://github.com/asadayoub/skyhook/discussions
-- **Releases:** https://github.com/asadayoub/skyhook/releases
-- **Agent Integration Guides:** https://github.com/asadayoub/skyhook/tree/main/skyhook/agent-integrations
-
----
-
-## License
-
-MIT — see [LICENSE](../../LICENSE)
+MIT © [Asad Ayoub](https://github.com/asadayoub)

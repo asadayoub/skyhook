@@ -1,9 +1,26 @@
-# Skyhook Built-in UX/UI Standards
+# Skyhook UX/UI Standards
 
-## Purpose
+## Purpose & Living Standards Engine
 
-Opinionated but overridable standards for user experience, design systems, and interface quality.
-These are **defaults** — projects can override in `.skyhook/standards/ux.md`.
+Opinionated but overridable standards for user experience, design systems, and interface quality. In Skyhook v2.0.0, UX standards are machine-evaluable specifications indexed by the **Standards Engine** (`StandardsRegistry.js`).
+
+### Active UX Definitions
+The principles described in this document are compiled into declarative YAML definitions located in [`skyhook/standards/definitions/ux/`](definitions/ux/):
+- **`STD-UX-001`** (High): [Fluid Responsive Layouts](definitions/ux/STD-UX-001-responsive-layouts.yaml) — Flexible grid systems, fluid typography, and seamless breakpoint adaptations across mobile and desktop.
+- **`STD-UX-002`** (High): [Immediate Interaction Feedback](definitions/ux/STD-UX-002-interaction-feedback.yaml) — Sub-100ms visual acknowledgment for clicks, taps, loading states, and optimistic UI updates.
+
+### 4-Tier Standards Discovery Hierarchy
+Standards are resolved across 4 discovery tiers (highest precedence first):
+1. **Workspace Custom**: `.skyhook/standards/custom/*.yaml` or `.skyhook/standards/*.yaml`
+2. **Workspace Installed Packages**: `.skyhook/standards/packages/*/*.yaml`
+3. **Global User Standards**: `~/.skyhook/standards/*.yaml`
+4. **Built-in Core Library**: `skyhook/standards/definitions/**/*.yaml`
+
+### CLI & MCP Agent Workflow
+- **List standards**: `skyhook standards list --category ux` (or MCP `skyhook_list_standards`)
+- **Inspect details**: `skyhook standards view STD-UX-001` (or MCP `skyhook_view_standard`)
+- **Verify codebase**: `skyhook standards verify --path src/` (or MCP `skyhook_verify_standards`)
+- **Scaffold new rule**: `skyhook standards new STD-UX-CUSTOM --title "Design Token Contrast Rule"`
 
 ## Core Principles
 

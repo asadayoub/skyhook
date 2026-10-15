@@ -17,6 +17,7 @@ flowchart TD
     Go["Go Parser<br/>(GoParser.js)"]
     Rust["Rust Parser<br/>(RustParser.js)"]
     Java["Java Parser<br/>(JavaParser.js)"]
+    Spec["API Specification Parser<br/>(SpecContractParser.js)"]
     Custom["Custom Workspace Parsers<br/>(.skyhook/parsers/*.js)"]
 
     Registry --> JS
@@ -24,22 +25,73 @@ flowchart TD
     Registry --> Go
     Registry --> Rust
     Registry --> Java
+    Registry --> Spec
     Registry --> Custom
 ```
 
 ### Supported Languages & Syntax Conventions
 
-| Language | File Extensions | Annotation Syntax | Extracted Symbols |
+| Language / Format | File Extensions | Annotation Syntax | Extracted Symbols |
 |---|---|---|---|
 | **JavaScript / TypeScript** | `.js`, `.mjs`, `.cjs`, `.jsx`, `.ts`, `.tsx` | `// @skyhook-implements REQ-001` | Functions, Async Functions, Classes, Methods, React Components |
 | **Python** | `.py` | `# @skyhook-implements REQ-001` | Classes, Methods, `def`, `async def`, Decorators |
 | **Go** | `.go` | `// @skyhook-implements REQ-001` | Package Functions, Receiver Methods, Structs, Interfaces |
 | **Rust** | `.rs` | `/// @skyhook-implements REQ-001` | Structs, Enums, `impl` blocks, Functions |
 | **Java** | `.java` | `@SkyhookImplements("REQ-001")` or `// @skyhook-implements` | Classes, Records, Interfaces, Methods |
+| **API Specs & Contracts** | `.json`, `.yaml`, `.yml` (`openapi*`, `swagger*`), `.proto`, `.graphql`, `.gql` | Inline comments or `# @skyhook-implements` | Contract endpoints, HTTP methods, paths, schemas, RPC services, GraphQL types |
 
 ---
 
-## 2. Docblock & Annotation Standards
+## 2. 3-Tier Traceability Architecture
+
+Skyhook provides a hierarchical 3-Tier Traceability resolution engine that correlates business requirements with codebase artifacts across different levels of explicitness:
+
+```mermaid
+flowchart TD
+    Req["Requirement ID (e.g. REQ-AUTH-001)"] --> T1{"Tier 1: In-Code Annotations?"}
+    T1 -- Yes --> Res1["Tier 1 Match<br/>Confidence: 100% (1.0)<br/>Explicit AST Docblocks"]
+    T1 -- No --> T2{"Tier 2: External Manifest?"}
+    T2 -- Yes --> Res2["Tier 2 Match<br/>Confidence: 90% (0.9)<br/>.skyhook/traceability.yaml / mapping.yaml"]
+    T2 -- No --> T3{"Tier 3: Backlog & Commit Evidence?"}
+    T3 -- Yes --> Res3["Tier 3 Match<br/>Confidence: 75% (0.75)<br/>targetFiles & changedFiles in stories/tasks"]
+    T3 -- No --> Untraced["Untraced Dark Matter<br/>Flagged for agent remediation"]
+```
+
+### Tier Breakdown & Precedence
+1. **Tier 1: Direct In-Code Annotations (Confidence: 100% / 1.0)**
+   - Highest precedence.
+   - Declared directly in source code comments or decorators (`// @skyhook-implements REQ-001`).
+   - Parsed directly by AST language parsers.
+2. **Tier 2: External Declarative Manifest (Confidence: 90% / 0.9)**
+   - Ideal for third-party libraries, brownfield legacy codebases where comments cannot be modified, or API specification contracts.
+   - Configured in `.skyhook/traceability.yaml` or `.skyhook/requirements/mapping.yaml`.
+   - Supports explicit file paths, wildcard/glob patterns (`src/billing/**`), and specific symbol signatures.
+   - Managed via the CLI:
+     ```bash
+     skyhook trace --map REQ-001 "src/services/PaymentService.ts"
+     skyhook trace --map REQ-002 "src/auth/**" --symbol "generateJwt"
+     ```
+   - **Manifest Format Example** (`.skyhook/traceability.yaml`):
+     ```yaml
+     schemaVersion: "1.0.0"
+     mappings:
+       - requirementId: REQ-AUTH-001
+         files:
+           - src/services/AuthService.ts
+         globs:
+           - src/auth/**
+         symbols:
+           - validateToken
+           - src/models/User.ts:hashPassword
+     ```
+3. **Tier 3: Backlog & Git Commit Evidence (Confidence: 75% / 0.75)**
+   - Discovered automatically from active backlog items and historical commit metadata.
+   - Aggregates `targetFiles` from stories and child tasks, as well as `evidence.changedFiles` recorded upon task completion.
+   - Ensures completed stories remain traceable even if explicit Tier 1 annotations were omitted.
+
+---
+
+## 3. Docblock & Annotation Standards
 
 AI agents and developers link code to requirements by placing `@skyhook-implements` annotations immediately above target symbols:
 
@@ -81,7 +133,37 @@ pub struct LedgerEngine {
 
 ---
 
-## 3. Symbol Lineage Tracker (Refactor Recovery)
+## 4. Incremental Symbol Cache (`SymbolCache.js`)
+
+To guarantee sub-second trace and dark matter queries across large enterprise codebases (10,000+ files), Skyhook implements an incremental filesystem cache located in `.skyhook/.cache/symbols.json`.
+
+```mermaid
+flowchart LR
+    File["Target Code File"] --> Stat["Check mtimeMs & Size"]
+    Stat --> Lookup{"Cache Lookup"}
+    Lookup -- Hit (diff < 2ms & size match) --> FastReturn["Instant AST Symbols<br/>(Sub-millisecond)"]
+    Lookup -- Miss (New or Modified) --> Parse["Polyglot Language Parser"]
+    Parse --> UpdateCache["Update .skyhook/.cache/symbols.json"]
+    UpdateCache --> FastReturn
+```
+
+### Key Cache Capabilities:
+1. **Stat Validation**: For every inspected code file, Skyhook checks filesystem `mtimeMs` and exact file `size`.
+2. **Instant Hit (< 1ms)**: If `mtimeMs` is within 2ms tolerance and `size` matches, cached AST symbols are returned immediately without spawning AST parsers.
+3. **Dirty-State Persistence**: The cache flushes changes back to disk automatically upon process completion.
+4. **Cache Control Flags**:
+   - Bypass cache completely:
+     ```bash
+     skyhook trace REQ-001 --no-cache
+     ```
+   - Force complete re-indexing:
+     ```bash
+     skyhook trace REQ-001 --reindex
+     ```
+
+---
+
+## 5. Symbol Lineage Tracker (Refactor Recovery)
 
 When source files are moved or functions renamed, static string matching fails. Skyhook's [`SymbolLineageTracker.js`](file:///Users/asad/Documents/Codex/2026-08-29/wh/skyhook-repo/skyhook/lib/tracer/SymbolLineageTracker.js) computes an AST fingerprint based on:
 1. Symbol name tokenization.
@@ -102,7 +184,7 @@ $ skyhook trace REQ-001
 
 ---
 
-## 4. Dark Matter Radar & Coverage Analysis
+## 6. Dark Matter Radar & Coverage Analysis
 
 Untraced codebase symbols represent "dark matter"—code whose business justification and requirement backing are unknown to AI agents.
 
@@ -130,7 +212,7 @@ Output:
 
 ---
 
-## 5. Circular Dependency Detection (Tarjan's Algorithm)
+## 7. Circular Dependency Detection (Tarjan's Algorithm)
 
 [`ASTImportGraph.js`](file:///Users/asad/Documents/Codex/2026-08-29/wh/skyhook-repo/skyhook/lib/drift/ASTImportGraph.js) resolves relative imports and path aliases (`@/`) across the repository, constructing a directed import graph.
 
@@ -144,7 +226,7 @@ $ skyhook drift --boundaries
 
 ---
 
-## 6. Directory & Environment Exclusion Rules
+## 8. Directory & Environment Exclusion Rules
 
 To ensure fast AST scanning and eliminate false-positive dependency cycles or dark matter warnings from third-party vendor code:
 

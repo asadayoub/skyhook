@@ -1,9 +1,28 @@
-# Skyhook Built-in Architecture Standards
+# Skyhook Architecture Standards
 
-## Purpose
+## Purpose & Living Standards Engine
 
-Architectural principles and patterns for maintainable, scalable systems.
-These are **defaults** — override in `.skyhook/standards/architecture.md`.
+Architectural principles and patterns for maintainable, scalable systems. In Skyhook v2.0.0, architectural standards are not static prose—they are machine-evaluable specifications indexed by the **Standards Engine** (`StandardsRegistry.js`).
+
+### Active Architectural Definitions
+The principles described in this document are compiled into declarative YAML definitions located in [`skyhook/standards/definitions/architecture/`](definitions/architecture/):
+- **`STD-ARCH-001`** (Critical): [Domain-Driven Design (DDD) Layer Isolation](definitions/architecture/STD-ARCH-001-ddd-layer-isolation.yaml) — Strict unidirectional dependency flow (`presentation -> application -> domain <- infrastructure`).
+- **`STD-ARCH-002`** (High): [No Circular Dependencies](definitions/architecture/STD-ARCH-002-no-circular-dependencies.yaml) — Module import graph must remain acyclic (validated via Tarjan's algorithm).
+- **`STD-ARCH-003`** (High): [Repository Pattern for Data Access](definitions/architecture/STD-ARCH-003-repository-pattern.yaml) — Isolate data persistence behind domain repository interfaces.
+- **`STD-ARCH-004`** (Medium): [Structured Logging Architecture](definitions/architecture/STD-ARCH-004-structured-logging.yaml) — Standardized JSON logging, correlation IDs, and contextual metadata.
+
+### 4-Tier Standards Discovery Hierarchy
+Standards are resolved across 4 discovery tiers (highest precedence first):
+1. **Workspace Custom**: `.skyhook/standards/custom/*.yaml` or `.skyhook/standards/*.yaml`
+2. **Workspace Installed Packages**: `.skyhook/standards/packages/*/*.yaml`
+3. **Global User Standards**: `~/.skyhook/standards/*.yaml`
+4. **Built-in Core Library**: `skyhook/standards/definitions/**/*.yaml`
+
+### CLI & MCP Agent Workflow
+- **List standards**: `skyhook standards list --domain architecture` (or MCP `skyhook_list_standards`)
+- **Inspect details**: `skyhook standards view STD-ARCH-001` (or MCP `skyhook_view_standard`)
+- **Verify codebase**: `skyhook standards verify --path src/` (or MCP `skyhook_verify_standards`)
+- **Scaffold new rule**: `skyhook standards new STD-ARCH-CUSTOM --title "Microservice Event Schema"`
 
 ---
 

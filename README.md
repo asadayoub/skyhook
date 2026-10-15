@@ -75,7 +75,7 @@ flowchart TD
 
 ### 1. 🤖 100% Offline Model Context Protocol (MCP) Server
 - Implements MCP Specification (2024-11-05) over stdio and loopback `127.0.0.1` SSE.
-- Exposes **44 autonomous tools** across 8 operational domains (Core, Planning, Standards, Backlog, ADR, Drift, Plan, Trace).
+- Exposes **46 autonomous tools** across 8 operational domains (Core, Planning, Standards, Backlog, ADR, Drift, Plan, Trace).
 - Exposes **11 streaming resources** (`skyhook://backlog`, `skyhook://plan`, `skyhook://decisions`, `skyhook://boundaries`, `skyhook://tech-stack`, `skyhook://standards`, `skyhook://blockers`, `skyhook://drift-scorecard`, `skyhook://dark-matter`, `skyhook://profile`, `skyhook://trace-graph`).
 - Works natively with Cursor, Claude Desktop, Claude Code, GitHub Copilot, Windsurf, Google Antigravity, Cline, and OpenAI Codex without cloud relays.
 
@@ -86,7 +86,7 @@ flowchart TD
 
 ### 3. 🖥️ Modular Cybernetic Web Dashboard & Native IDE Extension
 - Modular Multi-Page Application (MMPA) with zero build tools (native ES modules).
-- Deep-link client hash router (`#/kanban`, `#/topology`, `#/drift`, `#/decisions`, `#/mermaid`, `#/dark-matter`, `#/harness`, `#/settings`).
+- Deep-link client hash router (`#/kanban`, `#/topology`, `#/drift`, `#/decisions`, `#/mermaid`, `#/dark-matter`, `#/harness`, `#/settings`, `#/mission-control`).
 - Sub-5ms reactive WebSocket push stream.
 - Universal Platform Bridge runs identically in browsers and inside native VS Code / Cursor extension Webviews.
 
@@ -118,14 +118,23 @@ flowchart TD
 
 ## 🚀 Quick Install
 
+### Global Installation via npm
 ```bash
-# One-liner installer (macOS/Linux/WSL)
-curl -fsSL https://raw.githubusercontent.com/asadayoub/skyhook/main/install.sh | bash
+# Install globally
+npm install -g skyhook
 
-# Add to PATH (if not already present)
-echo 'export PATH="$HOME/.skyhook/skill/cli:$PATH"' >> ~/.zshrc
-source ~/.zshrc
+# Or run directly via npx without install
+npx skyhook --help
+```
 
+### Standalone Executables
+Skyhook provides 4 native binaries out of the box:
+- `skyhook`: Unified command-line interface for human developers and scripts.
+- `skyhook-cmd`: Headless stdio JSON protocol processor for AI agent tool harnesses.
+- `skyhook-mcp`: 100% offline Model Context Protocol server for Cursor, Claude, Windsurf, Copilot, and Codex.
+- `skyhook-merge-driver`: 3-way semantic Git merge driver for conflict-free concurrent backlog branches.
+
+```bash
 # Verify installation
 skyhook version
 ```
@@ -188,10 +197,10 @@ Comprehensive manuals and deep-dives are available in [`skyhook/docs/`](skyhook/
 
 ## 🧪 Verification & Testing
 
-Skyhook is engineered with rigorous automated testing featuring **353+ automated tests across offline unit, FSM, AST, and integration test suites**.
+Skyhook is engineered with rigorous automated testing featuring **379+ automated tests across 14 offline unit suites and integration suites**.
 
 ```bash
-# Run 350+ offline sandboxed unit tests
+# Run 379 offline sandboxed unit tests
 npm test
 
 # Run full integration suite (WebSocket, MCP, REST APIs)

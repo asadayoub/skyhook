@@ -1,29 +1,47 @@
 # Skyhook + Claude Code Integration
 
-## Quick Setup
+Skyhook provides deep native integration with Anthropic's **Claude Code** CLI tool, injecting project governance rules, MCP tools, and contextual slash commands.
+
+---
+
+## 1. Quick Setup
 
 ```bash
-# 1. Install Skyhook (one-time)
-curl -fsSL https://raw.githubusercontent.com/asadayoub/skyhook/main/install.sh | bash
-echo 'export PATH="$HOME/.skyhook/skill/cli:$PATH"' >> ~/.zshrc
-source ~/.zshrc
+# 1. Install Skyhook globally
+npm install -g @skyhook/cli
 
-# 2. In your project
+# 2. In your project, initialize Skyhook and inject Claude Code harness:
 cd your-project
 skyhook init
-skyhook discover
+skyhook harness inject --target=claude-code
 ```
 
-## Claude Code Slash Commands
+`skyhook harness inject` automatically configures:
+- `CLAUDE.md`: Injects Skyhook governance rules, Task/Subtask hierarchy, and DoD checklist invariants.
+- `.claude/config.json`: Configures the Skyhook MCP server with portable workspace paths.
 
-Create `.claude/commands/skyhook-*.md` files for native slash commands:
+---
 
-### `.claude/commands/skyhook-next.md`
+## 2. Claude Code Slash Commands
+
+Create `.claude/commands/skyhook-*.md` files for fast native slash command execution:
+
+### `.claude/commands/skyhook-claim.md`
 ```markdown
 ---
-description: Get next priority task from Skyhook
+description: Claim the next ready task or specific task with advisory lease
+argument-hint: [task-id]
 ---
-Get the highest priority ready task with full context from Skyhook.
+Claims the next highest priority ready task or a specific task ID, starts the advisory lease, and fetches the full execution context packet.
+```
+
+### `.claude/commands/skyhook-heartbeat.md`
+```markdown
+---
+description: Extend active task lease during execution
+argument-hint: <task-id> [minutes]
+---
+Extends the advisory lease on an active task to prevent timeout.
 ```
 
 ### `.claude/commands/skyhook-features.md`
@@ -31,7 +49,7 @@ Get the highest priority ready task with full context from Skyhook.
 ---
 description: List all Skyhook features with status
 ---
-List all features with their stories and blockers.
+List all features with their stories, child tasks, and blockers.
 ```
 
 ### `.claude/commands/skyhook-blockers.md`
@@ -39,7 +57,7 @@ List all features with their stories and blockers.
 ---
 description: Show all blocked items
 ---
-Show all blocked stories and their reasons.
+Show all blocked stories/tasks and their unmet prerequisite dependencies.
 ```
 
 ### `.claude/commands/skyhook-decide.md`
@@ -48,26 +66,17 @@ Show all blocked stories and their reasons.
 description: Record architectural decision (auto-generates ADR)
 argument-hint: <title> | <decision> | <context> | [category]
 ---
-Record a decision with auto-generated ADR.
-Usage: /skyhook-decide "Use Redis" | "Redis for caching" | "Need performance" | technology
+Record an architectural decision and generate an ADR with enforceable boundary rules.
+Usage: /skyhook-decide "Use Redis" | "Redis for session caching" | "Need distributed state" | technology
 ```
 
 ### `.claude/commands/skyhook-trace.md`
 ```markdown
 ---
-description: Trace requirement to code/stories/decisions
+description: Trace requirement to code, stories, and decisions
 argument-hint: <requirement-id>
 ---
-Trace a requirement through stories, decisions, and code references.
-```
-
-### `.claude/commands/skyhook-impact.md`
-```markdown
----
-description: Analyze impact of changing a requirement
-argument-hint: <requirement-id>
----
-Show impact analysis with risk level for a requirement change.
+Trace a requirement through AST code symbols, stories, and architectural decisions.
 ```
 
 ### `.claude/commands/skyhook-sync.md`
@@ -75,73 +84,34 @@ Show impact analysis with risk level for a requirement change.
 ---
 description: Check code vs documentation drift
 ---
-Sync check: tech stack vs package.json, requirements→stories, decisions tracked.
+Runs drift verification across package dependencies, architecture layers, and requirement implementations.
 ```
 
 ### `.claude/commands/skyhook-dashboard.md`
 ```markdown
 ---
-description: Start/stop Skyhook web dashboard
+description: Start/stop Skyhook cybernetic web dashboard
 argument-hint: start|stop|status
 ---
-Control the on-demand web dashboard at http://localhost:4343
+Controls the offline web dashboard at http://127.0.0.1:31415
 ```
 
-## Usage in Claude Code
+---
 
-```
-/skyhook-next
-/skyhook-features
-/skyhook-blockers
-/skyhook-decide "Use PostgreSQL" | "PostgreSQL with Prisma" | "Need ACID" | technology
+## 3. Usage in Claude Code
+
+During interactive sessions with Claude Code, run:
+```bash
+/skyhook-claim
 /skyhook-trace REQ-001
-/skyhook-impact REQ-001
+/skyhook-heartbeat TASK-001 30
+/skyhook-decide "Use PostgreSQL" | "PostgreSQL with Prisma" | "Need ACID transactions" | technology
 /skyhook-sync
 /skyhook-dashboard start
 ```
 
-## CLAUDE.md Configuration
+---
 
-Add to your project's `CLAUDE.md`:
+## 4. MCP Tools in Claude Code
 
-```markdown
-# Skyhook Project Intelligence
-
-This project uses Skyhook for persistent project intelligence.
-
-## Key Commands
-
-- `/skyhook-next` - Get next task with context
-- `/skyhook-features` - View all features
-- `/skyhook-blockers` - View blockers
-- `/skyhook-trace <id>` - Trace requirement
-- `/skyhook-impact <id>` - Impact analysis
-- `/skyhook-decide` - Record decision (auto-ADR)
-- `/skyhook-sync` - Check drift
-- `/skyhook-dashboard start` - Visual dashboard
-
-## Project Context
-
-Skyhook maintains `.skyhook/` with:
-- Requirements (functional, non-functional, constraints)
-- Decisions (ADRs with alternatives/consequences)
-- Backlog (epics, stories, tasks with WSJF prioritization)
-- Tech stack choices
-- Traceability links (`@skyhook-implements REQ-XXX`)
-
-## Workflow
-
-1. Start session: `/skyhook-next`
-2. Understand context: `/skyhook-trace REQ-XXX`
-3. Make decision: `/skyhook-decide`
-4. Check drift before commit: `/skyhook-sync`
-5. Visual overview: `/skyhook-dashboard start`
-```
-
-## JSON API (Programmatic)
-
-```bash
-# Direct JSON invocation
-echo '{"command":"getNextTask","args":{}}' | skyhook-cmd
-echo '{"command":"trace","args":{"id":"REQ-001"}}' | skyhook-cmd
-```
+When Claude Code is launched inside a workspace configured with `skyhook harness inject --target=claude-code`, all **46 offline Skyhook MCP tools** (e.g. `skyhook_claim_task`, `skyhook_heartbeat_lease`, `skyhook_verify_policies`, `skyhook_doctor`) are natively callable directly by the model.
