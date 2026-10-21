@@ -19,6 +19,12 @@ describe('TASK-C01: Distribution & Executable Packaging Tests', () => {
     assert.strictEqual(pkg.type, 'module', 'Package must be ESM ("type": "module")');
     assert.ok(pkg.engines && pkg.engines.node, 'Package must specify engines.node');
     assert.ok(pkg.preferGlobal, 'Package should declare preferGlobal: true for CLI tools');
+    assert.ok(pkg.description && pkg.description.length > 0, 'Package should provide a description');
+    assert.ok(pkg.repository && pkg.repository.url, 'Package should provide repository metadata');
+    assert.ok(pkg.homepage, 'Package should provide homepage metadata');
+    assert.ok(pkg.bugs && pkg.bugs.url, 'Package should provide bugs URL metadata');
+    assert.ok(pkg.license, 'Package should provide license metadata');
+    assert.ok(Array.isArray(pkg.keywords) && pkg.keywords.length > 0, 'Package should include keywords');
   });
 
   it('should define executable binaries that physically exist on disk', () => {
@@ -31,7 +37,40 @@ describe('TASK-C01: Distribution & Executable Packaging Tests', () => {
       const binRelPath = pkg.bin[binName];
       const binAbsPath = path.resolve(rootDir, binRelPath);
       assert.ok(fs.existsSync(binAbsPath), `Declared bin target does not exist on disk: ${binAbsPath}`);
+      const stat = fs.statSync(binAbsPath);
+      assert.ok((stat.mode & 0o111) !== 0, `Declared bin target must be executable: ${binAbsPath}`);
     }
+  });
+
+  it('should include required distribution paths and exclude unit tests from npm tarball', () => {
+    const packJson = execFileSync('npm', ['pack', '--dry-run', '--json'], { cwd: rootDir, encoding: 'utf-8' });
+    const [{ files }] = JSON.parse(packJson);
+    const included = new Set(files.map(f => f.path));
+
+    const requiredPaths = [
+      'package.json',
+      'README.md',
+      'LICENSE',
+      'skyhook/cli/skyhook.js',
+      'skyhook/cli/skyhook-cmd.js',
+      'skyhook/cli/skyhook-mcp.js',
+      'skyhook/cli/skyhook-merge-driver.js',
+      'skyhook/lib/context.js',
+      'skyhook/dashboard/public/index.html',
+      'skyhook/templates',
+      'skyhook/schemas',
+      'skyhook/profiles',
+      'skyhook/standards',
+      'skyhook/docs'
+    ];
+
+    for (const requiredPath of requiredPaths) {
+      const hasPath = included.has(requiredPath) || [...included].some(entry => entry.startsWith(`${requiredPath}/`));
+      assert.ok(hasPath, `npm package must include ${requiredPath}`);
+    }
+
+    const includesTests = [...included].some(entry => entry.startsWith('skyhook/test/'));
+    assert.strictEqual(includesTests, false, 'npm package should not include skyhook/test files');
   });
 
   it('should ensure all CLI binaries have a valid Node shebang on line 1', () => {
@@ -82,4 +121,3 @@ describe('TASK-C01: Distribution & Executable Packaging Tests', () => {
     assert.ok(stderr.includes('Usage: skyhook-merge-driver'), 'skyhook-merge-driver should print usage on error');
   });
 });
-

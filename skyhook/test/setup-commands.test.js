@@ -64,6 +64,8 @@ describe('TASK-C05: Legacy Command Decoupling & Release Workflow Tests', () => {
     assert.ok(!content.includes('cd skyhook/skill'), 'release.yml should not target stale skyhook/skill');
     assert.ok(content.includes('npm test') || content.includes('npm run test'), 'release.yml must run tests before release');
     assert.ok(content.includes('skyhook/'), 'release.yml must package complete skyhook application');
+    assert.ok(content.includes('npm publish'), 'release.yml must publish to npm on release tags');
+    assert.ok(content.includes('github.ref_name'), 'release.yml should validate tag version semantics');
+    assert.ok(content.includes('npm run test:pack-smoke'), 'release.yml should run npm package smoke tests');
   });
 });
-
