@@ -8,6 +8,15 @@ This guide documents the exact maintainer flow for publishing `skyhook` to npm a
 - Ensure you (or your npm organization) are an owner/maintainer of `skyhook` on npm before tagging a release.
 - GitHub Actions release workflow publishes with `npm publish --access public --provenance`.
 
+Ownership commands:
+
+```bash
+npm login
+npm owner ls skyhook
+npm owner add <npm-username> skyhook
+npm access list packages <npm-username>
+```
+
 ## 2) Local dry-run checks before tagging
 
 From repository root:
@@ -30,17 +39,30 @@ Preferred: **npm trusted publishing (OIDC)**.
 1. In npm package settings for `skyhook`, configure a trusted publisher for this repository and the release workflow.
 2. Keep `id-token: write` permission in `.github/workflows/release.yml`.
 3. No long-lived npm token is required once trusted publishing is configured correctly.
+4. Release workflow will publish with OIDC when `NPM_TOKEN` is not set.
 
 Fallback: **`NPM_TOKEN` secret**
 
 1. Create an npm automation token with publish rights for `skyhook`.
 2. Add it as repository secret `NPM_TOKEN`.
-3. The release workflow uses `NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}` for token-based publishing.
+3. The release workflow automatically falls back to token-based publish when `NPM_TOKEN` is present.
 
 ## 4) Create a release tag
 
-1. Update `package.json` version.
-2. Commit changes to the release branch.
+1. Update version:
+
+```bash
+npm version patch --no-git-tag-version
+```
+
+2. Commit changes to the release branch:
+
+```bash
+git add package.json package-lock.json
+git commit -m "chore(release): bump version to X.Y.Z"
+git push
+```
+
 3. Create and push tag matching the version exactly:
 
 ```bash
@@ -63,6 +85,8 @@ On `v*` tag push, `.github/workflows/release.yml` will:
 7. Create/update GitHub Release notes
 
 ## 6) Verify published package
+
+After tag push, watch the **Release** workflow in GitHub Actions. It will fail if the tag/version mismatch check, duplicate-version check, or verification suite fails.
 
 After workflow success:
 

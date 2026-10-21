@@ -40,9 +40,16 @@ jobs:
         run: |
           tar -czf skyhook-${{ github.ref_name }}.tar.gz package.json README.md LICENSE TESTING.md skyhook/
       - name: Publish to npm
-        run: npm publish --access public --provenance
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ -n "${NPM_TOKEN}" ]; then
+            echo "Publishing with NPM_TOKEN fallback."
+            NODE_AUTH_TOKEN="${NPM_TOKEN}" npm publish --access public --provenance
+          else
+            echo "Publishing with npm trusted publishing (OIDC)."
+            npm publish --access public --provenance
+          fi
       - uses: softprops/action-gh-release@v2
         with:
           files: skyhook-${{ github.ref_name }}.tar.gz

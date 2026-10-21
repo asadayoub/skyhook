@@ -11,7 +11,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, '../../');
 
 function run(command, args, options = {}) {
-  const result = spawnSync(command, args, { encoding: 'utf-8', ...options });
+  const env = { ...process.env, npm_config_dry_run: 'false', ...(options.env || {}) };
+  const result = spawnSync(command, args, { encoding: 'utf-8', ...options, env });
   if (result.status !== 0) {
     const detail = [result.stdout, result.stderr].filter(Boolean).join('\n').trim();
     throw new Error(`${command} ${args.join(' ')} failed with exit code ${result.status}\n${detail}`);
@@ -29,7 +30,11 @@ try {
   fs.mkdirSync(installDir, { recursive: true });
   fs.mkdirSync(projectDir, { recursive: true });
 
-  const packOutput = execFileSync('npm', ['pack', '--json', '--pack-destination', packDir], { cwd: rootDir, encoding: 'utf-8' });
+  const packOutput = execFileSync('npm', ['pack', '--json', '--pack-destination', packDir], {
+    cwd: rootDir,
+    encoding: 'utf-8',
+    env: { ...process.env, npm_config_dry_run: 'false' }
+  });
   const [{ filename }] = JSON.parse(packOutput);
   const tarballPath = path.join(packDir, filename);
 
