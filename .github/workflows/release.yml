@@ -4,6 +4,7 @@ on:
     tags: ['v*']
 permissions:
   contents: write
+  id-token: write
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -13,14 +14,36 @@ jobs:
         with:
           node-version: 20
           cache: 'npm'
+          registry-url: 'https://registry.npmjs.org'
+      - name: Validate tag matches package version
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          PACKAGE_VERSION="$(node -e "console.log(JSON.parse(require('node:fs').readFileSync('package.json', 'utf8')).version)")"
+          if [ "$TAG_VERSION" != "$PACKAGE_VERSION" ]; then
+            echo "Tag version ($TAG_VERSION) does not match package.json version ($PACKAGE_VERSION)."
+            exit 1
+          fi
+          echo "PACKAGE_VERSION=$PACKAGE_VERSION" >> "$GITHUB_ENV"
       - name: Install dependencies
         run: npm ci || npm install
       - name: Run verification test suite
         run: npm test
+      - name: Run npm package smoke test
+        run: npm run test:pack-smoke
+      - name: Ensure npm version does not already exist
+        run: |
+          if npm view "skyhook@${PACKAGE_VERSION}" version >/dev/null 2>&1; then
+            echo "Version skyhook@${PACKAGE_VERSION} already exists on npm; refusing duplicate publish."
+            exit 1
+          fi
       - name: Create release distribution archive
         run: |
           tar -czf skyhook-${{ github.ref_name }}.tar.gz package.json README.md LICENSE TESTING.md skyhook/
-      - uses: softprops/action-gh-release@v1
+      - name: Publish to npm
+        run: npm publish --access public --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - uses: softprops/action-gh-release@v2
         with:
           files: skyhook-${{ github.ref_name }}.tar.gz
           generate_release_notes: true

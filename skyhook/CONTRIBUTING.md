@@ -169,10 +169,12 @@ Closes #128
 ## Release Process (Maintainers Only)
 
 1. Bump the version in root `package.json`.
-2. Update release notes in `skyhook/docs/` and root documentation.
-3. Commit and tag the release: `git tag v2.X.X`.
-4. Push tag to `origin`: `git push origin v2.X.X`.
-5. GitHub Actions release workflow (`.github/workflows/release.yml`) verifies tests and publishes release artifacts.
+2. Run local release dry-run checks: `npm run test:release`, `npm pack --dry-run`, `npm publish --dry-run`.
+3. Update release notes in `skyhook/docs/` and root documentation.
+4. Commit and tag the release: `git tag v2.X.X`.
+5. Push tag to `origin`: `git push origin v2.X.X`.
+6. GitHub Actions release workflow (`.github/workflows/release.yml`) validates tag/version parity, runs verification and package smoke tests, publishes to npm, and creates release artifacts.
+7. Follow the detailed maintainer runbook in [`skyhook/docs/PUBLISHING.md`](docs/PUBLISHING.md).
 
 ---
 

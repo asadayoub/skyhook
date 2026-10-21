@@ -184,6 +184,7 @@ Comprehensive manuals and deep-dives are available in [`skyhook/docs/`](skyhook/
 - 🏛️ **[System Architecture (v2.0.0)](skyhook/docs/ARCHITECTURE.md)**: System design, dataflow diagrams, and sub-system specifications.
 - 📖 **[CLI Reference Manual](skyhook/docs/CLI_REFERENCE.md)**: Exhaustive reference for all 40+ commands, options, and JSON outputs.
 - 🤖 **[100% Offline MCP Server Guide](skyhook/docs/MCP_SERVER.md)**: Setting up Cursor, OpenAI Codex, Claude Desktop, Windsurf, Antigravity, and Cline.
+- 📦 **[npm Publishing & Release Runbook](skyhook/docs/PUBLISHING.md)**: Maintainer checklist for dry-runs, tag/version parity, npm trusted publishing, and release recovery.
 - 🖥️ **[Mission Control & Cybernetic Dashboard](skyhook/docs/DASHBOARD_AND_IDE.md)**: Realtime multi-agent swarm telemetry (`#/mission-control`), modular MMPA hash routing, interactive Decision DAGs, and VS Code extension packaging.
 - 🔌 **[Poly-Agent Harness Matrix](skyhook/docs/AGENT_HARNESSES.md)**: Non-destructive merging and rule synchronization.
 - 🔍 **[Polyglot AST Traceability & Dark Matter](skyhook/docs/TRACEABILITY_AND_AST.md)**: Multi-language parsers, symbol lineage, and coverage radar.

@@ -12,6 +12,7 @@
   },
   "files": [
     "skyhook/**/*",
+    "!skyhook/test/**",
     "LICENSE",
     "README.md",
     "TESTING.md"
@@ -20,7 +21,12 @@
     "test": "node skyhook/test/run-unit-tests.js",
     "test:unit": "node skyhook/test/run-unit-tests.js",
     "test:integration": "node --test --test-timeout=5000 skyhook/test/server-*.test.js skyhook/test/adr-server-api.test.js skyhook/test/adr-watcher.test.js skyhook/test/dashboard-api.test.js skyhook/test/dashboard-harness.test.js skyhook/test/dark-matter.test.js skyhook/test/mcp-server.test.js",
-    "test:all": "npm run test:unit && npm run test:integration"
+    "test:all": "npm run test:unit && npm run test:integration",
+    "test:pack-smoke": "node skyhook/test/pack-smoke.js",
+    "test:release": "npm test && npm run test:pack-smoke",
+    "pack:dry-run": "npm pack --dry-run",
+    "publish:dry-run": "npm publish --dry-run",
+    "prepublishOnly": "npm run test:release"
   },
   "keywords": [
     "ai",
@@ -39,6 +45,9 @@
     "url": "https://github.com/asadayoub/skyhook/issues"
   },
   "homepage": "https://github.com/asadayoub/skyhook#readme",
+  "publishConfig": {
+    "access": "public"
+  },
   "engines": {
     "node": ">=18"
   },
