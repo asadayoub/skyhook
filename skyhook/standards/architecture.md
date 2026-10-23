@@ -2,7 +2,7 @@
 
 ## Purpose & Living Standards Engine
 
-Architectural principles and patterns for maintainable, scalable systems. In Skyhook v2.0.0, architectural standards are not static prose—they are machine-evaluable specifications indexed by the **Standards Engine** (`StandardsRegistry.js`).
+Architectural principles and patterns for maintainable, scalable systems. In Skyhook v3.0.0, architectural standards are not static prose—they are machine-evaluable specifications indexed by the **Standards Engine** (`StandardsRegistry.js`).
 
 ### Active Architectural Definitions
 The principles described in this document are compiled into declarative YAML definitions located in [`skyhook/standards/definitions/architecture/`](definitions/architecture/):

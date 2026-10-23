@@ -68,8 +68,8 @@ After workflow success:
 
 ```bash
 npm view skyhook version
-npx skyhook --version
-npx skyhook-mcp --help
+npx --yes --package skyhook-cli skyhook --version
+npx --yes --package skyhook-cli skyhook-mcp --help
 ```
 
 Confirm npm shows the tagged version and CLI binaries execute correctly.

@@ -58,7 +58,7 @@ The automated test suite covers over **379+ passing tests** across 8 core archit
 
 ### E. AI Agent Harnesses & Portability
 - **`harness-portability.test.js`**: Portable `${workspaceFolder}` MCP path injection across Cursor, VS Code, Windsurf, Cline, Antigravity, and Codex.
-- **`packaging.test.js`**: Verifies executable shebangs, bin configurations, and global `npx skyhook` packaging.
+- **`packaging.test.js`**: Verifies executable shebangs, bin configurations, and `skyhook-cli` package execution.
 
 ### F. Resilience, Offline Vendoring & Diagnostics
 - **`schema-resilience.test.js`**: Safe atomic file writes (`.tmp` -> rename), schema validation, and automatic rescue backup generation (`.corrupt.<timestamp>.bak`) on malformed YAML.
@@ -73,22 +73,22 @@ The automated test suite covers over **379+ passing tests** across 8 core archit
 You can test Skyhook manually in a temporary directory:
 ```bash
 mkdir -p /tmp/skyhook-sandbox && cd /tmp/skyhook-sandbox
-npx skyhook init "Telemetry Sandbox"
+npx --yes --package skyhook-cli skyhook init "Telemetry Sandbox"
 ```
 
 ### Testing Agent Task Claims
 ```bash
 # Add a feature and story
-npx skyhook add-feature "User Authentication"
-npx skyhook story add "Implement OAuth2 Flow"
+npx --yes --package skyhook-cli skyhook add-feature "User Authentication"
+npx --yes --package skyhook-cli skyhook story add "Implement OAuth2 Flow"
 
 # Claim the task as an agent worker
-npx skyhook claim --agent "Worker-1" --ttl 300
+npx --yes --package skyhook-cli skyhook claim --agent "Worker-1" --ttl 300
 ```
 
 ### Testing Stdio JSON Protocol
 Skyhook communicates natively with AI agents over standard I/O:
 ```bash
-echo '{"command":"getNextTask","args":{}}' | npx skyhook-cmd
+echo '{"command":"getNextTask","args":{}}' | npx --yes --package skyhook-cli skyhook-cmd
 ```
 

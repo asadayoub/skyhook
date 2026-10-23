@@ -14,7 +14,7 @@ describe('TASK-C01: Distribution & Executable Packaging Tests', () => {
     assert.ok(fs.existsSync(packageJsonPath), 'package.json must exist');
     const pkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
 
-    assert.strictEqual(pkg.name, 'skyhook', 'Package name must be "skyhook" for zero-friction npx/npm execution');
+    assert.strictEqual(pkg.name, 'skyhook-cli', 'Package name must be "skyhook-cli"');
     assert.match(pkg.version, /^\d+\.\d+\.\d+/, 'Package version must follow SemVer');
     assert.strictEqual(pkg.type, 'module', 'Package must be ESM ("type": "module")');
     assert.ok(pkg.engines && pkg.engines.node, 'Package must specify engines.node');

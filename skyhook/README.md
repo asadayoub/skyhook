@@ -5,7 +5,7 @@ Persistent, structured, version-controlled project memory, active architectural 
 **Repository:** https://github.com/asadayoub/skyhook  
 **Latest Release:** https://github.com/asadayoub/skyhook/releases/latest  
 
-[![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://github.com/asadayoub/skyhook/releases)
+[![Version](https://img.shields.io/badge/version-3.0.0-blue.svg)](https://github.com/asadayoub/skyhook/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Tests](https://img.shields.io/badge/tests-379%20passing-brightgreen.svg)](TESTING.md)
 [![MCP](https://img.shields.io/badge/MCP-46%20Tools%20%7C%20Offline-cyan.svg)](docs/MCP_SERVER.md)
@@ -88,10 +88,10 @@ Autonomous AI coding agents are powerful but **stateless**. Every new prompt or 
 ### Global Installation via npm
 ```bash
 # Install globally
-npm install -g skyhook
+npm install -g skyhook-cli
 
 # Or run directly via npx without install
-npx skyhook --help
+npx --yes --package skyhook-cli skyhook --help
 ```
 
 ### Standalone Executables
@@ -148,7 +148,7 @@ skyhook doctor
 
 Comprehensive manuals and deep-dives are available in [`docs/`](docs/):
 
-- 🏛️ **[System Architecture (v2.0.0)](docs/ARCHITECTURE.md)**: System design, dataflow diagrams, and sub-system specifications.
+- 🏛️ **[System Architecture (v3.0.0)](docs/ARCHITECTURE.md)**: System design, dataflow diagrams, and sub-system specifications.
 - 📖 **[CLI Reference Manual](docs/CLI_REFERENCE.md)**: Exhaustive reference for all 40+ commands, options, and JSON outputs.
 - 🤖 **[100% Offline MCP Server Guide](docs/MCP_SERVER.md)**: Setting up Cursor, OpenAI Codex, Claude Desktop, Windsurf, Antigravity, and Cline.
 - 🖥️ **[Dashboard & Native IDE Extension Manual](docs/DASHBOARD_AND_IDE.md)**: MMPA architecture, hash routing, and VS Code extension packaging.

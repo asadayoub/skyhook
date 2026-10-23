@@ -12,7 +12,7 @@ npm install -g @skyhook/cli
 ```
 Or run directly without installation via npx:
 ```bash
-npx skyhook --help
+npx --yes --package skyhook-cli skyhook --help
 ```
 
 Verify the installation:

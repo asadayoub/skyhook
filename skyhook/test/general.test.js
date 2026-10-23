@@ -3,6 +3,7 @@ import assert from 'node:assert';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
+import { SkyhookServer } from '../lib/server/SkyhookServer.js';
 import { 
   cmdInit, 
   cmdVersion, 
@@ -61,21 +62,17 @@ test('cmdHelp returns list of commands', async () => {
 });
 
 test('cmdDashboard status, start and stop', async () => {
-  const http = await import('http');
-  const originalCreateServer = http.default.createServer;
-  
-  // Mock createServer to return a dummy server
-  let mockServer = null;
-  http.default.createServer = () => {
-    mockServer = {
-      listen: (port, host, cb) => {
-        if (cb) cb();
-      },
-      close: () => {
-        mockServer = null;
-      }
-    };
-    return mockServer;
+  const originalStart = SkyhookServer.prototype.start;
+  const originalStop = SkyhookServer.prototype.stop;
+  let stopCalls = 0;
+
+  // Keep this handler test independent of real port probing and socket binding.
+  SkyhookServer.prototype.start = async function () {
+    this.currentPort = this.basePort;
+    return { port: this.currentPort, url: `http://localhost:${this.currentPort}` };
+  };
+  SkyhookServer.prototype.stop = async function () {
+    stopCalls += 1;
   };
   
   try {
@@ -90,11 +87,13 @@ test('cmdDashboard status, start and stop', async () => {
     
     result = await cmdDashboard({}, { action: 'stop' });
     assert.ok(result.message.includes('Dashboard stopped'));
+    assert.strictEqual(stopCalls, 1);
     
     result = await cmdDashboard({}, { action: 'status' });
     assert.strictEqual(result.running, false);
   } finally {
-    http.default.createServer = originalCreateServer;
+    SkyhookServer.prototype.start = originalStart;
+    SkyhookServer.prototype.stop = originalStop;
   }
 });
 

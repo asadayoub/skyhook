@@ -2,7 +2,7 @@
 
 ## Purpose & Living Standards Engine
 
-Opinionated but overridable standards for user experience, design systems, and interface quality. In Skyhook v2.0.0, UX standards are machine-evaluable specifications indexed by the **Standards Engine** (`StandardsRegistry.js`).
+Opinionated but overridable standards for user experience, design systems, and interface quality. In Skyhook v3.0.0, UX standards are machine-evaluable specifications indexed by the **Standards Engine** (`StandardsRegistry.js`).
 
 ### Active UX Definitions
 The principles described in this document are compiled into declarative YAML definitions located in [`skyhook/standards/definitions/ux/`](definitions/ux/):

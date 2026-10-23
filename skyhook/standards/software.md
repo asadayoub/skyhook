@@ -2,7 +2,7 @@
 
 ## Purpose & Living Standards Engine
 
-Opinionated but overridable standards for code quality, architecture, and maintainability. In Skyhook v2.0.0, software standards are machine-evaluable specifications indexed by the **Standards Engine** (`StandardsRegistry.js`).
+Opinionated but overridable standards for code quality, architecture, and maintainability. In Skyhook v3.0.0, software standards are machine-evaluable specifications indexed by the **Standards Engine** (`StandardsRegistry.js`).
 
 ### Active Software Definitions
 The principles described in this document are compiled into declarative YAML definitions located in [`skyhook/standards/definitions/software/`](definitions/software/):

@@ -2,7 +2,7 @@
 
 ## Purpose & Living Standards Engine
 
-Detailed accessibility requirements targeting **WCAG 2.1 Level AA** minimum and **AAA** for public content. In Skyhook v2.0.0, accessibility standards are machine-evaluable specifications indexed by the **Standards Engine** (`StandardsRegistry.js`).
+Detailed accessibility requirements targeting **WCAG 2.1 Level AA** minimum and **AAA** for public content. In Skyhook v3.0.0, accessibility standards are machine-evaluable specifications indexed by the **Standards Engine** (`StandardsRegistry.js`).
 
 ### Active Accessibility Definitions
 The principles described in this document are compiled into declarative YAML definitions located in [`skyhook/standards/definitions/accessibility/`](definitions/accessibility/):

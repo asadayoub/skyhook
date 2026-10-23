@@ -153,7 +153,7 @@ The file [`skyhook/dashboard/public/ide/ExtensionManifest.json`](file:///Users/a
 ```json
 {
   "name": "skyhook-ide-webview",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "contentSecurityPolicy": {
     "defaultSrc": ["'none'"],
     "scriptSrc": [

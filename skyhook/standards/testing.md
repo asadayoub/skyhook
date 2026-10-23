@@ -2,7 +2,7 @@
 
 ## Purpose & Living Standards Engine
 
-Testing strategy and standards for reliable, maintainable test suites. In Skyhook v2.0.0, testing standards are machine-evaluable specifications indexed by the **Standards Engine** (`StandardsRegistry.js`).
+Testing strategy and standards for reliable, maintainable test suites. In Skyhook v3.0.0, testing standards are machine-evaluable specifications indexed by the **Standards Engine** (`StandardsRegistry.js`).
 
 ### Active Testing Definitions
 The principles described in this document are compiled into declarative YAML definitions located in [`skyhook/standards/definitions/testing/`](definitions/testing/):

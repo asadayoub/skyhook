@@ -1,4 +1,4 @@
-# Skyhook Installation & Packaging Guide (v2.0.0)
+# Skyhook Installation & Packaging Guide (v3.0.0)
 
 ## Overview
 
@@ -6,7 +6,7 @@ Skyhook is an open-source, universal project intelligence and active architectur
 
 **Repository:** https://github.com/asadayoub/skyhook  
 **Latest Release:** https://github.com/asadayoub/skyhook/releases/latest  
-**Current Version:** `2.0.0`
+**Current Version:** `3.0.0`
 
 ---
 
@@ -17,7 +17,7 @@ Skyhook is an open-source, universal project intelligence and active architectur
 Install Skyhook globally to access all 4 command-line executables anywhere:
 
 ```bash
-npm install -g skyhook
+npm install -g skyhook-cli
 ```
 
 Verify your installation:
@@ -33,13 +33,13 @@ Run any Skyhook command instantly without a global installation:
 
 ```bash
 # Initialize a project
-npx skyhook init --name="Fintech Core" --profile=saas
+npx --yes --package skyhook-cli skyhook init --name="Fintech Core" --profile=saas
 
 # Query next ready task
-npx skyhook get-next-task
+npx --yes --package skyhook-cli skyhook get-next-task
 
 # Run system health diagnostics
-npx skyhook doctor
+npx --yes --package skyhook-cli skyhook doctor
 ```
 
 ---
@@ -234,7 +234,7 @@ npm link
   # Ensure it is in your shell profile (~/.zshrc, ~/.bashrc)
   export PATH="$(npm bin -g):$PATH"
   ```
-- Alternatively, run commands via `npx skyhook <command>`.
+- Alternatively, run commands via `npx --yes --package skyhook-cli skyhook <command>`.
 
 ### "Not a Skyhook project. Run `skyhook init` first."
 - Commands that inspect project backlog, ADRs, or living plans require a `.skyhook/` governance directory. Run `skyhook init` in your repository root.

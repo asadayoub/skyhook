@@ -2,7 +2,7 @@
 
 ## Purpose & Living Standards Engine
 
-Security baseline based on OWASP Top 10, ASVS, and secure-by-default principles. In Skyhook v2.0.0, security standards are machine-evaluable specifications indexed by the **Standards Engine** (`StandardsRegistry.js`).
+Security baseline based on OWASP Top 10, ASVS, and secure-by-default principles. In Skyhook v3.0.0, security standards are machine-evaluable specifications indexed by the **Standards Engine** (`StandardsRegistry.js`).
 
 ### Active Security Definitions
 The principles described in this document are compiled into declarative YAML definitions located in [`skyhook/standards/definitions/security/`](definitions/security/):
